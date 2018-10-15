@@ -2,15 +2,15 @@
 ### GWAX: GWAS Explorer
 ### 
 ### gt = gene-trait data
-### 
-### options("shiny.port" = 3839)
 ###
 ### Jeremy Yang
 ##########################################################################################
+library(readr)
 library(shiny, quietly = T)
+library(shinyBS, quietly=T)
+library(DT, quietly=T)
 library(dplyr, quietly = T)
 library(plotly, quietly = T)
-#library(readr)
 
 
 #traits <- c(
@@ -36,26 +36,25 @@ library(plotly, quietly = T)
 #)
 
 ##########################################################################################
-#get_gt_stats <- function() {
-#  dbcon <- dbConnect(MySQL(), host="localhost", dbname="gwascatalog")
-#  gt_stats <- dbGetQuery(dbcon,"SELECT * FROM gt_stats")
-#  dbDisconnect(dbcon)
-#  return(gt_stats)
-#}
-
-##########################################################################################
-#On launch, not at search time.  I.e. not reactive.
-#gt_stats <- get_t_stats()
-
-#gt <- read_csv("gt_stats.csv.gz")
-fgzin <- gzfile("gt_stats.csv.gz","rt")  #"rt" means read-text 
-gt <- read.csv(fgzin, header=T)
-close(fgzin)
-
+APPNAME <- "GWAX"
+#
+t0 <- proc.time()
+if (file.exists("gwax.Rdata")) {
+  message(sprintf("Loading dataset from Rdata..."))
+  load("gwax.Rdata")
+} else {
+  message(sprintf("Loading dataset from files, writing Rdata..."))
+  gt <- read_delim("gt_stats.csv.gz", ',')
+  save(gt, file="gwax.Rdata")
+}
+t_elapsed <- (proc.time()-t0)[3]
+db_htm <- sprintf("<B>Dataset:</B> Genes: %d ; traits: %d (t_load: %.1fs)",
+	length(unique(gt$gsymb)), length(unique(gt$trait)), t_elapsed)
+###
+#
 ##########################################################################################
 ### Select traits with most evidence.  Top 100.  Simple metric: rows of gt.
 traits <- function() {
-  
   trait2uri <- unique(gt[!is.na(gt$or_median),c("trait","trait_uri")])
   traits_df <- gt[!is.na(gt$or_median),] %>% group_by(trait_uri) %>% summarise(count = n())
   traits_df <- merge(traits_df, trait2uri, by="trait_uri")
@@ -65,12 +64,24 @@ traits <- function() {
   traits_vec <- traits_vec[1:100]
   traits_vec[order(names(traits_vec))]
 }
+#############################################################################
+HelpHtm <- function() {(
+  "<P><B>GWAX</B>, GWAS Explorer, facilitates visualization and prioritization of protein-coding 
+genes associated with traits from genome-wide association studies, using the GWAS Catalog
+dataset from NIH-NHGRI and EBI.
+<P>
+<B>Authors:</B> Jeremy Yang, Stephen Mathias, Cristian Bologa, and Tudor Oprea.<BR/>
+<B>Correspondence</B> from users of this app is welcome, and should be directed to 
+<a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
+  Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">GTEx, The NHGRI-EBI GWAS Catalog</A>.<BR/>
+  Built with R-Shiny &amp; Plotly.<BR/>
+  This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>"
+)}
 
 ##########################################################################################
 ui <- fluidPage(
   
-  titlePanel(HTML("GWAX: GWAS Explorer <I>(DEMO PROTOTYPE)</I>")),
-  
+  titlePanel(h2(sprintf("%s: GWAS Explorer", APPNAME), em("(BETA)")), windowTitle=APPNAME),
   fluidRow(
     column(3, 
       wellPanel(
@@ -82,23 +93,40 @@ ui <- fluidPage(
         sliderInput("eff_min", "Min_effect", 0, 100, 0, step = 10),
         sliderInput("spc_min", "Min_specificity", 0, 1, .05, step = .05),
         checkboxGroupInput("tdls", "TDLS", choices=c("Tclin","Tchem","Tbio","Tdark"), selected=c("Tclin","Tchem","Tbio","Tdark"), inline=T),
-        checkboxGroupInput("filters","Filters",choices=c("IDGlist"="idglist", "Pfam"="pfam"), inline=T)
-      ),
-      wellPanel(
-        checkboxGroupInput("viewoptions", "Viewoptions", choices=c("LogX"="logx", "LogY"="logy"), selected = c("logx","logy"), inline=T)
-      )
-    ),
+        checkboxGroupInput("filters","Filters",choices=c("IDGlist"="idglist", "Pfam"="pfam"), inline=T),
+        checkboxGroupInput("viewoptions", "Viewoptions", choices=c("LogX"="logx", "LogY"="logy"), selected = c("logx","logy"), inline=T),
+        br(),
+        actionButton("randQuery", "Demo", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
+        actionButton("goRefresh", "Refresh", style='padding:4px; background-color:#DDDDDD;font-weight:bold'),
+        actionButton("showHelp", "Help", style='padding:4px; background-color:#DDDDDD; font-weight:bold')
+      )),
     column(9, plotlyOutput("plot", height = "600px"))),
   hr(),
   fluidRow(column(12, dataTableOutput("hits"))),
   fluidRow(column(12, downloadButton("hits_file", label="Download"))),
-  fluidRow(column(12, HTML("<I>Web app built with R-shiny and plotly, at UNM for the NIH IDG project.</I>")))
+  fluidRow(
+    column(12, em(strong(sprintf("%s", APPNAME)), " web app from ", 
+        tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
+        " and ",
+        tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png"))),
+        " data from ",
+        tags$a(href="https://www.ebi.ac.uk/gwas/", target="_blank", span("GWAS Catalog", tags$img(id="gwas_catalog_logo", height="50", valign="bottom", src="GWAS_Catalog_logo.png")))
+        ))),
+  bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
+  bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
+  bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "right")
 )
 
 ##########################################################################################
 server <- function(input, output, session) {
-
+  observeEvent(input$showHelp, {
+    showModal(modalDialog(title=HTML(sprintf("<H2>%s Help</H2>", APPNAME)),
+      HTML(HelpHtm()),
+      easyClose=T, footer=tagList(modalButton("Dismiss"))))
+  })
+  
   trait_uri <- reactive({
+    input$goRefresh # Re-run this and downstream on action button.
     paste0("http://www.ebi.ac.uk/efo/", input$trait_qry)
   })
   trait <- reactive({
