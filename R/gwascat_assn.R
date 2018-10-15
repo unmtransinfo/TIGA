@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### Separate OR from beta, create new columns and write CSV.
+### Separate OR from beta, create new columns and write TSV.
 ### Heuristic: If all OR_or_beta values for a study are >=1, assume OR. (Not necessarily true as beta may be >1.) 
 ###
 ### Aha.  Column `95%_CI_(TEXT)` has units for betas.  But must be parsed.
@@ -9,7 +9,7 @@
 ### along with unit in the case of beta-coefficients. If 95% CIs are not published, we estimate 
 ### these using the standard error, where available."
 #############################################################################
-#library(readr)
+library(readr)
 
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)>0)
@@ -22,17 +22,18 @@ if (length(args)>1)
 {
   (ofile <- args[2])
 } else {
-  ofile <- "data/gwascat_assn.csv"
+  ofile <- "data/gwascat_assn.tsv"
 }
+writeLines(sprintf("Input: %s", ifile))
+writeLines(sprintf("Output: %s", ofile))
 
-#assn <- read_delim(ifile, "\t")
-assn <- read.table(ifile, sep="\t", header=T, fill=T, na.strings=c(""), stringsAsFactors=F)
-writeLines(sprintf("ASSN parse errors: %d", nrow(assn[is.na(assn$STUDY.ACCESSION) | is.na(assn$SNPS) | is.na(assn$DISEASE.TRAIT),])))
-assn <- assn[!is.na(assn$STUDY.ACCESSION) & !is.na(assn$SNPS) & !is.na(assn$DISEASE.TRAIT),] #FIX THIS
+assn <- read_delim(ifile, "\t")
 
-colnames(assn) <- gsub("[ \\.]","_",colnames(assn))
+colnames(assn) <- gsub("[ \\./]","_",colnames(assn))
 colnames(assn) <- gsub("__","_",colnames(assn))
 colnames(assn) <- gsub("_$","",colnames(assn))
+
+assn <- assn[complete.cases(assn[,c("STUDY_ACCESSION","SNPS","DISEASE_TRAIT")]),]
 
 writeLines(sprintf("Total assn count: %6d", nrow(assn)))
 writeLines(sprintf("OR_or_beta MISSING: %6d", nrow(assn[is.na(assn$OR_or_BETA),])))
@@ -80,11 +81,11 @@ tag="oddsratio"
 qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
 writeLines(sprintf("%s %4s-ile: %9.1f",tag,names(qs),qs))
 
-write.csv(assn, file = ofile, row.names=F)
+write_delim(assn, ofile, delim="\t")
 
 ###
 # Heuristic: all units include (in|de)crease
-assn$beta_units <- sub("^.*\\] *", "", assn$X95_CI_TEXT)
+assn[["beta_units"]] <- sub("^.*\\] *", "", assn[["95%_CI_(TEXT)"]])
 assn$beta_units[!grepl("(in|de)crease", assn$beta_units)] <- NA
 tbl <- sort(table(assn$beta_units), decreasing = T)
 writeLines(sprintf("%d. (N=%d) %s", 1:100, tbl[1:100], names(tbl)[1:100]))

@@ -1,8 +1,7 @@
 ##########################################################################################
 ### GWAX: GWAS Explorer
-### 
 ### gt = gene-trait data
-###
+### Dataset gt_stats.csv from gwascat_gt_stats.R.
 ### Jeremy Yang
 ##########################################################################################
 library(readr)
@@ -44,7 +43,7 @@ if (file.exists("gwax.Rdata")) {
   load("gwax.Rdata")
 } else {
   message(sprintf("Loading dataset from files, writing Rdata..."))
-  gt <- read_delim("gt_stats.csv.gz", ',')
+  gt <- read_delim("gt_stats.tsv.gz", '\t')
   save(gt, file="gwax.Rdata")
 }
 t_elapsed <- (proc.time()-t0)[3]
@@ -130,12 +129,12 @@ server <- function(input, output, session) {
     paste0("http://www.ebi.ac.uk/efo/", input$trait_qry)
   })
   trait <- reactive({
-    gt$trait[gt$trait_uri == trait_uri()][1]
+    if (!(trait_uri() %in% gt$trait_uri)) { return(NULL) }
+    gt$trait[gt$trait_uri==trait_uri()][1]
   })
   
   hits <- reactive({
-    
-    if (is.na(gt) || nrow(gt)==0) # HANDLE ERROR HOW??   
+    if (is.na(gt) || nrow(gt)==0)
     {
       output$status <- renderText("No gene-trait stats found.")
       message("DEBUG: No gene-trait stats found.")
@@ -186,10 +185,11 @@ server <- function(input, output, session) {
   })
   
   output$plot <- renderPlotly({
-     
+    if (is.null(hits())) { return(NULL) }
+
     xaxis = list(type=ifelse("logx" %in% input$viewoptions, "log", "linear"), title="Specificity (1/n_trait)")
     yaxis = list(type=ifelse("logy" %in% input$viewoptions, "log", "linear"), title="Effect (median(OR))")
-     
+
     p <- plot_ly() %>%
       add_trace(x = 1 / hits()$n_traits_g, y = hits()$or_median,  
         type = 'scatter', mode = 'markers',
@@ -209,9 +209,9 @@ server <- function(input, output, session) {
       add_annotations(text=paste0("(N_gene = ", nrow(hits()), ")"), showarrow=F, x=0.0, y=1.0, xref="paper", yref="paper")
     return(p)
   })
-  
+
   output$hits <- renderDataTable(hits(), options = list(pageLength=20, pagingType="simple", lengthChange=F, searching=F, info=T))
-  
+
   output$hits_file <- downloadHandler(
     #filename not working...
     filename = function() {
@@ -223,5 +223,4 @@ server <- function(input, output, session) {
   )
 }
 ###
-
 shinyApp(ui, server)
