@@ -28,9 +28,10 @@ colnames(gwas) <- gsub("_$","",colnames(gwas))
 
 gwas <- gwas[complete.cases(gwas[,c("STUDY_ACCESSION","PUBMEDID","DISEASE_TRAIT")]),]
 
+#Convert special chars.
+gwas$DISEASE_TRAIT <- iconv(gwas$DISEASE_TRAIT, from="latin1", to="UTF-8")
+
 writeLines(sprintf("Total gwas count: %6d", nrow(gwas)))
 
-
 write_delim(gwas, ofile, delim="\t")
-
 ###

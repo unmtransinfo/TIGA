@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #############################################################################
 ### Go_gwascat_DbCreate.sh - MySql version
 ### 
@@ -14,11 +14,11 @@
 ### Question: Can we compute a fractional citation count to a gene-trait association?
 #############################################################################
 ### Jeremy Yang
-### 13 Nov 2017
 #############################################################################
-#
 # set -e
-set -x
+# set -x
+#
+printf "Started: %s\n" "$(date)"
 #
 DBNAME="gwascatalog"
 #
@@ -29,11 +29,11 @@ mysql -v -e "CREATE DATABASE $DBNAME"
 #
 csvfiles="\
 ${DATADIR}/gwascat_gwas.tsv \
-${DATADIR}/gwascat_assn.csv \
+${DATADIR}/gwascat_assn.tsv \
 ${DATADIR}/gwascat_snp2gene.tsv \
 ${DATADIR}/gwascat_trait.tsv \
-${DATADIR}/gwascat_icite.csv \
-${DATADIR}/gt_stats.csv"
+${DATADIR}/gwascat_icite.tsv \
+${DATADIR}/gt_stats.tsv"
 #
 for csvfile in $csvfiles ; do
 	#
@@ -90,6 +90,7 @@ mysql -D $DBNAME -e "ALTER TABLE gwas MODIFY COLUMN date DATE"
 mysql -D $DBNAME -e "ALTER TABLE gwas MODIFY COLUMN date_added_to_catalog DATE"
 mysql -D $DBNAME -e "ALTER TABLE gwas MODIFY COLUMN association_count INTEGER"
 #
+mysql -D $DBNAME -e "ALTER TABLE gt_stats COMMENT = 'GWAS gene-trait stats, used by GWAX web app'"
 mysql -D $DBNAME -e "ALTER TABLE gt_stats MODIFY COLUMN n_traits_g INTEGER"
 mysql -D $DBNAME -e "ALTER TABLE gt_stats MODIFY COLUMN n_genes_t INTEGER"
 mysql -D $DBNAME -e "ALTER TABLE gt_stats MODIFY COLUMN n_snp INTEGER"
@@ -203,4 +204,6 @@ mysql -D $DBNAME -e "UPDATE gwas_counts SET assn_count = 0 WHERE assn_count IS N
 mysql -D $DBNAME -e "UPDATE gwas_counts SET snp_count = 0 WHERE snp_count IS NULL"
 mysql -D $DBNAME -e "UPDATE gwas_counts SET gene_r_count = 0 WHERE gene_r_count IS NULL"
 mysql -D $DBNAME -e "UPDATE gwas_counts SET gene_m_count = 0 WHERE gene_m_count IS NULL"
+#
+printf "Done: %s\n" "$(date)"
 #

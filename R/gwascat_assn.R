@@ -35,6 +35,8 @@ colnames(assn) <- gsub("_$","",colnames(assn))
 
 assn <- assn[complete.cases(assn[,c("STUDY_ACCESSION","SNPS","DISEASE_TRAIT")]),]
 
+assn$DISEASE_TRAIT <- iconv(assn$DISEASE_TRAIT, from="latin1", to="UTF-8")
+
 writeLines(sprintf("Total assn count: %6d", nrow(assn)))
 writeLines(sprintf("OR_or_beta MISSING: %6d", nrow(assn[is.na(assn$OR_or_BETA),])))
 writeLines(sprintf("OR_or_beta values: %6d", nrow(assn[!is.na(assn$OR_or_BETA),])))

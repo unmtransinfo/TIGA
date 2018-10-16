@@ -27,6 +27,7 @@ trait <- read_delim("data/gwascat_trait.tsv", "\t")
 #Clean & transform:
 colnames(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
 trait <- trait[!is.na(trait$TRAIT_URI),]
+trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 
 ###
 tcrd <- read_csv("data/tcrd_targets.csv")
