@@ -1,28 +1,27 @@
 #!/usr/bin/env Rscript
 #############################################################################
 ### Separate OR from beta, create new columns and write TSV.
-### Heuristic: If all OR_or_beta values for a study are >=1, assume OR. (Not necessarily true as beta may be >1.) 
-###
+### Heuristic: If all OR_or_beta values for a study are >=1, assume OR.
+### (Not necessarily true as beta may be >1.) 
 ### Aha.  Column `95%_CI_(TEXT)` has units for betas.  But must be parsed.
 ### From http://www.ebi.ac.uk/gwas/docs/fileheaders:
-### "95% CI (TEXT)*: Reported 95% confidence interval associated with strongest SNP risk allele, 
-### along with unit in the case of beta-coefficients. If 95% CIs are not published, we estimate 
-### these using the standard error, where available."
+### "95% CI (TEXT)*: Reported 95% confidence interval associated with
+### strongest SNP risk allele, along with unit in the case of beta-coefficients.
+### If 95% CIs are not published, we estimate these using the standard error,
+### where available."
 #############################################################################
 library(readr)
 
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)>0)
-{
+if (length(args)==2) {
   (ifile <- args[1])
-} else {
-  ifile <- "/home/data/gwascatalog/data/gwas_catalog_v1.0.1-associations_e90_r2017-10-10.tsv"
-}
-if (length(args)>1)
-{
   (ofile <- args[2])
-} else {
+} else if (length(args)==0) {
+  ifile <- "/home/data/gwascatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv"
   ofile <- "data/gwascat_assn.tsv"
+} else {
+  message("ERROR: Syntax: gwascat_assn.R ASSNFILE OFILE\n\t...or no args for defaults.")
+  quit()
 }
 writeLines(sprintf("Input: %s", ifile))
 writeLines(sprintf("Output: %s", ofile))
@@ -35,7 +34,13 @@ colnames(assn) <- gsub("_$","",colnames(assn))
 
 assn <- assn[complete.cases(assn[,c("STUDY_ACCESSION","SNPS","DISEASE_TRAIT")]),]
 
-assn$DISEASE_TRAIT <- iconv(assn$DISEASE_TRAIT, from="latin1", to="UTF-8")
+#Convert special chars.
+for (tag in colnames(assn)) {
+  if (typeof(assn[[tag]])=="character") {
+    writeLines(sprintf("NOTE: cleaning: %s", tag))
+    assn[[tag]] <- iconv(assn[[tag]], from="latin1", to="UTF-8")
+  }
+}
 
 writeLines(sprintf("Total assn count: %6d", nrow(assn)))
 writeLines(sprintf("OR_or_beta MISSING: %6d", nrow(assn[is.na(assn$OR_or_BETA),])))

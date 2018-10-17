@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### gwascat_gt_stats.R - Produce gt_stats.csv
+### gwascat_gt_stats.R - Produce gt_stats.csv, used by GWAS Explorer (GWAX)
 ### 
 ### OR or BETA: Reported odds ratio or beta-coefficient associated with strongest 
 ### SNP risk allele. Note that if an OR <1 is reported this is inverted, along with 
@@ -12,26 +12,52 @@
 #############################################################################
 library(readr)
 library(dplyr, quietly=T)
-
+#
 t0 <- proc.time()
-
+#
+args <- commandArgs(trailingOnly=TRUE)
+#
+if (length(args)==5) {
+  (ifile_assn <- args[1])
+  (ifile_snp2gene <- args[2])
+  (ifile_trait <- args[3])
+  (ifile_tcrd <- args[4])
+  (ofile <- args[5])
+} else if (length(args)==0) {
+  ifile_assn <- "data/gwascat_assn.tsv"
+  ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
+  ifile_trait <- "data/gwascat_trait.tsv"
+  ifile_tcrd <- "data/tcrd_targets.csv"
+  ofile <- "data/gt_stats.tsv"
+} else {
+  message("ERROR: Syntax: gwascat_gt_stats.R ASSNFILE SNP2GENEFILE TRAITFILE TCRDFILE OFILE\n...or... no args for defaults")
+  quit()
+}
+writeLines(sprintf("Input assn file: %s", ifile_assn))
+writeLines(sprintf("Input snp2gene file: %s", ifile_snp2gene))
+writeLines(sprintf("Input trait file: %s", ifile_trait))
+writeLines(sprintf("Input TCRD file: %s", ifile_tcrd))
+writeLines(sprintf("Output file: %s", ofile))
+#
 ###
-assn <- read_delim("data/gwascat_assn.tsv", "\t", 
+assn <- read_delim(ifile_assn, "\t", 
 	col_types=cols(DATE=col_date(format="%Y-%m-%d"),
 		DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
 		SNP_ID_CURRENT=col_character()))
-snp2gene <- read_delim("data/gwascat_snp2gene.tsv", "\t", 
+#
+snp2gene <- read_delim(ifile_snp2gene, "\t", 
 	col_types=cols(reported_or_mapped=col_factor(c("r","m","md","mu"))))
-trait <- read_delim("data/gwascat_trait.tsv", "\t")
-
+#
+trait <- read_delim(ifile_trait, "\t")
+#
+tcrd <- read_csv(ifile_tcrd)
+###
 #Clean & transform:
 colnames(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
 trait <- trait[!is.na(trait$TRAIT_URI),]
 trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 
 ###
-tcrd <- read_csv("data/tcrd_targets.csv")
-
 gsyms_tcrd <- unique(tcrd$protein_sym)
 print(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
 
@@ -127,7 +153,7 @@ print(sprintf("Final: nrow(gt_stats) = %d\n", nrow(gt_stats)));
 gt_stats <- merge(gt_stats, tcrd[,c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
 
 gt_stats <- gt_stats[!is.na(gt_stats$gsymb), ] #Where do these 7 bad rows come from?
-write_delim(gt_stats, "data/gt_stats.tsv", delim="\t")
+write_delim(gt_stats, ofile, delim="\t")
 
 ###
 print(sprintf("elapsed time (total): %.2fs",(proc.time()-t0)[3]))
