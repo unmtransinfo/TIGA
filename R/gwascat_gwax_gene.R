@@ -81,7 +81,7 @@ export(p=p1, file="data/gwax_gene_p1.png")
 #4 genes via subplot()
 gsymbs <- c("APOE", "GCKR", "FTO", "CELSR2")
 gnames <- c()
-plots <- as.list(rep(NA, 4))
+plots <- list()
 for (i in 1:length(gsymbs))
 {
   gsymb <- gsymbs[i]
@@ -100,14 +100,9 @@ for (i in 1:length(gsymbs))
            yaxis = list(range = c(0,150), title = "median(-log(p))"))
 }
 
-p2 <- subplot(nrows = 2, shareX = T, shareY = T, titleX = T, titleY = T, margin = 0.03,
-  plots[[1]],
-  plots[[2]],
-  plots[[3]],
-  plots[[4]]
-)  %>%
-  layout(title = paste0("GENES: (N = ", length(gsymbs), ")<br>", paste(gsymbs, collapse = ", ")),
-         annotations = list(x = c(0, 0.5, 0, 0.5), y = c(0.9, 0.9, 0.4, 0.4), 
+p2 <- subplot(plots, nrows=2, shareX=T, shareY=T, titleX=T, titleY=T, margin=0.03) %>%
+  layout(title=paste0("GENES: (N = ", length(gsymbs), ")<br>", paste(gsymbs, collapse = ", ")),
+         annotations = list(x=c(0, 0.5, 0, 0.5), y=c(0.9, 0.9, 0.4, 0.4), 
                             xanchor = "left",
                             text = paste0(gsymbs, "<br>", gnames), showarrow = F,
                             xref = "paper", yref = "paper"),

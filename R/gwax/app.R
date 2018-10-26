@@ -49,7 +49,7 @@ of protein-coding genes associated with traits from genome-wide association stud
 <UL>
 <LI>Well studied traits only available via this app, with minimum associations
 (MIN_ASSN=%d, may be multiple for each gene). Traits are mapped to EPO, HPO, or
-Orphanet, with 91% mapped to EPO.
+Orphanet, with 91%% mapped to EPO.
 </UL>
 <B>Datatypes:</B>
 <UL>
