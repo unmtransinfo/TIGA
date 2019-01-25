@@ -68,6 +68,8 @@ Orphanet, with 91%% mapped to EPO.
   <LI><B>N_study</B>: studies supporting trait-gene association.
   </UL>
 </UL>
+Note that this app will accept query parameter <B>efo_id</B> via URL, e.g.
+<B><TT>?efo_id=EFO_0000341</TT></B>.
 <B>References:</B>
 <UL>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a>
@@ -145,6 +147,23 @@ id2uri <- function(id) {
 
 ##########################################################################################
 server <- function(input, output, session) {
+  httpQstr <- reactive({
+    qStr <- getQueryString(session) #named list
+    message(sprintf("DEBUG: %s", paste(names(qStr), qStr, sep="=", collapse="&")))
+    for (key in names(qStr)) {
+      message(sprintf("DEBUG: qStr[[\"%s\"]] = \"%s\"", key, qStr[[key]]))
+    }
+    return(qStr)
+  })
+
+  urlText <- reactive({
+    sprintf("%s//%s:%s%s%s",
+      session$clientData$url_protocol, session$clientData$url_hostname,
+      session$clientData$url_port, session$clientData$url_pathname,
+      session$clientData$url_search
+    )
+  })
+  
   observeEvent(input$showHelp, {
     showModal(modalDialog(title=HTML(sprintf("<H2>%s Help</H2>", APPNAME)),
       HTML(HelpHtm()),
@@ -152,15 +171,22 @@ server <- function(input, output, session) {
   })
   
   trait_rand_previous <- 0
-
+  i_query <- 0
+  
   trait_uri <- reactive({
     input$goRefresh # Re-run this and downstream on action button.
     if (input$randQuery>trait_rand_previous) {
       trait_rand_previous <<- input$randQuery # Must assign to up-scoped variable.
       trait_rand <- sample(traits, 1)
-      #message(sprintf("DEBUG: trait_rand_previous=%d; trait_rand=%s", trait_rand_previous, trait_rand))
+      message(sprintf("DEBUG: trait_rand_previous=%d; trait_rand=%s", trait_rand_previous, trait_rand))
       updateTextInput(session, "traitQry", value=as.character(trait_rand)) #Better than updateSelectizeInput ??
     }
+    qStr <- httpQstr()
+    if (i_query==0 & "efo_id" %in% names(qStr)) {
+      message(sprintf("DEBUG: qStr[[\"efo_id\"]]=%s", qStr[["efo_id"]]))
+      updateTextInput(session, "traitQry", value=as.character(qStr[["efo_id"]]))
+    }
+    i_query <<- i_query + 1
     if (is.null(input$traitQry)) { return(NULL) }
     return(id2uri(input$traitQry))
   })
@@ -193,6 +219,7 @@ server <- function(input, output, session) {
     htm <- sprintf("<B>Results:</B>")
     htm <- paste0(htm, sprintf("\"%s\"", trait_name()))
     htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", id2uri(trait_id()), trait_id()))
+    message(sprintf("Query: \"%s\" (%s)", trait_name(), trait_id()))
     htm <- paste0(htm, "; minEffect = ", input$minEffect)
     htm <- paste0(htm, "; minSpecificity = ", input$minSpec)
     if (!is.null(hits())) {
@@ -205,9 +232,10 @@ server <- function(input, output, session) {
 
   output$log_htm <- reactive({
     htm <- db_htm
+    message(sprintf("DEBUG: url = \"%s\"", urlText()))
     return(htm)
   })
-  
+
   output$plot <- renderPlotly({
     if (is.null(hits())) { return(NULL) }
     xaxis <- list(title="Specificity (1/N_trait)")
