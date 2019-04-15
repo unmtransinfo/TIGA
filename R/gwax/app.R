@@ -5,11 +5,11 @@
 ### Jeremy Yang
 ##########################################################################################
 library(readr)
-library(shiny, quietly = T)
+library(data.table)
+library(shiny, quietly=T)
 library(shinyBS, quietly=T)
 library(DT, quietly=T)
-library(dplyr, quietly = T)
-library(plotly, quietly = T)
+library(plotly, quietly=T)
 
 ##########################################################################################
 APPNAME <- "GWAX"
@@ -30,14 +30,21 @@ if (file.exists("gwax.Rdata")) {
   traits <- traits[order(names(traits))]
   save(gt, traits, file="gwax.Rdata")
 }
+setDT(gt)
+#
 t_elapsed <- (proc.time()-t0)[3]
 #
-db_htm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_load: %.1fs)",
-	length(unique(gt$gsymb)), length(unique(gt$trait)), length(traits), t_elapsed)
-###
-tdls <- c("Tclin","Tchem","Tbio","Tdark")
+message(sprintf("Gene count: %d", uniqueN(gt$gsymb)))
+message(sprintf("Trait count (total): %d", uniqueN(gt$trait)))
+message(sprintf("Trait count (n_assn>=%d): %d", MIN_ASSN, length(traits)))
 #
-trait_rand <- sample(traits, 1)
+db_htm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_load: %.1fs)",
+	uniqueN(gt$gsymb), uniqueN(gt$trait), length(traits), t_elapsed)
+###
+tdls <- c("Tclin", "Tchem", "Tbio", "Tdark")
+idgfams <- c("GPCR", "Kinase", "IC", "Enzyme", "NR", "Transporter", "TF", "Epigenetic", "TF; Epigenetic", "Other")
+#
+qryTraitRand <- sample(traits, 1)
 #
 #############################################################################
 HelpHtm <- function() {(
@@ -48,8 +55,8 @@ of protein-coding genes associated with traits from genome-wide association stud
 <B>Dataset:</B>
 <UL>
 <LI>Well studied traits only available via this app, with minimum associations
-(MIN_ASSN=%d, may be multiple for each gene). Traits are mapped to EPO, HPO, or
-Orphanet, with 91%% mapped to EPO.
+(MIN_ASSN=%d, may be multiple for each gene). Traits are mapped to EFO, HPO,
+Orphanet, PATO or GO, with 91%% mapped to EFO.
 </UL>
 <B>Datatypes:</B>
 <UL>
@@ -74,11 +81,12 @@ Note that this app will accept query parameter <B>efo_id</B> via URL, e.g.
 <UL>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/docs/fileheaders\">GWAS Catalog data dictionary</a>
+<LI><a href=\"https://www.ebi.ac.uk/efo/\">Experimental Factor Ontology (EFO)</a>
 </UL>
 <B>Authors:</B> Jeremy Yang, Stephen Mathias, Cristian Bologa, and Tudor Oprea.<BR/>
 <B>Correspondence</B> from users of this app is welcome, and should be directed to 
 <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
-  Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">GTEx, The NHGRI-EBI GWAS Catalog</A>.<BR/>
+  Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">The NHGRI-EBI GWAS Catalog</A>.<BR/>
   Built with R-Shiny &amp; Plotly.<BR/>
   This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>",
 	MIN_ASSN)
@@ -86,26 +94,25 @@ Note that this app will accept query parameter <B>efo_id</B> via URL, e.g.
 
 ##########################################################################################
 ui <- fluidPage(
-  titlePanel(tags$div(style="font-size:24px;font-weight:bold", 
-        sprintf("%s: GWAS Explorer", APPNAME), tags$em("(BETA)"), 
-        actionButton("showHelp", "Help", style='padding:6px;background-color:#DDDDDD; font-weight:bold;float:right'),
-        actionButton("goRefresh", "Refresh", style='padding:6px;background-color:#DDDDDD;font-weight:bold;float:right')),
+  titlePanel(h2(sprintf("%s: GWAS Explorer", APPNAME), tags$em("(BETA)"), span(icon("lightbulb", lib="font-awesome"))),
       windowTitle=APPNAME),
   fluidRow(
     column(3, 
       wellPanel(
-	selectInput("traitQry", "Query trait", choices=traits, selectize=T, selected=NULL),
-        sliderInput("minEffect", "Min_effect", 0, 100, 0, step = 10),
-        sliderInput("minSpec", "Min_specificity", 0, 1, .05, step = .05),
-        checkboxGroupInput("options", "Options", choices=c("idgPfam"="pfam","Tclin","Tchem","Tbio","Tdark"),
-		selected=c("Tclin","Tchem","Tbio","Tdark"), inline=T),
+	selectInput("traitQry", "Query trait", choices=traits, selectize=T, selected=qryTraitRand),
+        #sliderInput("minEffect", "Min_effect", 0, 100, 0, step = 10),
+        #sliderInput("minSpec", "Min_specificity", 0, 1, .05, step = .05),
+        checkboxGroupInput("tdl_filters", "TDL", choices=tdls, selected=tdls, inline=T),
+        checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
         br(),
-        actionButton("randQuery", "RandomQuery", style='padding:6px; background-color:#DDDDDD; font-weight:bold')
+	actionButton("randQuery", "Demo", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
+	actionButton("goRefresh", "Refresh", style='padding:4px;background-color:#DDDDDD;font-weight:bold'),
+	actionButton("showHelp", "Help", style='padding:4px;background-color:#DDDDDD; font-weight:bold')
       )),
     column(9, plotlyOutput("plot", height = "500px"))),
-  fluidRow(column(12, wellPanel(htmlOutput(outputId="result_htm", height="60px")))),
   fluidRow(column(12, DT::dataTableOutput("datarows"))),
   fluidRow(column(12, downloadButton("hits_file", label="Download"))),
+  fluidRow(column(12, wellPanel(htmlOutput(outputId="result_htm", height="60px")))),
   fluidRow(column(12, wellPanel(htmlOutput(outputId="log_htm", height="60px")))),
   fluidRow(
     column(12, tags$em(strong(sprintf("%s", APPNAME)), " web app from ", 
@@ -113,20 +120,24 @@ ui <- fluidPage(
         " and ",
         tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png"))),
         " data from ",
-        tags$a(href="https://www.ebi.ac.uk/gwas/", target="_blank", span("GWAS Catalog", tags$img(id="gwas_catalog_logo", height="50", valign="bottom", src="GWAS_Catalog_logo.png")))
+        tags$a(href="https://www.ebi.ac.uk/gwas/", target="_blank", span("GWAS Catalog", tags$img(id="gwas_catalog_logo", height="50", valign="bottom", src="GWAS_Catalog_logo.png"))),
+        " with ",
+        tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
   bsTooltip("traitQry", "Select from most studied traits.", "top"),
-  bsTooltip("minEffect", "Minimum effect cutoff.", "top"),
-  bsTooltip("minSpec", "Minimum specificity cutoff.", "top"),
-  bsTooltip("options", "Filters: IDG gene list, IDG protein families, IDG Target Development Levels (TDLs).", "top"),
+  #bsTooltip("minEffect", "Minimum effect cutoff.", "top"),
+  #bsTooltip("minSpec", "Minimum specificity cutoff.", "top"),
+  bsTooltip("tdl_filters", "Filters: IDG Target Development Levels (TDLs).", "top"),
+  bsTooltip("fam_filters", "Filters: IDG protein families.", "top"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
+  bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),
   bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "right")
 )
 
 tdl2color <- function(tdl) {
   colors <- rep("#CCCCCC", length(tdl))
-  colors[tdl=="Tdark"] <- "gray"
+  colors[tdl=="Tdark"] <- "#111111"
   colors[tdl=="Tbio"] <- "red"
   colors[tdl=="Tchem"] <- "green"
   colors[tdl=="Tclin"] <- "blue"
@@ -147,11 +158,24 @@ id2uri <- function(id) {
 
 ##########################################################################################
 server <- function(input, output, session) {
+  observeEvent(input$showHelp, {
+    showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
+	title=HTML(sprintf("<H2>%s Help</H2>", APPNAME)),
+	HTML(HelpHtm())))
+  })
+
+  Sys.sleep(1)
+  qryTraitRand_previous <- 0 # initialize once per session
+  i_query <- 0 # initialize once per session
+  
+  # ?efo_id=EFO_0000341
   httpQstr <- reactive({
     qStr <- getQueryString(session) #named list
-    message(sprintf("DEBUG: %s", paste(names(qStr), qStr, sep="=", collapse="&")))
-    for (key in names(qStr)) {
-      message(sprintf("DEBUG: qStr[[\"%s\"]] = \"%s\"", key, qStr[[key]]))
+    if (length(qStr)>0) {
+      message(sprintf("DEBUG: QueryString: \"%s\"", paste(names(qStr), qStr, sep="=", collapse="&")))
+      for (key in names(qStr)) {
+        message(sprintf("DEBUG: qStr[[\"%s\"]] = \"%s\"", key, qStr[[key]]))
+      }
     }
     return(qStr)
   })
@@ -163,23 +187,14 @@ server <- function(input, output, session) {
       session$clientData$url_search
     )
   })
-  
-  observeEvent(input$showHelp, {
-    showModal(modalDialog(title=HTML(sprintf("<H2>%s Help</H2>", APPNAME)),
-      HTML(HelpHtm()),
-      easyClose=T, footer=tagList(modalButton("Dismiss"))))
-  })
-  
-  trait_rand_previous <- 0
-  i_query <- 0
-  
+    
   trait_uri <- reactive({
     input$goRefresh # Re-run this and downstream on action button.
-    if (input$randQuery>trait_rand_previous) {
-      trait_rand_previous <<- input$randQuery # Must assign to up-scoped variable.
-      trait_rand <- sample(traits, 1)
-      message(sprintf("DEBUG: trait_rand_previous=%d; trait_rand=%s", trait_rand_previous, trait_rand))
-      updateTextInput(session, "traitQry", value=as.character(trait_rand)) #Better than updateSelectizeInput ??
+    if (input$randQuery>qryTraitRand_previous) {
+      qryTraitRand_previous <<- input$randQuery # Must assign to up-scoped variable.
+      qryTraitRand <- sample(traits, 1)
+      message(sprintf("DEBUG: qryTraitRand_previous=%d; qryTraitRand=%s", qryTraitRand_previous, qryTraitRand))
+      updateTextInput(session, "traitQry", value=as.character(qryTraitRand)) #Better than updateSelectizeInput ??
     }
     qStr <- httpQstr()
     if (i_query==0 & "efo_id" %in% names(qStr)) {
@@ -187,7 +202,7 @@ server <- function(input, output, session) {
       updateTextInput(session, "traitQry", value=as.character(qStr[["efo_id"]]))
     }
     i_query <<- i_query + 1
-    if (is.null(input$traitQry)) { return(NULL) }
+    if (input$traitQry=="") { return(NULL) }
     return(id2uri(input$traitQry))
   })
   trait_name <- reactive({
@@ -200,11 +215,12 @@ server <- function(input, output, session) {
   })
   
   hits <- reactive({
-    gt_this <- gt[(gt$trait_uri==trait_uri()) & (gt$or_median>input$minEffect) & (gt$n_traits_g<=(1/input$minSpec)),]
+    #gt_this <- gt[(trait_uri==trait_uri()) & (or_median>input$minEffect) & (n_traits_g<=(1/input$minSpec))]
+    gt_this <- gt[(trait_uri==trait_uri())]
     if (nrow(gt_this)==0) { return(NULL) }
-    if ("pfam" %in% input$options) gt_this <- gt_this[!is.na(gt_this$fam),]
+    gt_this <- gt_this[(fam %in% intersect(input$fam_filters, idgfams)) | (("Other" %in% input$fam_filters) & is.na(fam))]
     if (nrow(gt_this)==0) { return(NULL) }
-    gt_this <- gt_this[gt_this$tdl %in% intersect(input$options, tdls),]
+    gt_this <- gt_this[tdl %in% intersect(input$tdl_filters, tdls)]
     if (nrow(gt_this)==0) { return(NULL) }   
 
     gt_this$pvalue_mlog_median <- round(gt_this$pvalue_mlog_median, digits=2)
@@ -220,8 +236,8 @@ server <- function(input, output, session) {
     htm <- paste0(htm, sprintf("\"%s\"", trait_name()))
     htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", id2uri(trait_id()), trait_id()))
     message(sprintf("Query: \"%s\" (%s)", trait_name(), trait_id()))
-    htm <- paste0(htm, "; minEffect = ", input$minEffect)
-    htm <- paste0(htm, "; minSpecificity = ", input$minSpec)
+    #htm <- paste0(htm, "; minEffect = ", input$minEffect)
+    #htm <- paste0(htm, "; minSpecificity = ", input$minSpec)
     if (!is.null(hits())) {
       htm <- paste0(htm, sprintf("; found N_genes: %d", nrow(hits())))
     } else {
@@ -266,7 +282,7 @@ server <- function(input, output, session) {
     DT::datatable(data=hits(), rownames=F,
 	selection=list(target="row", mode="multiple", selected=NULL),
 	class="cell-border stripe", style="bootstrap",
-	options=list(
+	options=list(dom='tip', #dom=[lftipr]
 		autoWidth=T,
 		columnDefs = list(
 		list(className='dt-center', targets=c(0,2:(ncol(hits())-1))),

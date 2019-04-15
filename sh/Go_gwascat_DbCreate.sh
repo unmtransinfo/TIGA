@@ -15,10 +15,6 @@
 ###   study_perpmid_count - per PMID (the PMID for this study)
 ### Question: Can we compute a fractional citation count to a gene-trait association?
 #############################################################################
-### Jeremy Yang
-#############################################################################
-#
-set -x
 #
 cwd=$(pwd)
 #
@@ -39,6 +35,10 @@ mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_trait.tsv' INTO 
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_icite.tsv' INTO TABLE icite FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gt_stats.tsv' INTO TABLE gt_stats FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 ###
+# No ontology for these traits.
+mysql -D $DBNAME -e "UPDATE trait SET mapped_trait = NULL WHERE mapped_trait IN ('', 'NA')"
+mysql -D $DBNAME -e "UPDATE trait SET mapped_trait_uri = NULL WHERE mapped_trait_uri IN ('', 'NA')"
+###
 mysql -D $DBNAME -e "ALTER TABLE gwas COMMENT = 'GWAS Catalog studies (from raw file, all cols)'"
 mysql -D $DBNAME -e "ALTER TABLE assn COMMENT = 'GWAS Catalog associations (OR and beta separated)'"
 mysql -D $DBNAME -e "ALTER TABLE snp2gene COMMENT = 'GWAS Catalog  gene associations'"
@@ -49,10 +49,10 @@ mysql -D $DBNAME -e "UPDATE assn SET upstream_gene_id = NULL WHERE upstream_gene
 mysql -D $DBNAME -e "UPDATE assn SET downstream_gene_id = NULL WHERE downstream_gene_id = ''"
 mysql -D $DBNAME -e "UPDATE assn SET snp_gene_ids = NULL WHERE snp_gene_ids = ''"
 ###
-mysql -D $DBNAME -e "CREATE INDEX g_study_accession_idx ON gwas (study_accession (32))"
-mysql -D $DBNAME -e "CREATE INDEX ga_study_accession_idx ON assn (study_accession (32))"
-mysql -D $DBNAME -e "CREATE INDEX gs2g_study_accession_idx ON snp2gene (study_accession (32))"
-mysql -D $DBNAME -e "CREATE INDEX gs2g_snp_idx ON snp2gene (snp (32))"
+mysql -D $DBNAME -e "CREATE INDEX g_study_accession_idx ON gwas (study_accession)"
+mysql -D $DBNAME -e "CREATE INDEX ga_study_accession_idx ON assn (study_accession)"
+mysql -D $DBNAME -e "CREATE INDEX gs2g_study_accession_idx ON snp2gene (study_accession)"
+mysql -D $DBNAME -e "CREATE INDEX gs2g_snp_idx ON snp2gene (snp)"
 mysql -D $DBNAME -e "CREATE INDEX gs2g_gsymb_idx ON snp2gene (gsymb)"
 #
 #
