@@ -1,18 +1,12 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### gwascat_gt_stats.R - Produce gt_stats.csv, used by GWAS Explorer (GWAX)
-### 
-### OR or BETA: Reported odds ratio or beta-coefficient associated with strongest 
-### SNP risk allele. Note that if an OR <1 is reported this is inverted, along with 
-### the reported allele, so that all ORs included in the Catalog are >1. Appropriate 
-### unit and increase/decrease are included for beta coefficients.
-### Ref: https://www.ebi.ac.uk/gwas/docs/methods
-###
-### Jeremy Yang
+### gwascat_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (GWAX) app.
+### BETA not comparable for different units, thus currently only OR used.
 #############################################################################
 library(readr)
-library(dplyr, quietly=T)
+library(data.table, quietly=T)
 #
+Sys.time()
 t0 <- proc.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
@@ -44,22 +38,27 @@ assn <- read_delim(ifile_assn, "\t",
 	col_types=cols(DATE=col_date(format="%Y-%m-%d"),
 		DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
 		SNP_ID_CURRENT=col_character()))
+setDT(assn)
 #
 snp2gene <- read_delim(ifile_snp2gene, "\t", 
 	col_types=cols(reported_or_mapped=col_factor(c("r","m","md","mu"))))
+setDT(snp2gene)
 #
 trait <- read_delim(ifile_trait, "\t")
+setDT(trait)
 #
 tcrd <- read_csv(ifile_tcrd)
+setDT(tcrd)
 ###
 #Clean & transform:
-colnames(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
-trait <- trait[!is.na(trait$TRAIT_URI),]
+names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
+trait <- trait[!is.na(trait$TRAIT_URI)]
 trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 ###
 # Counts:
-writeLines(sprintf("Studies: %d", length(unique(assn$STUDY_ACCESSION))))
-writeLines(sprintf("Genes (unique GSYMB): %d", length(unique(assn$GSYMB))))
+writeLines(sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION)))
+# MAPPED_GENE field may include chromosomal locations
+writeLines(sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE)))
 ###
 gsyms_tcrd <- unique(tcrd$protein_sym)
 writeLines(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
@@ -68,94 +67,79 @@ gsyms_gwascat <- unique(snp2gene$GSYMB)
 gsyms_common <- intersect(gsyms_gwascat, gsyms_tcrd)
 writeLines(sprintf("GSYMBs mapped to TCRD: %d", length(gsyms_common)))
 
-tcrd <- merge(tcrd, data.frame(gsym=gsyms_gwascat, in_gwascat=rep(T, length(gsyms_gwascat))),
-              by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
+tcrd <- merge(tcrd, data.table(gsym=gsyms_gwascat, in_gwascat=rep(T, length(gsyms_gwascat))),
+	by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
 tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
 tcrd$idg2 <- as.logical(tcrd$idg2)
 t2 <- table(tcrd$tdl[tcrd$in_gwascat])
-writeLines(sprintf("%s: %d\n", names(t2), t2))
+writeLines(sprintf("%s: %d", names(t2), t2))
 ###
-### gene2trait should have one row for each gene-snp-study-trait association.
-gene2trait <- unique(snp2gene[,c("GSYMB", "SNP", "STUDY_ACCESSION")])
-gene2trait <- merge(gene2trait, assn[,c("SNPS", "STUDY_ACCESSION","PVALUE_MLOG","OR_or_BETA","oddsratio","beta")], 
-  all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
+### g2t should have one row for each gene-snp-study-trait association.
+g2t <- unique(snp2gene[, c("GSYMB", "SNP", "STUDY_ACCESSION")])
+g2t <- merge(g2t, assn[, c("SNPS", "STUDY_ACCESSION","PVALUE_MLOG","OR_or_BETA","oddsratio","beta")], 
+	all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
 
-gene2trait <- merge(gene2trait, trait, all.x=F, all.y=F, by="STUDY_ACCESSION")
-gene2trait <- gene2trait[!is.na(gene2trait$GSYMB),]
+g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
+g2t <- g2t[!is.na(GSYMB)]
+g2t <- g2t[!is.na(OR_or_BETA)]
+g2t <- g2t[!grepl("(^LOC|^intergenic)", GSYMB)] #non-coding RNA, etc.
 
-writeLines(sprintf("DEBUG: with pvalue_mlog, gene2trait: %d ; genes: %d ; traits: %d",
-	 nrow(gene2trait[!is.na(gene2trait$PVALUE_MLOG),]),
-	 length(unique(gene2trait$GSYMB[!is.na(gene2trait$PVALUE_MLOG)])),
-	 length(unique(gene2trait$TRAIT[!is.na(gene2trait$PVALUE_MLOG)]))))
-writeLines(sprintf("DEBUG: with or_or_beta, gene2trait: %d ; genes: %d ; traits: %d",
-	 nrow(gene2trait[!is.na(gene2trait$OR_or_BETA),]),
-	 length(unique(gene2trait$GSYMB[!is.na(gene2trait$OR_or_BETA)])),
-	 length(unique(gene2trait$TRAIT[!is.na(gene2trait$OR_or_BETA)]))))
-writeLines(sprintf("DEBUG: with oddsratio, gene2trait: %d ; genes: %d ; traits: %d",
-	 nrow(gene2trait[!is.na(gene2trait$oddsratio),]),
-	 length(unique(gene2trait$GSYMB[!is.na(gene2trait$oddsratio)])),
-	 length(unique(gene2trait$TRAIT[!is.na(gene2trait$oddsratio)]))))
-writeLines(sprintf("DEBUG: with beta, gene2trait: %d ; genes: %d ; traits: %d",
-	 nrow(gene2trait[!is.na(gene2trait$beta),]),
-	 length(unique(gene2trait$GSYMB[!is.na(gene2trait$beta)])),
-	 length(unique(gene2trait$TRAIT[!is.na(gene2trait$beta)]))))
-
-
+message(sprintf("DEBUG: with pvalue_mlog, g2t: %d ; genes: %d ; traits: %d",
+	 nrow(g2t[!is.na(g2t$PVALUE_MLOG),]),
+	 uniqueN(g2t$GSYMB[!is.na(g2t$PVALUE_MLOG)]),
+	 uniqueN(g2t$TRAIT[!is.na(g2t$PVALUE_MLOG)])))
+message(sprintf("DEBUG: with or_or_beta, g2t: %d ; genes: %d ; traits: %d",
+	 nrow(g2t[!is.na(g2t$OR_or_BETA),]),
+	 uniqueN(g2t$GSYMB[!is.na(g2t$OR_or_BETA)]),
+	 uniqueN(g2t$TRAIT[!is.na(g2t$OR_or_BETA)])))
+message(sprintf("DEBUG: with oddsratio, g2t: %d ; genes: %d ; traits: %d",
+	 nrow(g2t[!is.na(g2t$oddsratio),]),
+	 uniqueN(g2t$GSYMB[!is.na(g2t$oddsratio)]),
+	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)])))
+message(sprintf("DEBUG: with beta, g2t: %d ; genes: %d ; traits: %d",
+	 nrow(g2t[!is.na(g2t$beta),]),
+	 uniqueN(g2t$GSYMB[!is.na(g2t$beta)]),
+	 uniqueN(g2t$TRAIT[!is.na(g2t$beta)])))
 ###
 ### GENE-TRAIT stats
-### From gene2trait, create gt_stats table for TSV export (~25min).
-NCHUNK <- 10000
-gt_stats_empty <- data.frame(gsymb=rep(NA,NCHUNK), trait_uri=rep(NA, NCHUNK),
-	trait=rep(NA, NCHUNK), n_study=rep(NA, NCHUNK), n_snp=rep(NA, NCHUNK),
-	n_traits_g=rep(NA, NCHUNK), 
-	n_genes_t=rep(NA, NCHUNK),
-	pvalue_mlog_median=rep(NA,NCHUNK),
-	or_median=rep(NA,NCHUNK))
-gt_stats <- NA
-i <- 0
-for (gsymb in unique(gene2trait$GSYMB))
-{
-  if (is.na(gt_stats)) { gt_stats <- gt_stats_empty; }
-  gene2trait_g <- gene2trait[gene2trait$GSYMB==gsymb,]
-  n_traits_g <- length(unique(gene2trait_g$TRAIT_URI)) #n_traits for gene
-  for (trait_uri in unique(gene2trait_g$TRAIT_URI))
-  {
-    i <- i + 1
-    if (i > nrow(gt_stats))
-    {
-      writeLines(sprintf("nrow(gt_stats) = %d\n", nrow(gt_stats)));
-      gt_stats <- rbind(gt_stats, gt_stats_empty)
+### From g2t, create gt_stats table for TSV export.
+### Too slow (~4h). Vectorize/optimize!
+NROW <- 0
+for (gsymb in unique(g2t$GSYMB)) {
+  NROW <- NROW + uniqueN(g2t[GSYMB==gsymb, TRAIT_URI])
+}
+gt_stats <- data.table(gsymb=rep(NA, NROW), trait_uri=rep(NA, NROW),
+	trait=rep(NA, NROW), n_study=rep(NA, NROW), n_snp=rep(NA, NROW),
+	n_traits_g=rep(NA, NROW), 
+	n_genes_t=rep(NA, NROW),
+	pvalue_mlog_median=rep(NA, NROW),
+	or_median=rep(NA, NROW))
+#
+writeLines(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d\n", nrow(gt_stats)));
+i_row <- 0 #gt_stats populated row count
+for (gsymb in unique(g2t$GSYMB)) { #gene-loop
+  n_traits_g <- uniqueN(g2t[GSYMB==gsymb, TRAIT_URI]) #n_traits for gene
+  gt_stats$gsymb[i_row+1:i_row+n_traits_g] <- gsymb
+  gt_stats$n_traits_g[i_row+1:i_row+n_traits_g] <- n_traits_g
+  for (trait_uri in unique(g2t[GSYMB==gsymb, TRAIT_URI])) { #trait-loop
+    if ((i_row%%10000)==0) {
+      message(sprintf("i_row: %d / %d (%.1f%%) ; %s, elapsed: %.1fs", i_row, NROW, 100*i_row/NROW, Sys.time(), (proc.time()-t0)[3]))
     }
-    gt_stats$gsymb[i] <- gsymb
-    gt_stats$n_traits_g[i] <- n_traits_g
-    gt_stats$trait_uri[i] <- trait_uri
-
-    gene2trait_gt <- gene2trait_g[gene2trait_g$TRAIT_URI==trait_uri, ]
-
-    gt_stats$n_study[i] <- length(unique(gene2trait_gt$STUDY_ACCESSION))
-    gt_stats$trait[i] <- gene2trait_gt$TRAIT[gene2trait_gt$TRAIT_URI==trait_uri][1]
-    gt_stats$n_snp[i] <- length(unique(gene2trait_gt$SNP))
-    gt_stats$pvalue_mlog_median[i] <- median(gene2trait_gt$PVALUE_MLOG, na.rm=T)
-    #gt_stats$or_median[i] <- median(gene2trait_gt$OR_or_BETA, na.rm=T)
-    gt_stats$or_median[i] <- median(gene2trait_gt$oddsratio, na.rm=T)
-
-# writeLines(sprintf("%d. %7s - [%s] \"%s\" ; n_study = %d ; n_snp = %d ; p_median_nlog = %.1f\n", i, gsymb, sub("^.*/", "", trait_uri), gt_stats$trait[i], gt_stats$n_study[i], gt_stats$n_snp[i], gt_stats$p_median_nlog[i]))
+    i_row <- i_row + 1
+    gt_stats$trait_uri[i_row] <- trait_uri
+    gt_stats$trait[i_row] <- g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, TRAIT][1]
+    gt_stats$n_study[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])
+    gt_stats$n_snp[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, SNP])
+    gt_stats$pvalue_mlog_median[i_row] <- median(g2t[TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
+    gt_stats$or_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
   }
 }
-gt_stats <- gt_stats[!is.na(gt_stats$gsymb), ]
-for (trait_uri in unique(gene2trait$TRAIT_URI))
-{
-  gene2trait_t <- gene2trait[gene2trait$TRAIT_URI==trait_uri, ]
-  n_genes_t <- length(unique(gene2trait_t$GSYMB)) #n_genes for trait
-  gt_stats$n_genes_t[gt_stats$trait_uri==trait_uri] <- n_genes_t
+Sys.time()
+for (trait_uri in unique(g2t$TRAIT_URI)) {
+  gt_stats[trait_uri==trait_uri, n_genes_t] <- uniqueN(g2t[TRAIT_URI==trait_uri, GSYMB]) #n_genes for trait
 }
 writeLines(sprintf("Final: nrow(gt_stats) = %d\n", nrow(gt_stats)));
-
-#Why so many unmapped symbols?
 gt_stats <- merge(gt_stats, tcrd[,c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
-
-gt_stats <- gt_stats[!is.na(gt_stats$gsymb), ] #Where do these 7 bad rows come from?
 write_delim(gt_stats, ofile, delim="\t")
-
 ###
-writeLines(sprintf("elapsed time (total): %.2fs",(proc.time()-t0)[3]))
+message(sprintf("elapsed time (total): %.2fs",(proc.time()-t0)[3]))
