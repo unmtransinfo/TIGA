@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### gwascat_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (GWAX) app.
+### gwax_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (GWAX) app.
 ### BETA not comparable for different units, thus currently only OR used.
 #############################################################################
 library(readr)
@@ -24,7 +24,7 @@ if (length(args)==5) {
   ifile_tcrd <- "data/tcrd_targets.csv"
   ofile <- "data/gt_stats.tsv"
 } else {
-  message("ERROR: Syntax: gwascat_gt_stats.R ASSNFILE SNP2GENEFILE TRAITFILE TCRDFILE OFILE\n...or... no args for defaults")
+  message("ERROR: Syntax: gwax_gt_stats.R ASSNFILE SNP2GENEFILE TRAITFILE TCRDFILE OFILE\n...or... no args for defaults")
   quit()
 }
 writeLines(sprintf("Input assn file: %s", ifile_assn))
@@ -35,19 +35,21 @@ writeLines(sprintf("Output file: %s", ofile))
 #
 ###
 assn <- read_delim(ifile_assn, "\t", 
-	col_types=cols(DATE=col_date(format="%Y-%m-%d"),
-		DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
-		SNP_ID_CURRENT=col_character()))
+	col_types=cols(.default=col_character(),
+	DATE=col_date(format="%Y-%m-%d"),
+	DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
+	SNP_ID_CURRENT=col_character()))
 setDT(assn)
 #
 snp2gene <- read_delim(ifile_snp2gene, "\t", 
-	col_types=cols(reported_or_mapped=col_factor(c("r","m","md","mu"))))
+	col_types=cols(.default=col_character(),
+	REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
 setDT(snp2gene)
 #
-trait <- read_delim(ifile_trait, "\t")
+trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
 #
-tcrd <- read_csv(ifile_tcrd)
+tcrd <- read_csv(ifile_tcrd, col_types=cols(.default=col_character()))
 setDT(tcrd)
 ###
 #Clean & transform:
@@ -63,11 +65,11 @@ writeLines(sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE)))
 gsyms_tcrd <- unique(tcrd$protein_sym)
 writeLines(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
 
-gsyms_gwascat <- unique(snp2gene$GSYMB)
-gsyms_common <- intersect(gsyms_gwascat, gsyms_tcrd)
+gsyms_gwax <- unique(snp2gene$GSYMB)
+gsyms_common <- intersect(gsyms_gwax, gsyms_tcrd)
 writeLines(sprintf("GSYMBs mapped to TCRD: %d", length(gsyms_common)))
 
-tcrd <- merge(tcrd, data.table(gsym=gsyms_gwascat, in_gwascat=rep(T, length(gsyms_gwascat))),
+tcrd <- merge(tcrd, data.table(gsym=gsyms_gwax, in_gwascat=rep(T, length(gsyms_gwax))),
 	by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
 tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
 tcrd$idg2 <- as.logical(tcrd$idg2)
@@ -135,11 +137,15 @@ for (gsymb in unique(g2t$GSYMB)) { #gene-loop
   }
 }
 Sys.time()
-for (trait_uri in unique(g2t$TRAIT_URI)) {
-  gt_stats[trait_uri==trait_uri, n_genes_t] <- uniqueN(g2t[TRAIT_URI==trait_uri, GSYMB]) #n_genes for trait
+for (uri in unique(g2t$TRAIT_URI)) {
+  n_genes_t <- uniqueN(g2t[TRAIT_URI==uri, GSYMB])
+  gt_stats$n_genes_t[trait_uri==uri] <- n_genes_t
 }
 writeLines(sprintf("Final: nrow(gt_stats) = %d\n", nrow(gt_stats)));
-gt_stats <- merge(gt_stats, tcrd[,c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
+writeLines(sprintf("DEBUG: sum(is.na(gt_stats$gsymb)) = %d\n", sum(is.na(gt_stats$gsymb))));
+writeLines(sprintf("DEBUG: sum(is.na(gt_stats$n_genes_t)) = %d\n", sum(is.na(gt_stats$n_genes_t))));
+writeLines(sprintf("DEBUG: sum(is.na(gt_stats$n_traits_g)) = %d\n", sum(is.na(gt_stats$n_traits_g))));
+gt_stats <- merge(gt_stats, tcrd[, c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
 write_delim(gt_stats, ofile, delim="\t")
 ###
 message(sprintf("elapsed time (total): %.2fs",(proc.time()-t0)[3]))

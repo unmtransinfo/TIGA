@@ -1,7 +1,7 @@
 #############################################################################
 ### Plot single trait with all associated genes.
 ### Prototype GWA-X in trait-mode.
-### Note that gt_stats.csv must exist, produced by gwascat_trait_stats.R.
+### Note that gt_stats.csv must exist, produced by gwax_gt_stats.R.
 #############################################################################
 library(dplyr, quietly = T)
 library(plotly, quietly = T)

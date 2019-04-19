@@ -1,0 +1,120 @@
+#!/usr/bin/env Rscript
+---
+title: "GWAS Explorer"
+author: "Jeremy Yang"
+output:
+  html_document:
+    number_sections: yes
+---
+
+# Introduction
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+base::date()
+```
+
+```{r setup, echo=TRUE, message=FALSE}
+library(readr)
+library(data.table, quietly=T)
+Sys.time()
+```
+
+```{r}
+ifile_assn <- "data/gwascat_assn.tsv"
+ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
+ifile_trait <- "data/gwascat_trait.tsv"
+ifile_tcrd <- "data/tcrd_targets.csv"
+gt_statsfile <- "data/gt_stats.tsv"
+sprintf("Input assn file: %s", ifile_assn)
+sprintf("Input snp2gene file: %s", ifile_snp2gene)
+sprintf("Input trait file: %s", ifile_trait)
+sprintf("Input TCRD file: %s", ifile_tcrd)
+sprintf("Stats file: %s", gt_statsfile)
+```
+
+###
+
+```{r}
+assn <- read_delim(ifile_assn, "\t", 
+	col_types=cols(.default=col_character(), DATE=col_date(format="%Y-%m-%d"),
+		DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
+setDT(assn)
+snp2gene <- read_delim(ifile_snp2gene, "\t", 
+	col_types=cols(.default=col_character(), REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
+setDT(snp2gene)
+trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
+setDT(trait)
+tcrd <- read_csv(ifile_tcrd, col_types = cols(.default = col_character()))
+setDT(tcrd)
+```
+
+# Clean & transform:
+## Counts:
+
+`MAPPED_GENE` field may include chromosomal locations
+
+```{r}
+names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
+trait <- trait[!is.na(trait$TRAIT_URI)]
+trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
+sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION))
+sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE))
+gsyms_tcrd <- unique(tcrd$protein_sym)
+sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd))
+gsyms_gwax <- unique(snp2gene$GSYMB)
+gsyms_common <- intersect(gsyms_gwax, gsyms_tcrd)
+sprintf("GSYMBs mapped to TCRD: %d", length(gsyms_common))
+```
+
+```{r}
+tcrd <- merge(tcrd, data.table(gsym=gsyms_gwax, in_gwascat=rep(T, length(gsyms_gwax))),
+	by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
+tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
+tcrd$idg2 <- as.logical(tcrd$idg2)
+t2 <- table(tcrd$tdl[tcrd$in_gwascat])
+writeLines(sprintf("%s: %d", names(t2), t2))
+```
+
+# Gene-(SNP,study)-Trait (GT) associations
+
+g2t should have one row for each gene-snp-study-trait association.
+
+```{r}
+g2t <- unique(snp2gene[, .(GSYMB, SNP, STUDY_ACCESSION)])
+g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, OR_or_BETA, oddsratio, beta)], 
+	all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
+
+g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
+g2t <- g2t[!is.na(GSYMB)]
+g2t <- g2t[!is.na(OR_or_BETA)]
+g2t <- g2t[!grepl("(^LOC|^intergenic)", GSYMB)] #non-coding RNA, etc.
+
+sprintf("GTs with pvalue_mlog, g2t: %d ; genes: %d ; traits: %d",
+	 nrow(g2t[!is.na(g2t$PVALUE_MLOG),]),
+	 uniqueN(g2t$GSYMB[!is.na(g2t$PVALUE_MLOG)]),
+	 uniqueN(g2t$TRAIT[!is.na(g2t$PVALUE_MLOG)]))
+sprintf("GTs with or_or_beta, g2t: %d ; genes: %d ; traits: %d",
+	 nrow(g2t[!is.na(g2t$OR_or_BETA),]),
+	 uniqueN(g2t$GSYMB[!is.na(g2t$OR_or_BETA)]),
+	 uniqueN(g2t$TRAIT[!is.na(g2t$OR_or_BETA)]))
+sprintf("GTs with oddsratio, g2t: %d ; genes: %d ; traits: %d",
+	 nrow(g2t[!is.na(g2t$oddsratio),]),
+	 uniqueN(g2t$GSYMB[!is.na(g2t$oddsratio)]),
+	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)]))
+sprintf("GTs with beta, g2t: %d ; genes: %d ; traits: %d",
+	 nrow(g2t[!is.na(g2t$beta),]),
+	 uniqueN(g2t$GSYMB[!is.na(g2t$beta)]),
+	 uniqueN(g2t$TRAIT[!is.na(g2t$beta)]))
+```
+
+# GENE-TRAIT stats
+
+```{r}
+gt_stats <- read_delim(gt_statsfile, delim="\t", col_types = cols(.default = col_character(),
+                                                                  n_study=col_integer(), n_snp=col_integer(),
+                                                                  n_traits_g=col_integer(), n_genes_t=col_integer(),
+                                                                  pvalue_mlog_median=col_double(), or_median=col_double()))
+setDT(gt_stats)
+sprintf("nrow(gt_stats) = %d\n", nrow(gt_stats))
+```
