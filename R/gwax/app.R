@@ -19,18 +19,19 @@ t0 <- proc.time()
 if (file.exists("gwax.Rdata")) {
   message(sprintf("Loading dataset from Rdata..."))
   load("gwax.Rdata")
+  setDT(gt)
 } else {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("gt_stats.tsv.gz", '\t')
+  setDT(gt)
   ###
-  traits_df <- gt[!is.na(gt$or_median),] %>% group_by(trait, trait_uri) %>% summarise(count=n())
-  traits_df <- traits_df[traits_df$count>=MIN_ASSN,]
+  traits_df <- gt[!is.na(or_median), .(.N),  by=("trait", "trait_uri")]
+  traits_df <- traits_df[N>=MIN_ASSN]
   traits <- sub("^.*/", "", traits_df$trait_uri) #named vector
   names(traits) <- traits_df$trait
   traits <- traits[order(names(traits))]
   save(gt, traits, file="gwax.Rdata")
 }
-setDT(gt)
 #
 t_elapsed <- (proc.time()-t0)[3]
 #
@@ -223,11 +224,11 @@ server <- function(input, output, session) {
     gt_this <- gt_this[tdl %in% intersect(input$tdl_filters, tdls)]
     if (nrow(gt_this)==0) { return(NULL) }   
 
-    gt_this$pvalue_mlog_median <- round(gt_this$pvalue_mlog_median, digits=2)
-    gt_this$or_median <- round(gt_this$or_median, digits=2)
+    gt_this[, pvalue_mlog_median := round(pvalue_mlog_median, digits=2)]
+    gt_this[, or_median <- round(or_median, digits=2)]
     gt_this[["tdl_color"]] <- tdl2color(gt_this$tdl)
-    gt_this <- gt_this[,c("gsymb","name","fam","tdl","tdl_color","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median")]
-    gt_this <- gt_this[order(-gt_this$or_median,gt_this$n_traits_g),]
+    gt_this <- gt_this[, .(gsymb,name,fam,tdl,tdl_color,n_study,n_snp,n_traits_g,pvalue_mlog_median,or_median)]
+    gt_this <- gt_this[order(-or_median, n_traits_g)]
     return(gt_this)
   })
 

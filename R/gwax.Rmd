@@ -1,6 +1,5 @@
-#!/usr/bin/env Rscript
 ---
-title: "GWAS Explorer"
+title: "GWAS Explorer (GWAX)"
 author: "Jeremy Yang"
 output:
   html_document:
@@ -9,16 +8,29 @@ output:
 
 # Introduction
 
+Genome wide association studies (GWAS) can reveal important genotype to phenotype associations, however, data quality and interpretability issues must be addressed.  The GWAX approach enables rational filtering and interpretation of GWAS via metrics, methods, and interactive visualization.  Each GWAS association is evaluated, using a continuous numerical scale, for confidence and specificity linking a protein-coding gene and clinical phenotype. Appropriate thresholds for various use cases are left to the judgement of users.
+
+* Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) v1.0.2, Sept 30, 2018.
+* Refactored workflow for integration with TCRD & Pharos
+* Developed pipeline for iCite Relative Citation Ratio (RCR) integration
+* Prototype RShiny app: <http://unmtid-shinyapps.net/gwax/>
+
+
 ```{r echo=FALSE}
 knitr::opts_chunk$set(echo=FALSE, message=FALSE)
 base::date()
 ```
 
-```{r setup, echo=TRUE, message=FALSE}
-library(readr)
+```{r}
+library(readr, quietly=T)
 library(data.table, quietly=T)
+library(plotly, quietly=T)
 Sys.time()
 ```
+
+## Read files
+
+From GWAS Catalog and TCRD.
 
 ```{r}
 ifile_assn <- "data/gwascat_assn.tsv"
@@ -31,28 +43,21 @@ sprintf("Input snp2gene file: %s", ifile_snp2gene)
 sprintf("Input trait file: %s", ifile_trait)
 sprintf("Input TCRD file: %s", ifile_tcrd)
 sprintf("Stats file: %s", gt_statsfile)
-```
-
-###
-
-```{r}
-assn <- read_delim(ifile_assn, "\t", 
-	col_types=cols(.default=col_character(), DATE=col_date(format="%Y-%m-%d"),
-		DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
+assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), 
+    DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
 setDT(assn)
-snp2gene <- read_delim(ifile_snp2gene, "\t", 
-	col_types=cols(.default=col_character(), REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
+snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(),
+    REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
 setDT(snp2gene)
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
-tcrd <- read_csv(ifile_tcrd, col_types = cols(.default = col_character()))
+tcrd <- read_csv(ifile_tcrd, col_types=cols(.default=col_character()))
 setDT(tcrd)
 ```
 
-# Clean & transform:
-## Counts:
+## Clean & transform:
 
-`MAPPED_GENE` field may include chromosomal locations
+* `MAPPED_GENE` field may include chromosomal locations.
 
 ```{r}
 names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
@@ -65,15 +70,12 @@ sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd))
 gsyms_gwax <- unique(snp2gene$GSYMB)
 gsyms_common <- intersect(gsyms_gwax, gsyms_tcrd)
 sprintf("GSYMBs mapped to TCRD: %d", length(gsyms_common))
-```
-
-```{r}
 tcrd <- merge(tcrd, data.table(gsym=gsyms_gwax, in_gwascat=rep(T, length(gsyms_gwax))),
 	by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
 tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
 tcrd$idg2 <- as.logical(tcrd$idg2)
 t2 <- table(tcrd$tdl[tcrd$in_gwascat])
-writeLines(sprintf("%s: %d", names(t2), t2))
+sprintf("%s: %d", names(t2), t2)
 ```
 
 # Gene-(SNP,study)-Trait (GT) associations
@@ -111,10 +113,110 @@ sprintf("GTs with beta, g2t: %d ; genes: %d ; traits: %d",
 # GENE-TRAIT stats
 
 ```{r}
-gt_stats <- read_delim(gt_statsfile, delim="\t", col_types = cols(.default = col_character(),
-                                                                  n_study=col_integer(), n_snp=col_integer(),
-                                                                  n_traits_g=col_integer(), n_genes_t=col_integer(),
-                                                                  pvalue_mlog_median=col_double(), or_median=col_double()))
+gt_stats <- read_delim(gt_statsfile, delim="\t", col_types=cols(.default=col_character(),
+                n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
+                pvalue_mlog_median=col_double(), or_median=col_double()))
 setDT(gt_stats)
-sprintf("nrow(gt_stats) = %d\n", nrow(gt_stats))
+sprintf("nrow(gt_stats) = %d", nrow(gt_stats))
 ```
+
+## Plot single trait with all associated genes.
+Prototype GWA-X in trait-mode.
+Color unmapped gray.
+
+```{r}
+gt <- read_delim("data/gt_stats.tsv", "\t", col_types=cols(.default=col_character(), 
+            n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), 
+            pvalue_mlog_median=col_double(), or_median=col_double()))
+setDT(gt)
+```
+
+### Focus on traits with more data (rows).
+
+```{r}
+gt_top <- gt[, .(trait_ids = paste(sub("^.*/", "", unique(trait_uri)), collapse=", "), N_genes=uniqueN(gsymb)), by="trait"]
+knitr::kable(gt_top[order(-N_genes)][1:12], caption="Most-highly studied traits")
+```
+
+## Plot for a selected trait
+
+```{r}
+trait_id <- "EFO_0001360" #T2DM
+#trait_id <- "EFO_0000249" #Alzheimer
+#trait_id <- "EFO_0000289" #bipolar disorder
+#trait_id <- "EFO_0000249" #Alzheimers disease
+#trait_id <- "EFO_0000305" #breast carcinoma
+#trait_id <- "EFO_0000270" #asthma
+#trait_id <- "EFO_0000692" #schizophrenia
+#trait_id <- "EFO_0005842" #colorectal cancer
+#trait_id <- "EFO_0001663" #prostate carcinoma
+#trait_id <- "EFO_0000685" #rheumatoid arthritis
+#trait_id <- "EFO_0003761" #unipolar depression
+#trait_id <- "EFO_0002508" #Parkinsons disease
+#trait_id <- "EFO_0001645" #coronary heart disease
+#trait_id <- "EFO_0003885" #multiple sclerosis
+#trait_id <- "EFO_0000384" #Crohns disease
+
+query_uri <- paste0("http://www.ebi.ac.uk/efo/", trait_id)
+trait <- gt$trait[gt$trait_uri==query_uri][1]
+sprintf("%s: %s", query_uri, trait)
+```
+
+## Pareto filter selects N non-dominated solutions on 2D multi-objective boundary.
+
+```{r}
+pareto_filter <- function(dt, a, b, n) {
+  #How to pass cols as params?
+  dt[, ok := F]
+  n_ok_previous <- 0
+  message(sprintf("DEBUG: max(%s) = %f ; max(%s) = %f ; N = %d", "or_median", max(dt[, or_median]), "n_study", max(dt[, n_study]), n))
+  while (sum(dt[, ok]) < n) {
+    if (nrow(dt[(!ok)])==0) {
+      break
+    }
+    amax <- max(dt[(!ok), or_median])
+    bmax <- max(dt[(!ok), n_study])
+
+    dt[(!ok) & (or_median==amax)][order(-n_study)][1]$ok <- T
+    dt[(!ok) & (n_study==bmax)][order(-or_median)][1]$ok <- T
+    
+    #message(sprintf("DEBUG: n_ok=%d ; n_ok_previous=%d", sum(dt[, ok]), n_ok_previous))
+    if (sum(dt[, ok])==n_ok_previous) {
+      break
+    }
+    n_ok_previous <- sum(dt[, ok])
+  }
+  return(dt)
+}
+```
+
+# Filter for (1) Evidence (n_study) and (2) effect (or_median).
+
+```{r}
+t2g <- gt[trait_uri==query_uri]
+t2g <- t2g[!is.na(gsymb)]
+t2g <- t2g[!is.na(or_median)]
+#t2g[, specificity := (1/n_traits_g)]
+NMAX_PLOT <- 400
+t2g <- pareto_filter(t2g, "or_median", "n_study", NMAX_PLOT)
+message(sprintf("Pareto filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
+```
+
+### Plot
+
+```{r}
+t2g[is.na(tdl), tdl := "NA"]
+t2g$tdl <- factor(t2g$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
+t2g[, markersize := 5*log(pvalue_mlog_median+1)]
+t2g[, text := paste0(gsymb, "<br>", name, "<br>", "Family: ", fam, "<br>", "TDL: ", tdl, "<br>", "n_traits_this_gene=", n_traits_g, " ; n_snp=", n_snp, " ; n_study=", n_study, " ; pval_median=", 10^(-pvalue_mlog_median))]
+plot_ly(type='scatter', mode='markers', data=t2g[(ok)], 
+  color=~tdl, colors=c("blue", "green", "red", "black", "gray"),
+	x=~n_study + rnorm(sum(t2g$ok), sd=.05), #Custom jitter
+	y=~or_median, marker=list(symbol="circle", size=~markersize), text=~text) %>%
+  layout(xaxis=list(type="log", title="Evidence (n_study)"), 
+         yaxis=list(type="log", title="Effect (median(OR))"), 
+        title=paste0("GWAX: ", trait, "<br>(GWASCatalog TRAIT: ", sub('^.*/', '', query_uri), ")"),
+        margin=list(t=100,r=50,b=60,l=60), legend=list(x=.75, y=.9), showlegend=T, font=list(family="monospace", size=18)) %>%
+  add_annotations(text=sprintf("N_gene = %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
+```
+
