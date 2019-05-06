@@ -4,6 +4,7 @@ author: "Jeremy Yang"
 output:
   html_document:
     number_sections: yes
+    toc: yes
 ---
 
 # Introduction
@@ -21,28 +22,35 @@ knitr::opts_chunk$set(echo=FALSE, message=FALSE)
 base::date()
 ```
 
-```{r}
+```{r warning=FALSE}
 library(readr, quietly=T)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
-Sys.time()
 ```
 
-## Read files
+# Read files
 
 From GWAS Catalog and TCRD.
 
 ```{r}
+ifile_gwas <- "data/gwascat_gwas.tsv"
 ifile_assn <- "data/gwascat_assn.tsv"
 ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
 ifile_trait <- "data/gwascat_trait.tsv"
+ifile_icite <- "data/gwascat_icite.tsv"
 ifile_tcrd <- "data/tcrd_targets.csv"
 gt_statsfile <- "data/gt_stats.tsv"
+sprintf("Input gwas file: %s", ifile_gwas)
 sprintf("Input assn file: %s", ifile_assn)
 sprintf("Input snp2gene file: %s", ifile_snp2gene)
 sprintf("Input trait file: %s", ifile_trait)
 sprintf("Input TCRD file: %s", ifile_tcrd)
+sprintf("Input iCite file: %s", ifile_icite)
 sprintf("Stats file: %s", gt_statsfile)
+gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
+    DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
+    ASSOCIATION_COUNT=col_integer()))
+setDT(gwas)
 assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
 setDT(assn)
@@ -55,9 +63,79 @@ tcrd <- read_csv(ifile_tcrd, col_types=cols(.default=col_character()))
 setDT(tcrd)
 ```
 
-## Clean & transform:
+# Genome Wide Association Studies (GWAS)
 
-* `MAPPED_GENE` field may include chromosomal locations.
+### Counts by year
+
+```{r}
+sprintf("Studies total: %d ; accessions: %d ; traits: %d ; PMIDs: %d", nrow(gwas), uniqueN(gwas$STUDY_ACCESSION), uniqueN(gwas$DISEASE_TRAIT), uniqueN(gwas$PUBMEDID))
+gwas[, `:=`(YEAR = format(DATE,"%Y"), PLATFORM = sub("[, ].*$", "", `PLATFORM_[SNPS_PASSING_QC]`))]
+gwas_counts <- gwas[, .(.N), by=c("YEAR", "PLATFORM")]
+setorder(gwas_counts, YEAR, PLATFORM)
+plot_ly(type="bar", data=gwas_counts[, .(N_gwas = sum(N)), by=YEAR], x=~YEAR, y=~N_gwas) %>%
+  layout(title="GWAS Catalog Counts", 
+         margin=list(t=120), font=list(family="monospace", size=18)) %>%
+  add_annotations(text=sprintf("N_study = %d", nrow(gwas)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
+```
+### Laboratory platforms
+
+Grouped by vendor (first in list if multiple), though technologies may have evolved for a given
+vendor.
+
+```{r}
+gwas_counts <- dcast(gwas_counts, YEAR ~ PLATFORM, value.var="N", fill=0)
+plot_ly(gwas_counts, x=~YEAR, y=~NR, name="NR",
+                type="scatter", mode="markers", fill="tonexty") %>%
+  add_trace(y = ~Perlegen, name="Perlegen") %>%
+  add_trace(y = ~Affymetrix, name="Affymetrix") %>%
+  add_trace(y = ~Illumina, name="Illumina") %>%
+  layout(title = 'GWAS counts by year &amp; vendor',
+         xaxis = list(title="", showgrid=F),
+         yaxis = list(title="N_study", showgrid=F),
+         margin = list(t=100, l=100),
+         font = list(family="monospace", size=18),
+         legend = list(x=.1, y=.9), showlegend=T)
+```
+
+### Journals
+
+```{r}
+gwas_counts <- gwas[, .(N_gwas = .N, N_pmid = uniqueN(PUBMEDID), N_assn = sum(ASSOCIATION_COUNT)), by="JOURNAL"]
+setorder(gwas_counts, -N_gwas)
+knitr::kable(gwas_counts[1:12], caption="Top journals by N_gwas")
+```
+
+
+
+# Associations (SNP to trait)
+
+```{r}
+sprintf("Associations total: %d ; SNPs: %d ; traits: %d ; PMIDs: %d", nrow(assn), uniqueN(assn$SNPS), uniqueN(assn$DISEASE_TRAIT), uniqueN(assn$PUBMEDID))
+```
+
+
+# SNP to gene mappings
+
+* `GSYMB`, `MAPPED_GENE` fields may include chromosomal locations or be "intergenic".
+* Chromosomal locations (LOC*) may be non-coding RNA, etc.
+* Mappings within gene stronger associations than upstream or downstream.
+
+```{r}
+sprintf("snp2gene: total associations: %d ; studies: %d ; snps: %d ; genes: %d ; intergenic associations: %d ; chromosomal location associations: %d",
+        nrow(snp2gene), uniqueN(snp2gene$STUDY_ACCESSION), uniqueN(snp2gene$SNP), 
+        uniqueN(snp2gene[!grepl("^LOC", GSYMB) & GSYMB != "intergenic", .(GSYMB)]),
+        nrow(snp2gene[GSYMB=="intergenic"]), nrow(snp2gene[grepl("^LOC", GSYMB)]))
+snp2gene[, REPORTED_OR_MAPPED := sub('^r$', 'reported', REPORTED_OR_MAPPED)]
+snp2gene[, REPORTED_OR_MAPPED := sub('^m$', 'mapped_within', REPORTED_OR_MAPPED)]
+snp2gene[, REPORTED_OR_MAPPED := sub('^mu$', 'mapped_upstream', REPORTED_OR_MAPPED)]
+snp2gene[, REPORTED_OR_MAPPED := sub('^md$', 'mapped_downstream', REPORTED_OR_MAPPED)]
+snp2gene_counts <- snp2gene[, .(.N), by="REPORTED_OR_MAPPED"]
+knitr::kable(snp2gene_counts)
+```
+
+
+# Gene counts
+
 
 ```{r}
 names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
@@ -78,7 +156,7 @@ t2 <- table(tcrd$tdl[tcrd$in_gwascat])
 sprintf("%s: %d", names(t2), t2)
 ```
 
-# Gene-(SNP,study)-Trait (GT) associations
+# Gene-SNP-Study-Trait (G2T) associations
 
 g2t should have one row for each gene-snp-study-trait association.
 
@@ -90,7 +168,7 @@ g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, OR_or_BETA, oddsr
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
 g2t <- g2t[!is.na(GSYMB)]
 g2t <- g2t[!is.na(OR_or_BETA)]
-g2t <- g2t[!grepl("(^LOC|^intergenic)", GSYMB)] #non-coding RNA, etc.
+g2t <- g2t[!grepl("(^LOC|^intergenic)", GSYMB)]
 
 sprintf("GTs with pvalue_mlog, g2t: %d ; genes: %d ; traits: %d",
 	 nrow(g2t[!is.na(g2t$PVALUE_MLOG),]),
@@ -112,33 +190,39 @@ sprintf("GTs with beta, g2t: %d ; genes: %d ; traits: %d",
 
 # GENE-TRAIT stats
 
-```{r}
-gt_stats <- read_delim(gt_statsfile, delim="\t", col_types=cols(.default=col_character(),
-                n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
-                pvalue_mlog_median=col_double(), or_median=col_double()))
-setDT(gt_stats)
-sprintf("nrow(gt_stats) = %d", nrow(gt_stats))
-```
-
-## Plot single trait with all associated genes.
-Prototype GWA-X in trait-mode.
-Color unmapped gray.
+Read gt_stats.tsv, built by gwax_gt_stats.R for GWAX. Statistics designed to weigh evidence aggregated across
+studies, for each gene-trait association.
 
 ```{r}
-gt <- read_delim("data/gt_stats.tsv", "\t", col_types=cols(.default=col_character(), 
+gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
             n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), 
             pvalue_mlog_median=col_double(), or_median=col_double()))
 setDT(gt)
+sprintf("nrow(gt) = %d", nrow(gt))
 ```
 
-### Focus on traits with more data (rows).
+### Focus on traits with more data and evidence, likely high scientific interest.
 
 ```{r}
 gt_top <- gt[, .(trait_ids = paste(sub("^.*/", "", unique(trait_uri)), collapse=", "), N_genes=uniqueN(gsymb)), by="trait"]
 knitr::kable(gt_top[order(-N_genes)][1:12], caption="Most-highly studied traits")
 ```
 
-## Plot for a selected trait
+# Prototype GWAX in trait-mode.
+
+Plot single trait with all associated genes.
+
+* X-axis: Evidence (`n_study`)
+* Y-axis: Effect (`median(OR)`)
+* Other considerations:
+ * `n_traits_this_gene` - Normally prefer low value, but depends on other traits, semantics/ontology.
+ * `n_snp` - How many SNPs? But is more or fewer better?
+ * `pval_median` - Interpretation may be a challenge.
+
+
+Color unmapped gray.
+
+Plot for a selected trait:
 
 ```{r}
 trait_id <- "EFO_0001360" #T2DM
@@ -190,7 +274,7 @@ pareto_filter <- function(dt, a, b, n) {
 }
 ```
 
-# Filter for (1) Evidence (n_study) and (2) effect (or_median).
+### Filter for (1) Evidence (n_study) and (2) effect (or_median).
 
 ```{r}
 t2g <- gt[trait_uri==query_uri]
@@ -202,12 +286,13 @@ t2g <- pareto_filter(t2g, "or_median", "n_study", NMAX_PLOT)
 message(sprintf("Pareto filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
 ```
 
-### Plot
+## Plot
 
 ```{r}
 t2g[is.na(tdl), tdl := "NA"]
 t2g$tdl <- factor(t2g$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
-t2g[, markersize := 5*log(pvalue_mlog_median+1)]
+#t2g[, markersize := 5*log(pvalue_mlog_median+1)]
+t2g[, markersize := 15/n_traits_g]
 t2g[, text := paste0(gsymb, "<br>", name, "<br>", "Family: ", fam, "<br>", "TDL: ", tdl, "<br>", "n_traits_this_gene=", n_traits_g, " ; n_snp=", n_snp, " ; n_study=", n_study, " ; pval_median=", 10^(-pvalue_mlog_median))]
 plot_ly(type='scatter', mode='markers', data=t2g[(ok)], 
   color=~tdl, colors=c("blue", "green", "red", "black", "gray"),

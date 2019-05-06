@@ -22,10 +22,12 @@ if (file.exists("gwax.Rdata")) {
   setDT(gt)
 } else {
   message(sprintf("Loading dataset from files, writing Rdata..."))
-  gt <- read_delim("gt_stats.tsv.gz", '\t')
+  gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
+    n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
+    pvalue_mlog_median=col_double(), or_median=col_double()))
   setDT(gt)
   ###
-  traits_df <- gt[!is.na(or_median), .(.N),  by=("trait", "trait_uri")]
+  traits_df <- gt[!is.na(or_median), .(.N),  by=c("trait", "trait_uri")]
   traits_df <- traits_df[N>=MIN_ASSN]
   traits <- sub("^.*/", "", traits_df$trait_uri) #named vector
   names(traits) <- traits_df$trait
@@ -101,8 +103,7 @@ ui <- fluidPage(
     column(3, 
       wellPanel(
 	selectInput("traitQry", "Query trait", choices=traits, selectize=T, selected=qryTraitRand),
-        #sliderInput("minEffect", "Min_effect", 0, 100, 0, step = 10),
-        #sliderInput("minSpec", "Min_specificity", 0, 1, .05, step = .05),
+        sliderInput("minStudy", "Min_study", 1, 5, 1, step=1),
         checkboxGroupInput("tdl_filters", "TDL", choices=tdls, selected=tdls, inline=T),
         checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
         br(),
@@ -126,8 +127,7 @@ ui <- fluidPage(
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
   bsTooltip("traitQry", "Select from most studied traits.", "top"),
-  #bsTooltip("minEffect", "Minimum effect cutoff.", "top"),
-  #bsTooltip("minSpec", "Minimum specificity cutoff.", "top"),
+  bsTooltip("minStudy", "Minimum studies cutoff.", "top"),
   bsTooltip("tdl_filters", "Filters: IDG Target Development Levels (TDLs).", "top"),
   bsTooltip("fam_filters", "Filters: IDG protein families.", "top"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
@@ -135,15 +135,6 @@ ui <- fluidPage(
   bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),
   bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "right")
 )
-
-tdl2color <- function(tdl) {
-  colors <- rep("#CCCCCC", length(tdl))
-  colors[tdl=="Tdark"] <- "#111111"
-  colors[tdl=="Tbio"] <- "red"
-  colors[tdl=="Tchem"] <- "green"
-  colors[tdl=="Tclin"] <- "blue"
-  return(colors)
-}
 
 id2uri <- function(id) {
   if (grepl("^EFO", id)) {
@@ -188,8 +179,8 @@ server <- function(input, output, session) {
       session$clientData$url_search
     )
   })
-    
-  trait_uri <- reactive({
+ 
+  query_trait_uri <- reactive({
     input$goRefresh # Re-run this and downstream on action button.
     if (input$randQuery>qryTraitRand_previous) {
       qryTraitRand_previous <<- input$randQuery # Must assign to up-scoped variable.
@@ -206,39 +197,34 @@ server <- function(input, output, session) {
     if (input$traitQry=="") { return(NULL) }
     return(id2uri(input$traitQry))
   })
-  trait_name <- reactive({
-    if (!(trait_uri() %in% gt$trait_uri)) { return(NULL) }
-    return(gt$trait[gt$trait_uri==trait_uri()][1])
+  query_trait_name <- reactive({
+    if (!(query_trait_uri() %in% gt$trait_uri)) { return(NULL) }
+    return(gt$trait[gt$trait_uri==query_trait_uri()][1])
   })
-  trait_id <- reactive({
-    if (is.null(trait_uri())) { return(NULL) }
-    return(sub("^.*/","", trait_uri()))
+  query_trait_id <- reactive({
+    if (is.null(query_trait_uri())) { return(NULL) }
+    return(sub("^.*/","", query_trait_uri()))
   })
   
   hits <- reactive({
-    #gt_this <- gt[(trait_uri==trait_uri()) & (or_median>input$minEffect) & (n_traits_g<=(1/input$minSpec))]
-    gt_this <- gt[(trait_uri==trait_uri())]
+    gt_this <- gt[(trait_uri==query_trait_uri()) & (n_study>=input$minStudy)]
     if (nrow(gt_this)==0) { return(NULL) }
     gt_this <- gt_this[(fam %in% intersect(input$fam_filters, idgfams)) | (("Other" %in% input$fam_filters) & is.na(fam))]
     if (nrow(gt_this)==0) { return(NULL) }
     gt_this <- gt_this[tdl %in% intersect(input$tdl_filters, tdls)]
     if (nrow(gt_this)==0) { return(NULL) }   
-
-    gt_this[, pvalue_mlog_median := round(pvalue_mlog_median, digits=2)]
-    gt_this[, or_median <- round(or_median, digits=2)]
-    gt_this[["tdl_color"]] <- tdl2color(gt_this$tdl)
-    gt_this <- gt_this[, .(gsymb,name,fam,tdl,tdl_color,n_study,n_snp,n_traits_g,pvalue_mlog_median,or_median)]
-    gt_this <- gt_this[order(-or_median, n_traits_g)]
+    gt_this$tdl <- factor(gt_this$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
+    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median)]
+    gt_this <- gt_this[order(-or_median, -n_study, n_traits_g)]
     return(gt_this)
   })
 
   output$result_htm <- reactive({
     htm <- sprintf("<B>Results:</B>")
-    htm <- paste0(htm, sprintf("\"%s\"", trait_name()))
-    htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", id2uri(trait_id()), trait_id()))
-    message(sprintf("Query: \"%s\" (%s)", trait_name(), trait_id()))
-    #htm <- paste0(htm, "; minEffect = ", input$minEffect)
-    #htm <- paste0(htm, "; minSpecificity = ", input$minSpec)
+    htm <- paste0(htm, sprintf("\"%s\"", query_trait_name()))
+    htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", id2uri(query_trait_id()), query_trait_id()))
+    message(sprintf("Query: \"%s\" (%s)", query_trait_name(), query_trait_id()))
+    htm <- paste0(htm, "; minStudy = ", input$minStudy)
     if (!is.null(hits())) {
       htm <- paste0(htm, sprintf("; found N_genes: %d", nrow(hits())))
     } else {
@@ -255,28 +241,32 @@ server <- function(input, output, session) {
 
   output$plot <- renderPlotly({
     if (is.null(hits())) { return(NULL) }
-    xaxis <- list(title="Specificity (1/N_trait)")
+    xrange <- c(input$minStudy-.5, max(hits()$n_study, input$minStudy+2)+.5)
+    xaxis <- list(title="Evidence (N_study)", range=xrange)
     yaxis <- list(title="Effect (OddsRatio)")
 
-    p <- plot_ly() %>%
-      add_trace(x=(1/hits()$n_traits_g), y=hits()$or_median,  
-        type='scatter', mode='markers',
-        marker=list(symbol="circle", color=hits()$tdl_color, size=20*log(hits()$n_study+1)),
+    p <- plot_ly(type='scatter', mode='markers', data=hits(),
+        x=~n_study  + rnorm(nrow(hits()), sd=.05), #Custom jitter
+        y=~or_median,
+        color=~tdl, colors=c("blue", "green", "red", "black", "gray"),
+        marker=list(symbol="circle", size=50/hits()$n_traits_g),
         text=paste0(hits()$gsymb, ": ", hits()$name, "<br>",
         hits()$fam, ", ", hits()$tdl, "<br>",
-        "N_trait = ", hits()$n_traits_g, "; N_snp = ",hits()$n_snp, "; N_study = ", hits()$n_study, "<br>",
-        "pVal_MLOG = ", hits()$pvalue_mlog_median, "; ", "OR = ", hits()$or_median)
+        "N_study = ", hits()$n_study, "; ", "N_trait = ", hits()$n_traits_g, "; N_snp = ", hits()$n_snp, "<br>",
+        "OR = ", round(hits()$or_median, digits=2), "; ", 
+        "pVal_MLOG = ", round(hits()$pvalue_mlog_median, digits=2)
+        )
       ) %>%
       layout(xaxis=xaxis, yaxis=yaxis, 
-        title=paste0(trait_name(), "<br>", "(", input$traitQry, ")"),
-        margin=list(t=100,r=50,b=60,l=60),
+        title=paste0(query_trait_name(), "<br>", "(", input$traitQry, ")"),
+        margin=list(t=100,r=50,b=60,l=60), legend=list(x=.9, y=.95), showlegend=T,
         font=list(family="monospace", size=16)
       ) %>%
       add_annotations(text=paste0("(N_gene = ", nrow(hits()), ")"), showarrow=F, x=.5, y=1, xref="paper", yref="paper")
     return(p)
   })
   
-  #"gsymb","name","fam","tdl","tdl_color","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median"
+  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median"
   
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
@@ -286,20 +276,18 @@ server <- function(input, output, session) {
 	options=list(dom='tip', #dom=[lftipr]
 		autoWidth=T,
 		columnDefs = list(
-		list(className='dt-center', targets=c(0,2:(ncol(hits())-1))),
-		list(visible=F, targets=c(4))
-		)
+		  list(className='dt-center', targets=c(0,2:(ncol(hits())-1))))
+		#list(visible=F, targets=c(4)) #tdl_color
 	),
-	colnames=c("GSYMB","GeneName","idgFam","idgTDL","tdl_color","N_study","N_snp","N_trait","pVal_mlog","OR")
+	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR")
   ) %>% formatRound(digits=2, columns=c(8,9))
   }, server=T)
 
   hits_export <- reactive({
     if (is.null(hits())) { return(NULL) }
     hits_out <- hits()
-    hits_out$tdl_color <- NULL
-    hits_out[["Trait"]] <- trait_name()
-    hits_out[["TraitURI"]] <- trait_uri()
+    hits_out[["Trait"]] <- query_trait_name()
+    hits_out[["TraitURI"]] <- query_trait_uri()
     hits_out <- hits_out[,c(ncol(hits_out)-1,ncol(hits_out),1:(ncol(hits_out)-2))]
     names(hits_out) <- c("Trait","TraitURI","GeneSymbol","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR")
     return(hits_out)
