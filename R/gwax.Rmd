@@ -30,7 +30,7 @@ library(plotly, quietly=T)
 
 # Read files
 
-From GWAS Catalog and TCRD.
+From GWAS Catalog, TCRD, and EFO.
 
 ```{r}
 ifile_gwas <- "data/gwascat_gwas.tsv"
@@ -39,14 +39,8 @@ ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
 ifile_trait <- "data/gwascat_trait.tsv"
 ifile_icite <- "data/gwascat_icite.tsv"
 ifile_tcrd <- "data/tcrd_targets.csv"
+ifile_efo <- "data/efo.tsv"
 gt_statsfile <- "data/gt_stats.tsv"
-sprintf("Input gwas file: %s", ifile_gwas)
-sprintf("Input assn file: %s", ifile_assn)
-sprintf("Input snp2gene file: %s", ifile_snp2gene)
-sprintf("Input trait file: %s", ifile_trait)
-sprintf("Input TCRD file: %s", ifile_tcrd)
-sprintf("Input iCite file: %s", ifile_icite)
-sprintf("Stats file: %s", gt_statsfile)
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
     ASSOCIATION_COUNT=col_integer()))
@@ -187,6 +181,23 @@ sprintf("GTs with beta, g2t: %d ; genes: %d ; traits: %d",
 	 uniqueN(g2t$GSYMB[!is.na(g2t$beta)]),
 	 uniqueN(g2t$TRAIT[!is.na(g2t$beta)]))
 ```
+
+# Traits and EFO
+
+EFO = Experimental Factor Ontology. Includes Orphanet, PO, Mondo and Uberon classes.
+TSV from source OWL.
+
+```{r warning=FALSE}
+efo <- read_delim(ifile_efo, "\t", col_types=cols(.default=col_character()))
+setDT(efo)
+efo_sub <- efo[node_or_edge=="edge"][, `:=`(node_or_edge=NULL, id=NULL, comment=NULL, uri=NULL)]
+efo <- efo[node_or_edge=="node"][, `:=`(node_or_edge=NULL, source=NULL, target=NULL)]
+sprintf("EFO classes: %d ; subclass relationships: %d", uniqueN(efo$uri), nrow(efo_sub))
+efo[, in_gwascat := as.logical(uri %in% trait$TRAIT_URI)]
+efo_counts <- efo[, Ontology := sub("_.*$", "", id)][, .(N_in_gwas = sum(in_gwascat), N_total = .N), by=Ontology][order(-N_in_gwas)]
+knitr::kable(efo_counts[1:5], caption="EFO sources, top 5")
+```
+
 
 # GENE-TRAIT stats
 
