@@ -135,6 +135,7 @@ knitr::kable(snp2gene_counts)
 names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
 trait <- trait[!is.na(trait$TRAIT_URI)]
 trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
+trait[, trait_id := sub("^.*/", "", TRAIT_URI)]
 sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION))
 sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE))
 gsyms_tcrd <- unique(tcrd$protein_sym)
@@ -185,19 +186,39 @@ sprintf("GTs with beta, g2t: %d ; genes: %d ; traits: %d",
 # Traits and EFO
 
 EFO = Experimental Factor Ontology. Includes Orphanet, PO, Mondo and Uberon classes.
-TSV from source OWL.
+TSV from source OWL. 
+
+Can we aggregate evidence via EFO subclass links?
 
 ```{r warning=FALSE}
 efo <- read_delim(ifile_efo, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
-efo_sub <- efo[node_or_edge=="edge"][, `:=`(node_or_edge=NULL, id=NULL, comment=NULL, uri=NULL)]
-efo <- efo[node_or_edge=="node"][, `:=`(node_or_edge=NULL, source=NULL, target=NULL)]
-sprintf("EFO classes: %d ; subclass relationships: %d", uniqueN(efo$uri), nrow(efo_sub))
-efo[, in_gwascat := as.logical(uri %in% trait$TRAIT_URI)]
-efo_counts <- efo[, Ontology := sub("_.*$", "", id)][, .(N_in_gwas = sum(in_gwascat), N_total = .N), by=Ontology][order(-N_in_gwas)]
+efo_classes <- efo[node_or_edge=="node"][, `:=`(node_or_edge=NULL, source=NULL, target=NULL)]
+sprintf("EFO total classes: %d", uniqueN(efo_classes$uri))
+efo_classes[, in_gwascat := as.logical(uri %in% trait$TRAIT_URI)]
+efo_counts <- efo_classes[, Ontology := sub("_.*$", "", id)][, .(N_in_gwas = sum(in_gwascat), N_total = .N), by=Ontology][order(-N_in_gwas)]
 knitr::kable(efo_counts[1:5], caption="EFO sources, top 5")
 ```
 
+
+## GWAS trait-subclass relationships 
+
+```{r}
+efo_sub <- efo[node_or_edge=="edge"][, `:=`(node_or_edge=NULL, id=NULL, comment=NULL, uri=NULL)]
+sprintf("EFO classes: %d ; total subclass relationships: %d", uniqueN(efo$uri), nrow(efo_sub))
+efo_sub[, source_in_gwas := (source %in% trait$trait_id)]
+efo_sub[, target_in_gwas := (target %in% trait$trait_id)]
+efo_sub <- efo_sub[(source_in_gwas) & (target_in_gwas)]
+efo_sub[, `:=`(source_in_gwas=NULL, target_in_gwas=NULL, label=NULL)]
+setnames(efo_sub, old=c("source", "target"), new=c("trait_id", "subclass_id"))
+trait_counts <- trait[, .(N_gwas = .N), by=c("trait_id", "TRAIT")]
+efo_sub <- merge(efo_sub, trait_counts[, .(trait_id, trait_N_gwas=N_gwas, trait_name=TRAIT)], by.x="trait_id", by.y="trait_id", all.x=T, all.y=F)
+efo_sub <- merge(efo_sub, trait_counts[, .(trait_id, subclass_N_gwas=N_gwas, subclass_name=TRAIT)], by.x="subclass_id", by.y="trait_id", all.x=T, all.y=F)
+efo_sub <- efo_sub[, .(trait_id, trait_name, subclass_id, subclass_name, trait_N_gwas, subclass_N_gwas)]
+sprintf("GWAS trait-subclass pairs: %d", nrow(efo_sub))
+setorder(efo_sub, -trait_N_gwas, -subclass_N_gwas)
+knitr::kable(efo_sub[1:24], caption="Top EFO trait-subclass pairs")
+```
 
 # GENE-TRAIT stats
 
@@ -253,8 +274,8 @@ trait_id <- "EFO_0001360" #T2DM
 #trait_id <- "EFO_0000384" #Crohns disease
 
 query_uri <- paste0("http://www.ebi.ac.uk/efo/", trait_id)
-trait <- gt$trait[gt$trait_uri==query_uri][1]
-sprintf("%s: %s", query_uri, trait)
+query_trait <- gt$trait[gt$trait_uri==query_uri][1]
+sprintf("%s: %s", query_uri, query_trait)
 ```
 
 ## Pareto filter selects N non-dominated solutions on 2D multi-objective boundary.
@@ -311,7 +332,7 @@ plot_ly(type='scatter', mode='markers', data=t2g[(ok)],
 	y=~or_median, marker=list(symbol="circle", size=~markersize), text=~text) %>%
   layout(xaxis=list(type="log", title="Evidence (n_study)"), 
          yaxis=list(type="log", title="Effect (median(OR))"), 
-        title=paste0("GWAX: ", trait, "<br>(GWASCatalog TRAIT: ", sub('^.*/', '', query_uri), ")"),
+        title=paste0("GWAX: ", query_trait, "<br>(GWASCatalog TRAIT: ", sub('^.*/', '', query_uri), ")"),
         margin=list(t=100,r=50,b=60,l=60), legend=list(x=.75, y=.9), showlegend=T, font=list(family="monospace", size=18)) %>%
   add_annotations(text=sprintf("N_gene = %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
 ```
