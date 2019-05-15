@@ -9,12 +9,17 @@ output:
 
 # Introduction
 
-Genome wide association studies (GWAS) can reveal important genotype to phenotype associations, however, data quality and interpretability issues must be addressed.  The GWAX approach enables rational filtering and interpretation of GWAS via metrics, methods, and interactive visualization.  Each GWAS association is evaluated, using a continuous numerical scale, for confidence and specificity linking a protein-coding gene and clinical phenotype. Appropriate thresholds for various use cases are left to the judgement of users.
+Genome wide association studies (GWAS) can reveal important genotype to phenotype associations, however, data quality and interpretability issues must be addressed.  The GWAX approach enables rational filtering and interpretation of GWAS via metrics, methods, and interactive visualization.  Each inferred gene-to-trait association is evaluated for confidence and relevance, with scores solely derived from aggregated statistics, linking a protein-coding gene and phenotype. Appropriate thresholds will depend on use cases.
 
 * Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) v1.0.2, Sept 30, 2018.
-* Refactored workflow for integration with TCRD & Pharos
-* Developed pipeline for iCite Relative Citation Ratio (RCR) integration
+* Workflow designed for integration with TCRD & Pharos
+* iCite Relative Citation Ratio (RCR) integration (in development)
+* EFO subclass linking of related studies (in development)
 * Prototype RShiny app: <http://unmtid-shinyapps.net/gwax/>
+
+Issues/to-do:
+
+* Confidence scoring for SNP-gene mappings ("auto-semi-fine mapping" possible?)
 
 
 ```{r echo=FALSE}
@@ -40,6 +45,7 @@ ifile_trait <- "data/gwascat_trait.tsv"
 ifile_icite <- "data/gwascat_icite.tsv"
 ifile_tcrd <- "data/tcrd_targets.csv"
 ifile_efo <- "data/efo.tsv"
+ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
 gt_statsfile <- "data/gt_stats.tsv"
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
@@ -188,8 +194,6 @@ sprintf("GTs with beta, g2t: %d ; genes: %d ; traits: %d",
 EFO = Experimental Factor Ontology. Includes Orphanet, PO, Mondo and Uberon classes.
 TSV from source OWL. 
 
-Can we aggregate evidence via EFO subclass links?
-
 ```{r warning=FALSE}
 efo <- read_delim(ifile_efo, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
@@ -200,30 +204,41 @@ efo_counts <- efo_classes[, Ontology := sub("_.*$", "", id)][, .(N_in_gwas = sum
 knitr::kable(efo_counts[1:5], caption="EFO sources, top 5")
 ```
 
-
 ## GWAS trait-subclass relationships 
 
 ```{r}
 efo_sub <- efo[node_or_edge=="edge"][, `:=`(node_or_edge=NULL, id=NULL, comment=NULL, uri=NULL)]
 sprintf("EFO classes: %d ; total subclass relationships: %d", uniqueN(efo$uri), nrow(efo_sub))
-efo_sub[, source_in_gwas := (source %in% trait$trait_id)]
-efo_sub[, target_in_gwas := (target %in% trait$trait_id)]
+efo_sub[, source_in_gwas := (source %in% trait$TRAIT_URI)]
+efo_sub[, target_in_gwas := (target %in% trait$TRAIT_URI)]
 efo_sub <- efo_sub[(source_in_gwas) & (target_in_gwas)]
 efo_sub[, `:=`(source_in_gwas=NULL, target_in_gwas=NULL, label=NULL)]
-setnames(efo_sub, old=c("source", "target"), new=c("trait_id", "subclass_id"))
-trait_counts <- trait[, .(N_gwas = .N), by=c("trait_id", "TRAIT")]
-efo_sub <- merge(efo_sub, trait_counts[, .(trait_id, trait_N_gwas=N_gwas, trait_name=TRAIT)], by.x="trait_id", by.y="trait_id", all.x=T, all.y=F)
-efo_sub <- merge(efo_sub, trait_counts[, .(trait_id, subclass_N_gwas=N_gwas, subclass_name=TRAIT)], by.x="subclass_id", by.y="trait_id", all.x=T, all.y=F)
+setnames(efo_sub, old=c("source", "target"), new=c("trait_uri", "subclass_uri"))
+trait_counts <- trait[, .(N_gwas = .N), by=c("TRAIT_URI", "TRAIT")]
+efo_sub <- merge(efo_sub, trait_counts[, .(TRAIT_URI, trait_N_gwas=N_gwas, trait_name=TRAIT)], by.x="trait_uri", by.y="TRAIT_URI", all.x=T, all.y=F)
+efo_sub <- merge(efo_sub, trait_counts[, .(TRAIT_URI, subclass_N_gwas=N_gwas, subclass_name=TRAIT)], by.x="subclass_uri", by.y="TRAIT_URI", all.x=T, all.y=F)
+efo_sub[, `:=`(trait_id = sub("^.*/", "", trait_uri), subclass_id = sub("^.*/", "", subclass_uri))]
 efo_sub <- efo_sub[, .(trait_id, trait_name, subclass_id, subclass_name, trait_N_gwas, subclass_N_gwas)]
 sprintf("GWAS trait-subclass pairs: %d", nrow(efo_sub))
 setorder(efo_sub, -trait_N_gwas, -subclass_N_gwas)
 knitr::kable(efo_sub[1:24], caption="Top EFO trait-subclass pairs")
 ```
 
+## GWAS studies related by EFO subclass links.
+
+```{r}
+efo_gwas <- read_delim(ifile_efo_gwas, "\t", col_types=cols(.default=col_character()))
+setDT(efo_gwas)
+sprintf("GWAS studies related by EFO-subclass: %d", uniqueN(union(efo_gwas$trait_uri, efo_gwas$subclass_uri)))
+```
+
+
 # GENE-TRAIT stats
 
 Read gt_stats.tsv, built by gwax_gt_stats.R for GWAX. Statistics designed to weigh evidence aggregated across
 studies, for each gene-trait association.
+
+___TO DO:___ Add EFO subclass based evidence aggregation scores.
 
 ```{r}
 gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
@@ -240,9 +255,9 @@ gt_top <- gt[, .(trait_ids = paste(sub("^.*/", "", unique(trait_uri)), collapse=
 knitr::kable(gt_top[order(-N_genes)][1:12], caption="Most-highly studied traits")
 ```
 
-# Prototype GWAX in trait-mode.
+# Prototype GWAX web app.
 
-Plot single trait with all associated genes.
+## Plot single trait with all associated genes.
 
 * X-axis: Evidence (`n_study`)
 * Y-axis: Effect (`median(OR)`)
@@ -250,7 +265,7 @@ Plot single trait with all associated genes.
  * `n_traits_this_gene` - Normally prefer low value, but depends on other traits, semantics/ontology.
  * `n_snp` - How many SNPs? But is more or fewer better?
  * `pval_median` - Interpretation may be a challenge.
-
+* Note/issue: Ignoring beta values because not comparable, due to varying units. (But maybe can be aggregated if units agree.)
 
 Color unmapped gray.
 
@@ -278,7 +293,9 @@ query_trait <- gt$trait[gt$trait_uri==query_uri][1]
 sprintf("%s: %s", query_uri, query_trait)
 ```
 
-## Pareto filter selects N non-dominated solutions on 2D multi-objective boundary.
+### Pareto filter 
+
+Selects N non-dominated solutions on 2D multi-objective boundary.
 
 ```{r}
 pareto_filter <- function(dt, a, b, n) {
@@ -318,7 +335,7 @@ t2g <- pareto_filter(t2g, "or_median", "n_study", NMAX_PLOT)
 message(sprintf("Pareto filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
 ```
 
-## Plot
+### Plot
 
 ```{r}
 t2g[is.na(tdl), tdl := "NA"]

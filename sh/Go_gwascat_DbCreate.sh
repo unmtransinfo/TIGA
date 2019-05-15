@@ -35,7 +35,6 @@ mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_trait.tsv' INTO 
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_icite.tsv' INTO TABLE icite FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gt_stats.tsv' INTO TABLE gt_stats FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 ###
-# No ontology for these traits.
 mysql -D $DBNAME -e "UPDATE trait SET mapped_trait = NULL WHERE mapped_trait IN ('', 'NA')"
 mysql -D $DBNAME -e "UPDATE trait SET mapped_trait_uri = NULL WHERE mapped_trait_uri IN ('', 'NA')"
 ###
@@ -55,6 +54,46 @@ mysql -D $DBNAME -e "CREATE INDEX gs2g_study_accession_idx ON snp2gene (study_ac
 mysql -D $DBNAME -e "CREATE INDEX gs2g_snp_idx ON snp2gene (snp)"
 mysql -D $DBNAME -e "CREATE INDEX gs2g_gsymb_idx ON snp2gene (gsymb)"
 #
+###
+#EFO
+mysql -D $DBNAME <<__EOF__
+CREATE TABLE efo (
+	node_or_edge VARCHAR(8),
+	id VARCHAR(16),
+	label VARCHAR(16),
+	comment VARCHAR(128),
+	source VARCHAR(64),
+	target VARCHAR(64),
+	uri VARCHAR(64)
+);
+__EOF__
+###
+mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/efo.tsv' INTO TABLE efo FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+#
+mysql -D $DBNAME -e "CREATE TABLE efo_classes AS SELECT id,label,comment,uri FROM efo WHERE node_or_edge='node'"
+mysql -D $DBNAME -e "CREATE TABLE efo_sub AS SELECT source AS trait_uri, target AS subclass_uri FROM efo WHERE node_or_edge='edge'"
+mysql -D $DBNAME -e "DROP TABLE efo"
+mysql -D $DBNAME -e "CREATE INDEX efosub_t_idx ON efo_sub (trait_uri)"
+mysql -D $DBNAME -e "CREATE INDEX efosub_s_idx ON efo_sub (subclass_uri)"
+# Link studies by EFO subclass relationships.
+mysql -D $DBNAME <<__EOF__
+CREATE TABLE efo_sub_gwas AS
+SELECT
+	t1.study_accession,
+	t1.mapped_trait AS trait,
+	efo_sub.trait_uri,
+	t2.study_accession AS study_accession_subclass,
+	t2.mapped_trait AS subclass_trait,
+	efo_sub.subclass_uri
+FROM
+	trait t1,
+	trait t2,
+	efo_sub
+WHERE
+	t1.mapped_trait_uri = efo_sub.trait_uri
+	AND t2.mapped_trait_uri = efo_sub.subclass_uri
+__EOF__
+###
 #
 mysql -D $DBNAME -e "ALTER TABLE gt_stats COMMENT = 'GWAS gene-trait stats, used by GWAX web app'"
 mysql -D $DBNAME -e "UPDATE gt_stats SET name = NULL WHERE name = 'NA'"
@@ -65,6 +104,9 @@ mysql -D $DBNAME -e "UPDATE gt_stats SET tdl = NULL WHERE tdl = 'NA'"
 printf "Creating gwas_counts table:\n"
 #
 mysql -D $DBNAME <${cwd}/sql/create_gwas_counts_table.sql
+#
+# EFO-subclass-based GWAS study-study associations:
+runsql_my.sh -q 'SELECT * FROM efo_sub_gwas' -c >${DATADIR}/efo_sub_gwas.tsv
 #
 printf "Done: %s\n" "$(date)"
 #
