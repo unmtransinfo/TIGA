@@ -101,10 +101,12 @@ mysql -D $DBNAME -e "UPDATE gt_stats SET fam = NULL WHERE fam = 'NA'"
 mysql -D $DBNAME -e "UPDATE gt_stats SET tdl = NULL WHERE tdl = 'NA'"
 #
 ###
-printf "Creating gwas_counts table:\n"
+printf "Creating gwas_counts table; saving to TSV.\n"
 #
 mysql -D $DBNAME <${cwd}/sql/create_gwas_counts_table.sql
-#
+mysql -ABr --execute="SELECT * FROM gwas_counts" gwascatalog \
+	>${DATADIR}/gwascat_counts.tsv
+###
 # EFO-subclass-based GWAS study-study associations:
 runsql_my.sh -q 'SELECT * FROM efo_sub_gwas' -c >${DATADIR}/efo_sub_gwas.tsv
 #

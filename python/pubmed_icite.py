@@ -74,7 +74,8 @@ def GetPmids(base_url, pmids, fout, verbose):
     pubs = rval['data']
     for pub in pubs:
       if not tags:
-        tags = pub.keys()
+        tags = list(pub.keys())
+        tags.sort()
         fout.write('\t'.join(tags)+'\n')
 
       vals=[];

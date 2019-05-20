@@ -1,7 +1,6 @@
 #!/usr/bin/env Rscript
 #############################################################################
 ### gwax_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (GWAX) app.
-### BETA not comparable for different units, thus currently only OR used.
 #############################################################################
 library(readr)
 library(data.table, quietly=T)
@@ -12,28 +11,45 @@ t0 <- proc.time()
 args <- commandArgs(trailingOnly=TRUE)
 #
 if (length(args)==5) {
-  (ifile_assn <- args[1])
-  (ifile_snp2gene <- args[2])
-  (ifile_trait <- args[3])
-  (ifile_tcrd <- args[4])
-  (ofile <- args[5])
+  (ifile_gwas	<- args[1])
+  (ifile_counts	<- args[2])
+  (ifile_assn	<- args[3])
+  (ifile_snp2gene	<- args[4])
+  (ifile_trait	<- args[5])
+  (ifile_icite	<- args[6])
+  (ifile_tcrd	<- args[7])
+  (ofile	<- args[8])
 } else if (length(args)==0) {
+  ifile_gwas <- "data/gwascat_gwas.tsv"
+  ifile_counts <- "data/gwascat_counts.tsv"
   ifile_assn <- "data/gwascat_assn.tsv"
   ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
   ifile_trait <- "data/gwascat_trait.tsv"
+  ifile_icite <- "data/gwascat_icite.tsv"
   ifile_tcrd <- "data/tcrd_targets.csv"
   ofile <- "data/gt_stats.tsv"
 } else {
-  message("ERROR: Syntax: gwax_gt_stats.R ASSNFILE SNP2GENEFILE TRAITFILE TCRDFILE OFILE\n...or... no args for defaults")
+  message("ERROR: Syntax: gwax_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE OFILE\n...or... no args for defaults")
   quit()
 }
+writeLines(sprintf("Input gwas file: %s", ifile_gwas))
+writeLines(sprintf("Input counts file: %s", ifile_counts))
 writeLines(sprintf("Input assn file: %s", ifile_assn))
 writeLines(sprintf("Input snp2gene file: %s", ifile_snp2gene))
 writeLines(sprintf("Input trait file: %s", ifile_trait))
+writeLines(sprintf("Input iCite file: %s", ifile_icite))
 writeLines(sprintf("Input TCRD file: %s", ifile_tcrd))
 writeLines(sprintf("Output file: %s", ofile))
 #
 ###
+gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
+	DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
+	ASSOCIATION_COUNT=col_integer()))
+setDT(gwas)
+counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), 
+	study_accession=col_character()))
+setDT(counts)
+#
 assn <- read_delim(ifile_assn, "\t", 
 	col_types=cols(.default=col_character(),
 	DATE=col_date(format="%Y-%m-%d"),
@@ -48,7 +64,30 @@ setDT(snp2gene)
 #
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
+###
+# Estimate RCR prior for new publications as median.
+icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
+	relative_citation_ratio=col_double(), field_citation_rate=col_double(), citation_count=col_integer(),
+	nih_percentile=col_double(), expected_citations_per_year=col_double(), citations_per_year=col_double(), year=col_integer()))
+setDT(icite)
+rcr_median <- median(icite$relative_citation_ratio, na.rm=T)
+icite[is.na(relative_citation_ratio) & (as.integer(format(Sys.time(), "%Y"))-year<2) , relative_citation_ratio := rcr_median]
+icite_gwas <- merge(icite[, .(pmid, relative_citation_ratio, year)], gwas[, .(PUBMEDID, STUDY_ACCESSION)], by.x="pmid", by.y="PUBMEDID", all.x=T, all.y=T)
+icite_gwas <- merge(icite_gwas, counts[, .(study_accession, trait_count, gene_r_count, gene_m_count)], by.x="STUDY_ACCESSION", by.y="study_accession", all.x=T, all.y=T)
+icite_gwas <- merge(icite_gwas, icite_gwas[, .(study_perpmid_count = uniqueN(STUDY_ACCESSION)), by="pmid"], by="pmid")
+setorder(icite_gwas, pmid)
+icite_gwas[, arcrs_pmid := (log(relative_citation_ratio)+1)/study_perpmid_count]
+icite_gwas[gene_r_count==0, gene_r_count := NA]
+icite_gwas[gene_m_count==0, gene_m_count := NA]
+icite_gwas[, arcrs_study := 1/gene_r_count * arcrs_pmid]
+icite_gwas[is.na(arcrs_study), arcrs_study := 0]
+
+###
+# TO BE COMPLETED. 
+# For each gt, sum arcrs_study over PMIDs and studies to compute ARcrS_gt, and add column to gt_stats.
+###
 #
+###
 tcrd <- read_csv(ifile_tcrd, col_types=cols(.default=col_character()))
 setDT(tcrd)
 ###
@@ -141,6 +180,8 @@ for (uri in unique(g2t$TRAIT_URI)) {
   n_genes_t <- uniqueN(g2t[TRAIT_URI==uri, GSYMB])
   gt_stats$n_genes_t[trait_uri==uri] <- n_genes_t
 }
+#
+###
 writeLines(sprintf("Final: nrow(gt_stats) = %d\n", nrow(gt_stats)));
 writeLines(sprintf("DEBUG: sum(is.na(gt_stats$gsymb)) = %d\n", sum(is.na(gt_stats$gsymb))));
 writeLines(sprintf("DEBUG: sum(is.na(gt_stats$n_genes_t)) = %d\n", sum(is.na(gt_stats$n_genes_t))));

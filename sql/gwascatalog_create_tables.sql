@@ -71,17 +71,18 @@ CREATE TABLE trait (
 );
 CREATE TABLE icite (
 	authors MEDIUMTEXT,
-	title MEDIUMTEXT,
-	citations_per_year FLOAT,
-	relative_citation_ratio FLOAT,
-	year INT,
-	is_research_article BOOLEAN,
-	nih_percentile FLOAT,
 	citation_count INT,
-	journal VARCHAR(128),
-	field_citation_rate FLOAT,
+	citations_per_year FLOAT,
+	doi VARCHAR(64),
 	expected_citations_per_year FLOAT,
-	pmid INT
+	field_citation_rate FLOAT,
+	is_research_article BOOLEAN,
+	journal VARCHAR(128),
+	nih_percentile FLOAT,
+	pmid INT,
+	relative_citation_ratio FLOAT,
+	title MEDIUMTEXT,
+	year INT
 );
 CREATE TABLE gt_stats (
 	gsymb VARCHAR(16),

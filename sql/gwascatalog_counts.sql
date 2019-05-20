@@ -1,4 +1,3 @@
--- 
 --
 SELECT
 	COUNT(DISTINCT study_accession) AS "study_accession_count",
@@ -19,12 +18,11 @@ SELECT
 	COUNT(*) AS "snp2gene_count",
 	CASE
 		WHEN reported_or_mapped = 'r' THEN 'Reported'
-		WHEN reported_or_mapped = 'm' THEN 'MappedIn'
+		WHEN reported_or_mapped = 'm' THEN 'MappedWithin'
 		WHEN reported_or_mapped = 'mu' THEN 'MappedUpstream'
 		WHEN reported_or_mapped = 'md' THEN 'MappedDownstream'
 		ELSE 'Unknown'
 	END AS "reported_or_mapped"
-
 FROM
 	snp2gene
 GROUP BY
@@ -36,7 +34,7 @@ GROUP BY
 --
 SELECT
 	COUNT(DISTINCT mapped_trait_uri) AS "trait_count",
-	REGEXP_REPLACE(mapped_trait_uri, '^.*/(.*)_.*$','\1') AS "ontology"
+	REGEXP_REPLACE(mapped_trait_uri, '^.*/(.*)_.*$','\\1') AS "ontology"
 FROM
 	trait
 GROUP BY
