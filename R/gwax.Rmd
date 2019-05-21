@@ -26,26 +26,29 @@ thresholds will depend on use cases.
 Issues/to-do:
 
 * Confidence scoring for SNP-gene mappings ("auto-semi-fine mapping" possible?)
+* Confidence higher for `reported` or `mapped` ?
+* BETA not comparable for different units, thus currently only OR used for GWAX.
 
 ## About NHGRI-EBI GWAS Catalog
 
-<http://www.ebi.ac.uk/gwas/>
-
-GWAS Catalog studies each have a `study_accession`.
+GWAS Catalog (<http://www.ebi.ac.uk/gwas/>) studies each have a `study_accession`.
 Also are associated with a publication (PubMedID), but not uniquely.
 See <https://www.ebi.ac.uk/gwas/docs/fileheaders>.
+
+Some key definitions:
 
 	`MAPPED GENE(S)`: Gene(s) mapped to the strongest SNP. If the SNP is located
 	within a gene, that gene is listed. If the SNP is intergenic, the upstream
 	and downstream genes are listed, separated by a hyphen.
 
-	`OR_or_BETA`: Reported odds ratio or beta-coefficient associated with
+	`REPORTED GENE(S)`*: Gene(s) reported by author
+
+	`OR or BETA`: Reported odds ratio or beta-coefficient associated with
 	strongest SNP risk allele. Note that if an OR <1 is reported this is
 	inverted, along with the reported allele, so that all ORs included in
 	the Catalog are >1. Appropriate unit and increase/decrease are included
 	for beta coefficients.
 
-_(BETA not comparable for different units, thus currently only OR used for GWAX.)_
 
 * Welter D, MacArthur J, Morales J, Burdett T, Hall P, Junkins H,
 Klemm A, Flicek P, Manolio T, Hindorff L, and Parkinson H. The NHGRI
@@ -139,7 +142,7 @@ knitr::kable(gwas_journals[1:12], caption="Top journals by N_gwas")
 # iCite Relative Citation Ratio (RCR)
 
 iCite annotations from iCite API, with all PMIDs from GWASCatalog.
-New publications may lack iCite RCR. Shold we impute RCR=median as reasonable prior?
+New publications may lack iCite RCR. Should we impute RCR=median as reasonable prior?
 
 ```{r warning=FALSE}
 icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
@@ -148,18 +151,30 @@ icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
                        expected_citations_per_year=col_double(), citations_per_year=col_double(),
                        year=col_integer()))
 gwas_icite <- merge(gwas[, .(STUDY_ACCESSION, PUBMEDID)], icite, by.x="PUBMEDID", by.y="pmid", all.x=T, all.y=F)
+qtl <- quantile(gwas_icite$relative_citation_ratio, seq(0,1,.1), na.rm=T)
+anns <- c(sprintf("N_pmid = %d", nrow(gwas_icite)), sprintf("mean = %.1f ; median = %.1f ; max = %.1f", mean(gwas_icite$relative_citation_ratio, na.rm=T), median(gwas_icite$relative_citation_ratio, na.rm=T), max(gwas_icite$relative_citation_ratio, na.rm=T)), sprintf("90%%ile = %.1f", qtl["90%"]), ("(Plot truncated at 25.)"))
+plot_ly(gwas_icite, x=~relative_citation_ratio, type="histogram") %>%
+  layout(title = 'iCite Relative Citation Ratio (RCR)<br>Distribution for GWAS publications',
+         xaxis = list(title="RCR", type="normal", range=c(0,25), showgrid=T),
+         yaxis = list(title="", showgrid=T),
+         margin = list(t=100, l=100, r=100),
+         font = list(family="monospace", size=18)) %>%
+  add_annotations(text=paste0(anns, collapse="<br>"), showarrow=F, x=0.5, y=.9, xref="paper", yref="paper")
+anns
+```
 
-gwas_icite[!(journal %in% gwas_icite[, .N, by=journal][order(-N)][1:7, journal]), journal := "Other"]
+```{r warning=FALSE}
+gwas_icite[!(journal %in% gwas_icite[, .N, by=journal][order(-N)][1:12, journal]), journal := "Other"]
 wordwrap <- function(v, len) sapply(sapply(v, strwrap, len), paste, collapse="<br>")
 plot_ly(gwas_icite, x=~year, y=~relative_citation_ratio, color = ~journal, type="box",
         text=sprintf("%s: %s, <i>%s</i> (%d)", gwas_icite$PUBMEDID, wordwrap(gwas_icite$title, 40), gwas_icite$journal, gwas_icite$year)) %>%
   layout(title = 'iCite Relative Citation Ratio<br>GWAS Publications',
-         xaxis = list(title="", showgrid=F),
-         yaxis = list(title="RCR", showgrid=T),
+         xaxis = list(title="", showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
+         yaxis = list(title="RCR", range=c(0,25), showgrid=T),
          margin = list(t=100, l=100, r=100),
          font = list(family="monospace", size=18),
          boxmode="group",
-         legend = list(x=1, y=.9), showlegend=T)
+         legend=list(x=1, y=.9, font=list(size=12)), showlegend=T)
 ```
 
 # Associations (SNP to trait)

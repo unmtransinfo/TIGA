@@ -72,11 +72,13 @@ icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
 setDT(icite)
 rcr_median <- median(icite$relative_citation_ratio, na.rm=T)
 icite[is.na(relative_citation_ratio) & (as.integer(format(Sys.time(), "%Y"))-year<2) , relative_citation_ratio := rcr_median]
+#
 icite_gwas <- merge(icite[, .(pmid, relative_citation_ratio, year)], gwas[, .(PUBMEDID, STUDY_ACCESSION)], by.x="pmid", by.y="PUBMEDID", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, counts[, .(study_accession, trait_count, gene_r_count, gene_m_count)], by.x="STUDY_ACCESSION", by.y="study_accession", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, icite_gwas[, .(study_perpmid_count = uniqueN(STUDY_ACCESSION)), by="pmid"], by="pmid")
 setorder(icite_gwas, pmid)
 icite_gwas[, arcrs_pmid := (log(relative_citation_ratio)+1)/study_perpmid_count]
+icite_gwas <- icite_gwas[gene_r_count>0 | gene_m_count>0] #Need genes to be useful
 icite_gwas[gene_r_count==0, gene_r_count := NA]
 icite_gwas[gene_m_count==0, gene_m_count := NA]
 icite_gwas[, arcrs_study := 1/gene_r_count * arcrs_pmid]
