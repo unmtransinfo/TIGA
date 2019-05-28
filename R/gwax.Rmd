@@ -14,8 +14,8 @@ associations, however, data quality and interpretability issues must be addresse
 The GWAX approach enables rational ranking, filtering and interpretation of GWAS
 via metrics, methods, and interactive visualization.  Each inferred gene-to-trait
 association is evaluated for confidence and relevance, with scores solely derived
-from aggregated statistics, linking a protein-coding gene and phenotype. Appropriate
-thresholds will depend on use cases.
+from aggregated statistics, linking a protein-coding gene and phenotype. Applicability
+and thresholds will depend on use cases.
 
 * Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) v1.0.2, Sept 30, 2018.
 * Workflow designed for integration with TCRD & Pharos
@@ -28,6 +28,7 @@ Issues/to-do:
 * Confidence scoring for SNP-gene mappings ("auto-semi-fine mapping" possible?)
 * Confidence higher for `reported` or `mapped` ?
 * BETA not comparable for different units, thus currently only OR used for GWAX.
+* Polygenic diseases/traits: Filter if less suitable for GWAS-based drug target discovery use cases.
 
 ## About NHGRI-EBI GWAS Catalog
 
@@ -214,6 +215,7 @@ trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 trait[, trait_id := sub("^.*/", "", TRAIT_URI)]
 sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION))
 sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE))
+sprintf("REPORTED_GENE(S) values: %d", uniqueN(assn[["REPORTED_GENE(S)"]]))
 gsyms_tcrd <- unique(tcrd$protein_sym)
 sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd))
 gsyms_gwax <- unique(snp2gene$GSYMB)
@@ -342,7 +344,7 @@ Color unmapped gray.
 Plot for a selected trait:
 
 ```{r}
-trait_id <- "EFO_0001360" #T2DM
+#trait_id <- "EFO_0001360" #T2DM
 #trait_id <- "EFO_0000249" #Alzheimer
 #trait_id <- "EFO_0000289" #bipolar disorder
 #trait_id <- "EFO_0000249" #Alzheimers disease
@@ -353,10 +355,11 @@ trait_id <- "EFO_0001360" #T2DM
 #trait_id <- "EFO_0001663" #prostate carcinoma
 #trait_id <- "EFO_0000685" #rheumatoid arthritis
 #trait_id <- "EFO_0003761" #unipolar depression
-#trait_id <- "EFO_0002508" #Parkinsons disease
+trait_id <- "EFO_0002508" #Parkinsons disease
 #trait_id <- "EFO_0001645" #coronary heart disease
 #trait_id <- "EFO_0003885" #multiple sclerosis
 #trait_id <- "EFO_0000384" #Crohns disease
+#trait_id <- "EFO_0004574" #total cholesterol measurement
 
 query_uri <- paste0("http://www.ebi.ac.uk/efo/", trait_id)
 query_trait <- gt$trait[gt$trait_uri==query_uri][1]
@@ -372,7 +375,7 @@ pareto_filter <- function(dt, a, b, n) {
   #How to pass cols as params?
   dt[, ok := F]
   n_ok_previous <- 0
-  message(sprintf("DEBUG: max(%s) = %f ; max(%s) = %f ; N = %d", "or_median", max(dt[, or_median]), "n_study", max(dt[, n_study]), n))
+  #message(sprintf("DEBUG: max(%s) = %f ; max(%s) = %f ; N = %d", "or_median", max(dt[, or_median]), "n_study", max(dt[, n_study]), n))
   while (sum(dt[, ok]) < n) {
     if (nrow(dt[(!ok)])==0) {
       break
@@ -400,7 +403,7 @@ t2g <- gt[trait_uri==query_uri]
 t2g <- t2g[!is.na(gsymb)]
 t2g <- t2g[!is.na(or_median)]
 #t2g[, specificity := (1/n_traits_g)]
-NMAX_PLOT <- 400
+NMAX_PLOT <- 200
 t2g <- pareto_filter(t2g, "or_median", "n_study", NMAX_PLOT)
 message(sprintf("Pareto filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
 ```
@@ -419,7 +422,7 @@ plot_ly(type='scatter', mode='markers', data=t2g[(ok)],
 	y=~or_median, marker=list(symbol="circle", size=~markersize), text=~text) %>%
   layout(xaxis=list(type="log", title="Evidence (n_study)"), 
          yaxis=list(type="log", title="Effect (median(OR))"), 
-        title=paste0("GWAX: ", query_trait, "<br>(GWASCatalog TRAIT: ", sub('^.*/', '', query_uri), ")"),
+        title=paste0("GWAX: ", query_trait, "<br>(Trait_ID: ", sub('^.*/', '', query_uri), ")"),
         margin=list(t=100,r=50,b=60,l=60), legend=list(x=.75, y=.9), showlegend=T, font=list(family="monospace", size=18)) %>%
   add_annotations(text=sprintf("N_gene = %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
 ```

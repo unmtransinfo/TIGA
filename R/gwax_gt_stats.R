@@ -77,17 +77,19 @@ icite_gwas <- merge(icite[, .(pmid, relative_citation_ratio, year)], gwas[, .(PU
 icite_gwas <- merge(icite_gwas, counts[, .(study_accession, trait_count, gene_r_count, gene_m_count)], by.x="STUDY_ACCESSION", by.y="study_accession", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, icite_gwas[, .(study_perpmid_count = uniqueN(STUDY_ACCESSION)), by="pmid"], by="pmid")
 setorder(icite_gwas, pmid)
-icite_gwas[, arcrs_pmid := (log(relative_citation_ratio)+1)/study_perpmid_count]
+# RCRAS = RCR-Aggregated-Score
+icite_gwas[, rcras_pmid := (log2(relative_citation_ratio)+1)/study_perpmid_count]
 icite_gwas <- icite_gwas[gene_r_count>0 | gene_m_count>0] #Need genes to be useful
 icite_gwas[gene_r_count==0, gene_r_count := NA]
 icite_gwas[gene_m_count==0, gene_m_count := NA]
-icite_gwas[, arcrs_study := 1/gene_r_count * arcrs_pmid]
-icite_gwas[is.na(arcrs_study), arcrs_study := 0]
-
+icite_gwas[, rcras_study := 1/gene_r_count * rcras_pmid]
+icite_gwas[is.na(rcras_study), rcras_study := 0]
+icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_ratio, rcras_pmid, rcras_study, trait_count, gene_r_count, gene_m_count, study_perpmid_count)]
 ###
 # TO BE COMPLETED. 
-# For each gt, sum arcrs_study over PMIDs and studies to compute ARcrS_gt, and add column to gt_stats.
+# For each gt, sum rcras_study over PMIDs and studies to compute rcras_gt, and add column to gt_stats.
 ###
+
 #
 ###
 tcrd <- read_csv(ifile_tcrd, col_types=cols(.default=col_character()))

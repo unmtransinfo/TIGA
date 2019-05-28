@@ -1,0 +1,48 @@
+\documentclass[12pt]{extarticle}
+%Some packages I commonly use.
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{framed}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{enumerate}
+\usepackage[utf8]{inputenc}
+\usepackage[top=1 in,bottom=1in, left=1 in, right=1 in]{geometry}
+
+
+\title{GWAS Explorer (GWAX) Formulae}
+\author{Jeremy Yang}
+\date{May 2019}
+
+\begin{document}
+
+\maketitle
+
+\section{GWAX Gene-Trait Association Scoring}
+\subsection{RCRAS =  Relative Citation Ratio (RCR) Aggregated Score}
+
+The purpose is to evaluate the evidence for a gene-trait association, by aggregating multiple studies and their corresponding publications. The iCite\footnote{https://icite.od.nih.gov/} RCR is itself a statistic designed to evaluate the evolving empirical impact of a publication (in contrast to the non-empirical impact factor). Hence by aggregating RCRs we seek an corresponding measure of scientific community impact.
+ 
+\begin{equation} RCRAS_{gt} = \sum_{study} \left(\frac{1}{grc} \sum_{pmid} \frac{log_{2}(RCR) + 1}{spp}\right)
+\end{equation}
+
+Where \\
+\begin{center}
+\begin{tabular}{ r l }
+	$grc =$ &\mbox{(gene-reported count)}	\\
+	$pmid =$ &\mbox{(PubMed ID)}	\\
+	$spp =$ &\mbox{(study-per-pmid count)}	\\
+\end{tabular}
+\end{center}
+
+RCR $median = 2.0$ and $90\%ile = 8.5$. The $log_{10}()$ function is used with the belief that each additional publication adds less evidence. Division by $spp$ effects a partial count for papers associated with multiple studies. Similarly division by $grc$ reflects a partial count since papers and studies may associate to few or many findings and reported genes. \\
+\\
+From GWAS Catalog\footnote{https://www.ebi.ac.uk/gwas/} and iCite PubMed statistics. \\
+\\
+As with loss functions, the absolute value is less important than the gradient, which solely determines ranking. For example, ten supporting publications may not be twice the evidence than five, but is certainly more.
+
+
+\end{document}
