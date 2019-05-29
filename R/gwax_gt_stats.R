@@ -6,7 +6,6 @@ library(readr)
 library(data.table, quietly=T)
 #
 Sys.time()
-t0 <- proc.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
@@ -46,9 +45,9 @@ gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(),
 	DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
 	ASSOCIATION_COUNT=col_integer()))
 setDT(gwas)
-counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), 
+gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), 
 	study_accession=col_character()))
-setDT(counts)
+setDT(gwas_counts)
 #
 assn <- read_delim(ifile_assn, "\t", 
 	col_types=cols(.default=col_character(),
@@ -74,9 +73,8 @@ rcr_median <- median(icite$relative_citation_ratio, na.rm=T)
 icite[is.na(relative_citation_ratio) & (as.integer(format(Sys.time(), "%Y"))-year<2) , relative_citation_ratio := rcr_median]
 #
 icite_gwas <- merge(icite[, .(pmid, relative_citation_ratio, year)], gwas[, .(PUBMEDID, STUDY_ACCESSION)], by.x="pmid", by.y="PUBMEDID", all.x=T, all.y=T)
-icite_gwas <- merge(icite_gwas, counts[, .(study_accession, trait_count, gene_r_count, gene_m_count)], by.x="STUDY_ACCESSION", by.y="study_accession", all.x=T, all.y=T)
+icite_gwas <- merge(icite_gwas, gwas_counts[, .(study_accession, trait_count, gene_r_count, gene_m_count)], by.x="STUDY_ACCESSION", by.y="study_accession", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, icite_gwas[, .(study_perpmid_count = uniqueN(STUDY_ACCESSION)), by="pmid"], by="pmid")
-setorder(icite_gwas, pmid)
 # RCRAS = RCR-Aggregated-Score
 icite_gwas[, rcras_pmid := (log2(relative_citation_ratio)+1)/study_perpmid_count]
 icite_gwas <- icite_gwas[gene_r_count>0 | gene_m_count>0] #Need genes to be useful
@@ -85,9 +83,11 @@ icite_gwas[gene_m_count==0, gene_m_count := NA]
 icite_gwas[, rcras_study := 1/gene_r_count * rcras_pmid]
 icite_gwas[is.na(rcras_study), rcras_study := 0]
 icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_ratio, rcras_pmid, rcras_study, trait_count, gene_r_count, gene_m_count, study_perpmid_count)]
+setkey(icite_gwas, pmid, STUDY_ACCESSION)
 ###
 # TO BE COMPLETED. 
 # For each gt, sum rcras_study over PMIDs and studies to compute rcras_gt, and add column to gt_stats.
+# USE SAME LOOPS?
 ###
 
 #
@@ -104,6 +104,10 @@ trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 writeLines(sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION)))
 # MAPPED_GENE field may include chromosomal locations
 writeLines(sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE)))
+#
+assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
+assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
+writeLines(sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE)))
 ###
 gsyms_tcrd <- unique(tcrd$protein_sym)
 writeLines(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
@@ -158,15 +162,20 @@ gt_stats <- data.table(gsymb=rep(NA, NROW), trait_uri=rep(NA, NROW),
 	n_traits_g=rep(NA, NROW), 
 	n_genes_t=rep(NA, NROW),
 	pvalue_mlog_median=rep(NA, NROW),
-	or_median=rep(NA, NROW))
+	or_median=rep(NA, NROW),
+	rcras=rep(NA, NROW)
+	)
 #
 writeLines(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d\n", nrow(gt_stats)));
 i_row <- 0 #gt_stats populated row count
-for (gsymb in unique(g2t$GSYMB)) { #gene-loop
+t0 <- proc.time()
+# gene-loop:
+for (gsymb in unique(g2t$GSYMB)) {
   n_traits_g <- uniqueN(g2t[GSYMB==gsymb, TRAIT_URI]) #n_traits for gene
   gt_stats$gsymb[i_row+1:i_row+n_traits_g] <- gsymb
   gt_stats$n_traits_g[i_row+1:i_row+n_traits_g] <- n_traits_g
-  for (trait_uri in unique(g2t[GSYMB==gsymb, TRAIT_URI])) { #trait-loop
+  # trait-loop:
+  for (trait_uri in unique(g2t[GSYMB==gsymb, TRAIT_URI])) {
     if ((i_row%%10000)==0) {
       message(sprintf("i_row: %d / %d (%.1f%%) ; %s, elapsed: %.1fs", i_row, NROW, 100*i_row/NROW, Sys.time(), (proc.time()-t0)[3]))
     }
@@ -177,6 +186,22 @@ for (gsymb in unique(g2t$GSYMB)) { #gene-loop
     gt_stats$n_snp[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, SNP])
     gt_stats$pvalue_mlog_median[i_row] <- median(g2t[TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
     gt_stats$or_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
+    #
+    rcras <- 0.0
+    for (stacc in unique(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
+      grc <- gwas_counts[study_accession==stacc, gene_r_count]
+      if (is.na(grc) | length(grc)==0 | grc==0) { next; }
+      rcras_study <- 0.0
+      for (pmid_this in icite_gwas[STUDY_ACCESSION==stacc, pmid]) {
+        spp <- icite_gwas[STUDY_ACCESSION==stacc & pmid==pmid_this, study_perpmid_count]
+        if (is.na(spp) | spp==0) { next; }
+        rcr <- icite_gwas[STUDY_ACCESSION==stacc & pmid==pmid_this, relative_citation_ratio]
+        if (is.na(rcr) | rcr==0.0) { next; }
+        rcras_study <- rcras_study + (log2(rcr) + 1)/spp
+      }
+      rcras <- rcras + rcras_study
+    }
+    gt_stats$rcras[i_row] <- rcras
   }
 }
 Sys.time()

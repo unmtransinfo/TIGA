@@ -215,7 +215,11 @@ trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 trait[, trait_id := sub("^.*/", "", TRAIT_URI)]
 sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION))
 sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE))
-sprintf("REPORTED_GENE(S) values: %d", uniqueN(assn[["REPORTED_GENE(S)"]]))
+#
+assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
+assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
+sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE))
+#
 gsyms_tcrd <- unique(tcrd$protein_sym)
 sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd))
 gsyms_gwax <- unique(snp2gene$GSYMB)
