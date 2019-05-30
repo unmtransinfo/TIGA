@@ -123,50 +123,48 @@ tcrd$idg2 <- as.logical(tcrd$idg2)
 t2 <- table(tcrd$tdl[tcrd$in_gwascat])
 writeLines(sprintf("%s: %d", names(t2), t2))
 ###
+# Currently, we require OR and ignore BETA. (TO BE ADDRESSED.)
+assn <- assn[!is.na(oddsratio)]
 ### g2t should have one row for each gene-snp-study-trait association.
 g2t <- unique(snp2gene[, c("GSYMB", "SNP", "STUDY_ACCESSION")])
-g2t <- merge(g2t, assn[, c("SNPS", "STUDY_ACCESSION","PVALUE_MLOG","OR_or_BETA","oddsratio","beta")], 
+g2t <- merge(g2t, assn[, c("SNPS", "STUDY_ACCESSION","PVALUE_MLOG","oddsratio","beta")], 
 	all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
 
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
 g2t <- g2t[!is.na(GSYMB)]
-g2t <- g2t[!is.na(OR_or_BETA)]
+g2t <- g2t[!is.na(oddsratio)]
 g2t <- g2t[!grepl("(^LOC|^intergenic)", GSYMB)] #non-coding RNA, etc.
 
 message(sprintf("DEBUG: with pvalue_mlog, g2t: %d ; genes: %d ; traits: %d",
 	 nrow(g2t[!is.na(g2t$PVALUE_MLOG),]),
 	 uniqueN(g2t$GSYMB[!is.na(g2t$PVALUE_MLOG)]),
 	 uniqueN(g2t$TRAIT[!is.na(g2t$PVALUE_MLOG)])))
-message(sprintf("DEBUG: with or_or_beta, g2t: %d ; genes: %d ; traits: %d",
-	 nrow(g2t[!is.na(g2t$OR_or_BETA),]),
-	 uniqueN(g2t$GSYMB[!is.na(g2t$OR_or_BETA)]),
-	 uniqueN(g2t$TRAIT[!is.na(g2t$OR_or_BETA)])))
-message(sprintf("DEBUG: with oddsratio, g2t: %d ; genes: %d ; traits: %d",
+message(sprintf("DEBUG: with OR, g2t: %d ; genes: %d ; traits: %d",
 	 nrow(g2t[!is.na(g2t$oddsratio),]),
 	 uniqueN(g2t$GSYMB[!is.na(g2t$oddsratio)]),
 	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)])))
-message(sprintf("DEBUG: with beta, g2t: %d ; genes: %d ; traits: %d",
-	 nrow(g2t[!is.na(g2t$beta),]),
-	 uniqueN(g2t$GSYMB[!is.na(g2t$beta)]),
-	 uniqueN(g2t$TRAIT[!is.na(g2t$beta)])))
+#message(sprintf("DEBUG: with BETA, g2t: %d ; genes: %d ; traits: %d",
+#	 nrow(g2t[!is.na(g2t$beta),]),
+#	 uniqueN(g2t$GSYMB[!is.na(g2t$beta)]),
+#	 uniqueN(g2t$TRAIT[!is.na(g2t$beta)])))
 ###
 ### GENE-TRAIT stats
 ### From g2t, create gt_stats table for TSV export.
-### Too slow (~4h). Vectorize/optimize!
+### Too slow. Vectorize/optimize!
 NROW <- 0
 for (gsymb in unique(g2t$GSYMB)) {
   NROW <- NROW + uniqueN(g2t[GSYMB==gsymb, TRAIT_URI])
 }
 gt_stats <- data.table(gsymb=rep(NA, NROW), trait_uri=rep(NA, NROW),
-	trait=rep(NA, NROW), n_study=rep(NA, NROW), n_snp=rep(NA, NROW),
-	n_traits_g=rep(NA, NROW), 
-	n_genes_t=rep(NA, NROW),
-	pvalue_mlog_median=rep(NA, NROW),
-	or_median=rep(NA, NROW),
-	rcras=rep(NA, NROW)
+	trait=rep(NA, NROW), n_study=as.integer(rep(NA, NROW)), n_snp=as.integer(rep(NA, NROW)),
+	n_traits_g=as.integer(rep(NA, NROW)),
+	n_genes_t=as.integer(rep(NA, NROW)),
+	pvalue_mlog_median=as.double(rep(NA, NROW)),
+	or_median=as.double(rep(NA, NROW)),
+	rcras=as.double(rep(NA, NROW))
 	)
 #
-writeLines(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d\n", nrow(gt_stats)));
+message(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d", nrow(gt_stats)))
 i_row <- 0 #gt_stats populated row count
 t0 <- proc.time()
 # gene-loop:
@@ -204,18 +202,23 @@ for (gsymb in unique(g2t$GSYMB)) {
     gt_stats$rcras[i_row] <- rcras
   }
 }
-Sys.time()
 for (uri in unique(g2t$TRAIT_URI)) {
   n_genes_t <- uniqueN(g2t[TRAIT_URI==uri, GSYMB])
   gt_stats$n_genes_t[trait_uri==uri] <- n_genes_t
 }
 #
-###
-writeLines(sprintf("Final: nrow(gt_stats) = %d\n", nrow(gt_stats)));
-writeLines(sprintf("DEBUG: sum(is.na(gt_stats$gsymb)) = %d\n", sum(is.na(gt_stats$gsymb))));
-writeLines(sprintf("DEBUG: sum(is.na(gt_stats$n_genes_t)) = %d\n", sum(is.na(gt_stats$n_genes_t))));
-writeLines(sprintf("DEBUG: sum(is.na(gt_stats$n_traits_g)) = %d\n", sum(is.na(gt_stats$n_traits_g))));
+message(sprintf("%s, elapsed: %.1fs", Sys.time(), (proc.time()-t0)[3]))
+message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
+message(sprintf("DEBUG: COUNT, gsymb: %d", sum(!is.na(gt_stats$gsymb))))
+message(sprintf("DEBUG: COUNT, n_genes_t: %d", sum(!is.na(gt_stats$n_genes_t))))
+message(sprintf("DEBUG: COUNT, n_traits_g: %d", sum(!is.na(gt_stats$n_traits_g))))
+message(sprintf("DEBUG: COUNT, pvalue_mlog_median: %d", sum(!is.na(gt_stats$pvalue_mlog_median))))
+message(sprintf("DEBUG: COUNT, rcras: %d", sum(!is.na(gt_stats$rcras))))
+#
 gt_stats <- merge(gt_stats, tcrd[, c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
+gt_stats$pvalue_mlog_median <- round(gt_stats$pvalue_mlog_median, 3)
+gt_stats$rcras <- round(gt_stats$rcras)
 write_delim(gt_stats, ofile, delim="\t")
 ###
-message(sprintf("elapsed time (total): %.2fs",(proc.time()-t0)[3]))
+message(sprintf("%s, elapsed (total): %.2fs", Sys.time(), (proc.time()-t0)[3]))
+

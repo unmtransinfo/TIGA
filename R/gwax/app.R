@@ -1,7 +1,7 @@
 ##########################################################################################
 ### GWAX: GWAS Explorer
 ### gt = gene-trait data
-### Dataset gt_stats.csv from gwascat_gt_stats.R.
+### Dataset gt_stats.tsv from gwascat_gt_stats.R.
 ### Jeremy Yang
 ##########################################################################################
 library(readr)
@@ -11,6 +11,29 @@ library(shinyBS, quietly=T)
 library(DT, quietly=T)
 library(plotly, quietly=T)
 
+##########################################################################################
+pareto_filter <- function(dt, col_a, col_b, n) {
+  if (nrow(dt) < n) { 
+    return(dt[, ok := T]) 
+  }
+  dt$ok <- F
+  n_ok_previous <- 0
+  message(sprintf("DEBUG: max(%s) = %f ; max(%s) = %f ; N = %d", col_a, max(dt[[col_a]], na.rm=T), col_b, max(dt[[col_b]], na.rm=T), n))
+  while (sum(dt$ok) < n) {
+    if (nrow(dt[(!ok)])==0) { break }
+    amax <- max(dt[[col_a]][(!dt$ok)], na.rm=T)
+    bmax <- max(dt[[col_b]][(!dt$ok)], na.rm=T)
+    if (is.na(amax) | is.na(bmax)) { break; }
+    i <- sample(which((!dt$ok) & (dt[[col_a]]==amax)), 1)
+    dt[i]$ok <- T
+    i <- sample(which((!dt$ok) & (dt[[col_b]]==bmax)), 1)
+    dt[i]$ok <- T
+    message(sprintf("DEBUG: n_ok=%d ; n_ok_previous=%d", sum(dt$ok), n_ok_previous))
+    if (sum(dt$ok)==n_ok_previous) { break }
+    n_ok_previous <- sum(dt$ok)
+  }
+  return(dt)
+}
 ##########################################################################################
 APPNAME <- "GWAX"
 MIN_ASSN <- 20
@@ -24,7 +47,7 @@ if (file.exists("gwax.Rdata")) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
     n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
-    pvalue_mlog_median=col_double(), or_median=col_double()))
+    pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double()))
   setDT(gt)
   ###
   traits_df <- gt[!is.na(or_median), .(.N),  by=c("trait", "trait_uri")]
@@ -40,6 +63,9 @@ t_elapsed <- (proc.time()-t0)[3]
 message(sprintf("Gene count: %d", uniqueN(gt$gsymb)))
 message(sprintf("Trait count (total): %d", uniqueN(gt$trait)))
 message(sprintf("Trait count (n_assn>=%d): %d", MIN_ASSN, length(traits)))
+message(sprintf("DEBUG: COUNT or_median: %d", sum(!is.na(gt$or_median))))
+message(sprintf("DEBUG: COUNT pvalue_mlog_median: %d", sum(!is.na(gt$pvalue_mlog_median))))
+message(sprintf("DEBUG: COUNT rcras: %d", sum(!is.na(gt$rcras))))
 #
 db_htm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_load: %.1fs)",
 	uniqueN(gt$gsymb), uniqueN(gt$trait), length(traits), t_elapsed)
@@ -60,6 +86,8 @@ of protein-coding genes associated with traits from genome-wide association stud
 <LI>Well studied traits only available via this app, with minimum associations
 (MIN_ASSN=%d, may be multiple for each gene). Traits are mapped to EFO, HPO,
 Orphanet, PATO or GO, with 91%% mapped to EFO.
+<LI>In this version, OR required and BETA ignored, due to problem of harmonizing varying BETA units
+<i>(TO BE ADDRESSED)</i>.
 </UL>
 <B>Datatypes:</B>
 <UL>
@@ -76,6 +104,7 @@ Orphanet, PATO or GO, with 91%% mapped to EFO.
   <LI><B>N_trait</B>: total traits associated with gene.
   <LI><B>N_snp</B>: SNPs involved with trait-gene association.
   <LI><B>N_study</B>: studies supporting trait-gene association.
+  <LI><B>RCRAS</B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
   </UL>
 </UL>
 Note that this app will accept query parameter <B>efo_id</B> via URL, e.g.
@@ -103,6 +132,7 @@ ui <- fluidPage(
     column(3, 
       wellPanel(
 	selectInput("traitQry", "Query trait", choices=traits, selectize=T, selected=qryTraitRand),
+        sliderInput("maxHits", "Max_hits", 50, 300, 100, step=50),
         sliderInput("minStudy", "Min_study", 1, 5, 1, step=1),
         checkboxGroupInput("tdl_filters", "TDL", choices=tdls, selected=tdls, inline=T),
         checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
@@ -128,6 +158,7 @@ ui <- fluidPage(
         ))),
   bsTooltip("traitQry", "Select from most studied traits.", "top"),
   bsTooltip("minStudy", "Minimum studies cutoff.", "top"),
+  bsTooltip("maxHits", "Max hits cutoff, filtered by Pareto 2D boundary for non-dominated solutions.", "top"),
   bsTooltip("tdl_filters", "Filters: IDG Target Development Levels (TDLs).", "top"),
   bsTooltip("fam_filters", "Filters: IDG protein families.", "top"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
@@ -214,8 +245,10 @@ server <- function(input, output, session) {
     gt_this <- gt_this[tdl %in% intersect(input$tdl_filters, tdls)]
     if (nrow(gt_this)==0) { return(NULL) }   
     gt_this$tdl <- factor(gt_this$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
-    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median)]
-    gt_this <- gt_this[order(-or_median, -n_study, n_traits_g)]
+    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median, rcras)]
+    message(sprintf("DEBUG: hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
+    gt_this <- pareto_filter(gt_this, "or_median", "n_study", input$maxHits)
+    setorder(gt_this, -or_median, -n_study, n_traits_g, -rcras, pvalue_mlog_median)
     return(gt_this)
   })
 
@@ -245,16 +278,18 @@ server <- function(input, output, session) {
     xaxis <- list(title="Evidence (N_study)", range=xrange)
     yaxis <- list(title="Effect (OddsRatio)")
 
-    p <- plot_ly(type='scatter', mode='markers', data=hits(),
-        x=~n_study  + rnorm(nrow(hits()), sd=.05), #Custom jitter
+    p <- plot_ly(type='scatter', mode='markers', data=hits()[(ok)],
+        x=~n_study  + rnorm(nrow(hits()[(ok)]), sd=.05), #Custom jitter
         y=~or_median,
         color=~tdl, colors=c("blue", "green", "red", "black", "gray"),
-        marker=list(symbol="circle", size=50/hits()$n_traits_g),
-        text=paste0(hits()$gsymb, ": ", hits()$name, "<br>",
-        hits()$fam, ", ", hits()$tdl, "<br>",
-        "N_study = ", hits()$n_study, "; ", "N_trait = ", hits()$n_traits_g, "; N_snp = ", hits()$n_snp, "<br>",
-        "OR = ", round(hits()$or_median, digits=2), "; ", 
-        "pVal_MLOG = ", round(hits()$pvalue_mlog_median, digits=2)
+        marker=list(symbol="circle", size=50/hits()[(ok)]$n_traits_g),
+        text=paste0(hits()[(ok)]$gsymb, ": ", hits()[(ok)]$name, "<br>",
+        hits()[(ok)]$fam, ", ", hits()[(ok)]$tdl, "<br>",
+        "N_study = ", hits()[(ok)]$n_study, "; ", "N_trait = ",
+hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
+        "OR = ", round(hits()[(ok)]$or_median, digits=2), "; ", 
+        "pVal_MLOG = ", round(hits()[(ok)]$pvalue_mlog_median, digits=2), "; ",
+        "RCRAS = ", round(hits()[(ok)]$rcras, digits=2)
         )
       ) %>%
       layout(xaxis=xaxis, yaxis=yaxis, 
@@ -262,25 +297,25 @@ server <- function(input, output, session) {
         margin=list(t=100,r=50,b=60,l=60), legend=list(x=.9, y=.95), showlegend=T,
         font=list(family="monospace", size=16)
       ) %>%
-      add_annotations(text=paste0("(N_gene = ", nrow(hits()), ")"), showarrow=F, x=.5, y=1, xref="paper", yref="paper")
+      add_annotations(text=paste0("(N_gene = ", nrow(hits()), "; ", nrow(hits()[(ok)]), " shown)"), showarrow=F, x=.5, y=1, xref="paper", yref="paper")
     return(p)
   })
   
-  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median"
+  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","rcras"
   
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
-    DT::datatable(data=hits(), rownames=F,
+    DT::datatable(data=hits()[(ok)], rownames=F,
 	selection=list(target="row", mode="multiple", selected=NULL),
 	class="cell-border stripe", style="bootstrap",
 	options=list(dom='tip', #dom=[lftipr]
 		autoWidth=T,
 		columnDefs = list(
-		  list(className='dt-center', targets=c(0,2:(ncol(hits())-1))))
+		  list(className='dt-center', targets=c(0,2:(ncol(hits()[(ok)])-1))))
 		#list(visible=F, targets=c(4)) #tdl_color
 	),
-	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR")
-  ) %>% formatRound(digits=2, columns=c(8,9))
+	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","RCRAS")
+  ) %>% formatRound(digits=2, columns=c(8,9,10))
   }, server=T)
 
   hits_export <- reactive({
@@ -289,7 +324,7 @@ server <- function(input, output, session) {
     hits_out[["Trait"]] <- query_trait_name()
     hits_out[["TraitURI"]] <- query_trait_uri()
     hits_out <- hits_out[,c(ncol(hits_out)-1,ncol(hits_out),1:(ncol(hits_out)-2))]
-    names(hits_out) <- c("Trait","TraitURI","GeneSymbol","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR")
+    names(hits_out) <- c("Trait","TraitURI","GeneSymbol","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","RCRAS")
     return(hits_out)
   })
 

@@ -1,4 +1,4 @@
---
+-- Counts linked to GWAS (STUDY_ACCESSION).
 CREATE TABLE
 	gwas_counts
 AS SELECT
@@ -7,8 +7,7 @@ AS SELECT
 	t2.trait_count,
 	t3.assn_count,
 	t4.gene_count AS "gene_r_count",
-	t5.gene_count AS "gene_m_count",
-	t6.study_perpmid_count
+	t5.gene_count AS "gene_m_count"
 FROM
 	gwas
 LEFT OUTER JOIN
@@ -62,15 +61,6 @@ LEFT OUTER JOIN
 	GROUP BY
 		study_accession
 	) t5 ON t5.study_accession = gwas.study_accession
-LEFT OUTER JOIN
-	( SELECT
-		pubmedid,
-		COUNT(DISTINCT study_accession) AS "study_perpmid_count"
-	FROM    
-		gwas
-	GROUP BY
-		pubmedid
-	) t6 ON t6.pubmedid = gwas.pubmedid
 ORDER BY
 	t3.assn_count DESC
 	;

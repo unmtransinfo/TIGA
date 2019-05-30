@@ -375,7 +375,7 @@ sprintf("%s: %s", query_uri, query_trait)
 Selects N non-dominated solutions on 2D multi-objective boundary.
 
 ```{r}
-pareto_filter <- function(dt, a, b, n) {
+pareto_filter <- function(dt, col_a, col_b, n) {
   #How to pass cols as params?
   dt[, ok := F]
   n_ok_previous <- 0
