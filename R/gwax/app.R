@@ -13,23 +13,24 @@ library(plotly, quietly=T)
 
 ##########################################################################################
 pareto_filter <- function(dt, col_a, col_b, n) {
-  if (nrow(dt) < n) { 
-    return(dt[, ok := T]) 
-  }
+  if (nrow(dt) < n) { return(dt[, ok := T]) }
   dt$ok <- F
   n_ok_previous <- 0
-  message(sprintf("DEBUG: max(%s) = %f ; max(%s) = %f ; N = %d", col_a, max(dt[[col_a]], na.rm=T), col_b, max(dt[[col_b]], na.rm=T), n))
+  #message(sprintf("DEBUG: max(%s) = %f ; max(%s) = %f ; N = %d", col_a, max(dt[[col_a]], na.rm=T), col_b, max(dt[[col_b]], na.rm=T), n))
+  # Include non-dominated solutions up to (n).
   while (sum(dt$ok) < n) {
-    if (nrow(dt[(!ok)])==0) { break }
-    amax <- max(dt[[col_a]][(!dt$ok)], na.rm=T)
-    bmax <- max(dt[[col_b]][(!dt$ok)], na.rm=T)
-    if (is.na(amax) | is.na(bmax)) { break; }
-    i <- sample(which((!dt$ok) & (dt[[col_a]]==amax)), 1)
-    dt[i]$ok <- T
-    i <- sample(which((!dt$ok) & (dt[[col_b]]==bmax)), 1)
-    dt[i]$ok <- T
-    message(sprintf("DEBUG: n_ok=%d ; n_ok_previous=%d", sum(dt$ok), n_ok_previous))
-    if (sum(dt$ok)==n_ok_previous) { break }
+    if (sum(!dt$ok)==0) { break } #None left -- should not happen.
+    i_notok <- which(!dt$ok)
+    for (i in i_notok) {
+      a <- dt[[col_a]][i]
+      b <- dt[[col_b]][i]
+      if (sum((!dt$ok) & (dt[[col_a]]>a) & (dt[[col_b]]>b), na.rm=T)==0) {
+        dt[i]$ok <- T
+        break
+      }
+    }
+    #message(sprintf("DEBUG: n_ok=%d ; n_ok_previous=%d", sum(dt$ok), n_ok_previous))
+    if (sum(dt$ok)==n_ok_previous) { break } #No more -- should not happen.
     n_ok_previous <- sum(dt$ok)
   }
   return(dt)
@@ -49,6 +50,8 @@ if (file.exists("gwax.Rdata")) {
     n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
     pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double()))
   setDT(gt)
+  # Why NAs in or_median?
+  gt <- gt[!is.na(or_median)]
   ###
   traits_df <- gt[!is.na(or_median), .(.N),  by=c("trait", "trait_uri")]
   traits_df <- traits_df[N>=MIN_ASSN]
@@ -248,7 +251,7 @@ server <- function(input, output, session) {
     gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median, rcras)]
     message(sprintf("DEBUG: hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
     gt_this <- pareto_filter(gt_this, "or_median", "n_study", input$maxHits)
-    setorder(gt_this, -or_median, -n_study, n_traits_g, -rcras, pvalue_mlog_median)
+    setorder(gt_this, -n_study, -rcras, -or_median, n_traits_g)
     return(gt_this)
   })
 
@@ -302,20 +305,16 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
   })
   
   #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","rcras"
-  
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
-    DT::datatable(data=hits()[(ok)], rownames=F,
+    DT::datatable(data=hits(), rownames=F,
 	selection=list(target="row", mode="multiple", selected=NULL),
 	class="cell-border stripe", style="bootstrap",
-	options=list(dom='tip', #dom=[lftipr]
-		autoWidth=T,
-		columnDefs = list(
-		  list(className='dt-center', targets=c(0,2:(ncol(hits()[(ok)])-1))))
-		#list(visible=F, targets=c(4)) #tdl_color
+	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
+		columnDefs = list(list(className='dt-center', targets=c(0, 2:(ncol(hits())-2))), list(visible=F, targets=ncol(hits())-1)) #Here numbered from 0.
 	),
-	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","RCRAS")
-  ) %>% formatRound(digits=2, columns=c(8,9,10))
+	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","RCRAS","ok")
+  ) %>% formatRound(digits=2, columns=8:10) #Here numbered from 1.
   }, server=T)
 
   hits_export <- reactive({

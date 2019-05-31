@@ -81,7 +81,7 @@ ifile_icite <- "data/gwascat_icite.tsv"
 ifile_tcrd <- "data/tcrd_targets.csv"
 ifile_efo <- "data/efo.tsv"
 ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
-gt_statsfile <- "data/gt_stats.tsv"
+gt_statsfile <- "data/gt_stats.tsv.gz"
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
     ASSOCIATION_COUNT=col_integer()))
@@ -376,25 +376,23 @@ Selects N non-dominated solutions on 2D multi-objective boundary.
 
 ```{r}
 pareto_filter <- function(dt, col_a, col_b, n) {
-  #How to pass cols as params?
-  dt[, ok := F]
+  if (nrow(dt) < n) { return(dt[, ok := T]) }
+  dt$ok <- F
   n_ok_previous <- 0
-  #message(sprintf("DEBUG: max(%s) = %f ; max(%s) = %f ; N = %d", "or_median", max(dt[, or_median]), "n_study", max(dt[, n_study]), n))
-  while (sum(dt[, ok]) < n) {
-    if (nrow(dt[(!ok)])==0) {
-      break
+  # Include non-dominated solutions up to (n).
+  while (sum(dt$ok) < n) {
+    if (sum(!dt$ok)==0) { break } #None left -- should not happen.
+    i_notok <- which(!dt$ok)
+    for (i in i_notok) {
+      a <- dt[[col_a]][i]
+      b <- dt[[col_b]][i]
+      if (sum((!dt$ok) & (dt[[col_a]]>a) & (dt[[col_b]]>b), na.rm=T)==0) {
+        dt[i]$ok <- T
+        break
+      }
     }
-    amax <- max(dt[(!ok), or_median])
-    bmax <- max(dt[(!ok), n_study])
-
-    dt[(!ok) & (or_median==amax)][order(-n_study)][1]$ok <- T
-    dt[(!ok) & (n_study==bmax)][order(-or_median)][1]$ok <- T
-    
-    #message(sprintf("DEBUG: n_ok=%d ; n_ok_previous=%d", sum(dt[, ok]), n_ok_previous))
-    if (sum(dt[, ok])==n_ok_previous) {
-      break
-    }
-    n_ok_previous <- sum(dt[, ok])
+    if (sum(dt$ok)==n_ok_previous) { break } #No more -- should not happen.
+    n_ok_previous <- sum(dt$ok)
   }
   return(dt)
 }
@@ -407,7 +405,7 @@ t2g <- gt[trait_uri==query_uri]
 t2g <- t2g[!is.na(gsymb)]
 t2g <- t2g[!is.na(or_median)]
 #t2g[, specificity := (1/n_traits_g)]
-NMAX_PLOT <- 200
+NMAX_PLOT <- 100
 t2g <- pareto_filter(t2g, "or_median", "n_study", NMAX_PLOT)
 message(sprintf("Pareto filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
 ```
@@ -417,7 +415,6 @@ message(sprintf("Pareto filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
 ```{r}
 t2g[is.na(tdl), tdl := "NA"]
 t2g$tdl <- factor(t2g$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
-#t2g[, markersize := 5*log(pvalue_mlog_median+1)]
 t2g[, markersize := 15/n_traits_g]
 t2g[, text := paste0(gsymb, "<br>", name, "<br>", "Family: ", fam, "<br>", "TDL: ", tdl, "<br>", "n_traits_this_gene=", n_traits_g, " ; n_snp=", n_snp, " ; n_study=", n_study, " ; pval_median=", 10^(-pvalue_mlog_median))]
 plot_ly(type='scatter', mode='markers', data=t2g[(ok)], 
@@ -429,5 +426,12 @@ plot_ly(type='scatter', mode='markers', data=t2g[(ok)],
         title=paste0("GWAX: ", query_trait, "<br>(Trait_ID: ", sub('^.*/', '', query_uri), ")"),
         margin=list(t=100,r=50,b=60,l=60), legend=list(x=.75, y=.9), showlegend=T, font=list(family="monospace", size=18)) %>%
   add_annotations(text=sprintf("N_gene = %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
+```
+
+Top hits:
+
+```{r}
+setorder(t2g, -n_study, -rcras, -or_median, pvalue_mlog_median)
+knitr::kable(t2g[(ok)][1:10][, .(gsymb, name, fam, tdl, n_study, rcras, or_median, pvalue_mlog_median)], caption=sprintf("GWAX: %s, top hits", query_trait))
 ```
 

@@ -159,9 +159,9 @@ gt_stats <- data.table(gsymb=rep(NA, NROW), trait_uri=rep(NA, NROW),
 	trait=rep(NA, NROW), n_study=as.integer(rep(NA, NROW)), n_snp=as.integer(rep(NA, NROW)),
 	n_traits_g=as.integer(rep(NA, NROW)),
 	n_genes_t=as.integer(rep(NA, NROW)),
-	pvalue_mlog_median=as.double(rep(NA, NROW)),
-	or_median=as.double(rep(NA, NROW)),
-	rcras=as.double(rep(NA, NROW))
+	pvalue_mlog_median=rep(NA, NROW),
+	or_median=rep(NA, NROW),
+	rcras=rep(NA, NROW)
 	)
 #
 message(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d", nrow(gt_stats)))
@@ -195,7 +195,7 @@ for (gsymb in unique(g2t$GSYMB)) {
         if (is.na(spp) | spp==0) { next; }
         rcr <- icite_gwas[STUDY_ACCESSION==stacc & pmid==pmid_this, relative_citation_ratio]
         if (is.na(rcr) | rcr==0.0) { next; }
-        rcras_study <- rcras_study + (log2(rcr) + 1)/spp
+        rcras_study <- rcras_study + log2(rcr+1)/spp
       }
       rcras <- rcras + rcras_study
     }
@@ -216,8 +216,9 @@ message(sprintf("DEBUG: COUNT, pvalue_mlog_median: %d", sum(!is.na(gt_stats$pval
 message(sprintf("DEBUG: COUNT, rcras: %d", sum(!is.na(gt_stats$rcras))))
 #
 gt_stats <- merge(gt_stats, tcrd[, c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
-gt_stats$pvalue_mlog_median <- round(gt_stats$pvalue_mlog_median, 3)
-gt_stats$rcras <- round(gt_stats$rcras)
+gt_stats$or_median <- round(as.double(gt_stats$or_median), 3)
+gt_stats$pvalue_mlog_median <- round(as.double(gt_stats$pvalue_mlog_median), 3)
+gt_stats$rcras <- round(as.double(gt_stats$rcras), 3)
 write_delim(gt_stats, ofile, delim="\t")
 ###
 message(sprintf("%s, elapsed (total): %.2fs", Sys.time(), (proc.time()-t0)[3]))
