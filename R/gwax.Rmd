@@ -19,15 +19,18 @@ and thresholds will depend on use cases.
 
 * Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) v1.0.2, Sept 30, 2018.
 * Workflow designed for integration with TCRD & Pharos
-* iCite Relative Citation Ratio (RCR) integration (in development)
-* EFO subclass linking of related studies (in development)
+* RCRAS, Relative Citation Ratio (RCR) Aggregated Score based on iCite-RCR
 * Prototype RShiny app: <http://unmtid-shinyapps.net/gwax/>
 
-Issues/to-do:
+Issues:
 
-* Confidence scoring for SNP-gene mappings ("auto-semi-fine mapping" possible?)
-* Confidence higher for `reported` or `mapped` ?
 * BETA not comparable for different units, thus currently only OR used for GWAX.
+
+To-do:
+
+* Confidence scoring for SNP-gene mappings.
+* Confidence higher for `reported` or `mapped`? Current guess: `reported`.
+* EFO subclass linking of related studies.
 * Polygenic diseases/traits: Filter if less suitable for GWAS-based drug target discovery use cases.
 
 ## About NHGRI-EBI GWAS Catalog
@@ -38,11 +41,11 @@ See <https://www.ebi.ac.uk/gwas/docs/fileheaders>.
 
 Some key definitions:
 
+	`REPORTED GENE(S)`*: Gene(s) reported by author
+	
 	`MAPPED GENE(S)`: Gene(s) mapped to the strongest SNP. If the SNP is located
 	within a gene, that gene is listed. If the SNP is intergenic, the upstream
 	and downstream genes are listed, separated by a hyphen.
-
-	`REPORTED GENE(S)`*: Gene(s) reported by author
 
 	`OR or BETA`: Reported odds ratio or beta-coefficient associated with
 	strongest SNP risk allele. Note that if an OR <1 is reported this is
@@ -62,7 +65,7 @@ knitr::opts_chunk$set(echo=FALSE, message=FALSE)
 base::date()
 ```
 
-```{r warning=FALSE}
+```{r message=FALSE, warning=FALSE}
 library(readr, quietly=T)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
@@ -416,13 +419,13 @@ message(sprintf("Pareto filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
 t2g[is.na(tdl), tdl := "NA"]
 t2g$tdl <- factor(t2g$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
 t2g[, markersize := 15/n_traits_g]
-t2g[, text := paste0(gsymb, "<br>", name, "<br>", "Family: ", fam, "<br>", "TDL: ", tdl, "<br>", "n_traits_this_gene=", n_traits_g, " ; n_snp=", n_snp, " ; n_study=", n_study, " ; pval_median=", 10^(-pvalue_mlog_median))]
+t2g[, text := paste0(gsymb, "<br>", name, "<br>", "Family: ", fam, "<br>", "TDL: ", tdl, "<br>", "n_traits_this_gene=", n_traits_g, " ; n_snp=", n_snp, " ; n_study=", n_study, " ; pval_median=", sprintf("%.2g",10^(-pvalue_mlog_median)))]
 plot_ly(type='scatter', mode='markers', data=t2g[(ok)], 
   color=~tdl, colors=c("blue", "green", "red", "black", "gray"),
 	x=~n_study + rnorm(sum(t2g$ok), sd=.05), #Custom jitter
 	y=~or_median, marker=list(symbol="circle", size=~markersize), text=~text) %>%
-  layout(xaxis=list(type="log", title="Evidence (n_study)"), 
-         yaxis=list(type="log", title="Effect (median(OR))"), 
+  layout(xaxis=list(type="log", title="Evidence (N_study)"), 
+         yaxis=list(type="log", title="Effect (OddsRatio)"), 
         title=paste0("GWAX: ", query_trait, "<br>(Trait_ID: ", sub('^.*/', '', query_uri), ")"),
         margin=list(t=100,r=50,b=60,l=60), legend=list(x=.75, y=.9), showlegend=T, font=list(family="monospace", size=18)) %>%
   add_annotations(text=sprintf("N_gene = %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")

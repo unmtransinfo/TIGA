@@ -74,7 +74,8 @@ db_htm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_loa
 	uniqueN(gt$gsymb), uniqueN(gt$trait), length(traits), t_elapsed)
 ###
 tdls <- c("Tclin", "Tchem", "Tbio", "Tdark")
-idgfams <- c("GPCR", "Kinase", "IC", "Enzyme", "NR", "Transporter", "TF", "Epigenetic", "TF; Epigenetic", "Other")
+idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
+axes <- c("Effect", "Evidence")
 #
 qryTraitRand <- sample(traits, 1)
 #
@@ -139,12 +140,13 @@ ui <- fluidPage(
         sliderInput("minStudy", "Min_study", 1, 5, 1, step=1),
         checkboxGroupInput("tdl_filters", "TDL", choices=tdls, selected=tdls, inline=T),
         checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
+	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=axes, inline=T),
         br(),
 	actionButton("randQuery", "Demo", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
 	actionButton("goRefresh", "Refresh", style='padding:4px;background-color:#DDDDDD;font-weight:bold'),
 	actionButton("showHelp", "Help", style='padding:4px;background-color:#DDDDDD; font-weight:bold')
       )),
-    column(9, plotlyOutput("plot", height = "500px"))),
+    column(9, plotlyOutput("plot", height = "600px"))),
   fluidRow(column(12, DT::dataTableOutput("datarows"))),
   fluidRow(column(12, downloadButton("hits_file", label="Download"))),
   fluidRow(column(12, wellPanel(htmlOutput(outputId="result_htm", height="60px")))),
@@ -243,7 +245,7 @@ server <- function(input, output, session) {
   hits <- reactive({
     gt_this <- gt[(trait_uri==query_trait_uri()) & (n_study>=input$minStudy)]
     if (nrow(gt_this)==0) { return(NULL) }
-    gt_this <- gt_this[(fam %in% intersect(input$fam_filters, idgfams)) | (("Other" %in% input$fam_filters) & is.na(fam))]
+    gt_this <- gt_this[(fam %in% input$fam_filters) | (("Other" %in% input$fam_filters) & (is.na(fam) | !(fam %in% idgfams)))]
     if (nrow(gt_this)==0) { return(NULL) }
     gt_this <- gt_this[tdl %in% intersect(input$tdl_filters, tdls)]
     if (nrow(gt_this)==0) { return(NULL) }   
@@ -277,27 +279,28 @@ server <- function(input, output, session) {
 
   output$plot <- renderPlotly({
     if (is.null(hits())) { return(NULL) }
-    xrange <- c(input$minStudy-.5, max(hits()$n_study, input$minStudy+2)+.5)
-    xaxis <- list(title="Evidence (N_study)", range=xrange)
-    yaxis <- list(title="Effect (OddsRatio)")
+    #xrange <- c(input$minStudy-.8, max(hits()$n_study, input$minStudy+2)+.5)
+    xrange <- NULL
+    xaxis <- list(title="Evidence (N_study)", range=xrange, type=ifelse("Evidence" %in% input$logaxes, "log", "normal"))
+    yaxis <- list(title="Effect (OddsRatio)", type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
 
     p <- plot_ly(type='scatter', mode='markers', data=hits()[(ok)],
-        x=~n_study  + rnorm(nrow(hits()[(ok)]), sd=.05), #Custom jitter
+        x=~n_study  + rnorm(nrow(hits()[(ok)]), sd=(.01*(max(hits()$n_study)-input$minStudy))), #Custom jitter
         y=~or_median,
         color=~tdl, colors=c("blue", "green", "red", "black", "gray"),
-        marker=list(symbol="circle", size=50/hits()[(ok)]$n_traits_g),
+        marker=list(symbol="circle", size=pmax(10, 50/hits()[(ok)]$n_traits_g)),
         text=paste0(hits()[(ok)]$gsymb, ": ", hits()[(ok)]$name, "<br>",
         hits()[(ok)]$fam, ", ", hits()[(ok)]$tdl, "<br>",
         "N_study = ", hits()[(ok)]$n_study, "; ", "N_trait = ",
 hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
         "OR = ", round(hits()[(ok)]$or_median, digits=2), "; ", 
-        "pVal_MLOG = ", round(hits()[(ok)]$pvalue_mlog_median, digits=2), "; ",
+        "pVal = ", sprintf("%.2g", 10^(-hits()[(ok)]$pvalue_mlog_median)), "; ",
         "RCRAS = ", round(hits()[(ok)]$rcras, digits=2)
         )
       ) %>%
       layout(xaxis=xaxis, yaxis=yaxis, 
         title=paste0(query_trait_name(), "<br>", "(", input$traitQry, ")"),
-        margin=list(t=100,r=50,b=60,l=60), legend=list(x=.9, y=.95), showlegend=T,
+        margin=list(t=100,r=50,b=60,l=60), legend=list(x=.9, y=.95, marker=list(size=20)), showlegend=T,
         font=list(family="monospace", size=16)
       ) %>%
       add_annotations(text=paste0("(N_gene = ", nrow(hits()), "; ", nrow(hits()[(ok)]), " shown)"), showarrow=F, x=.5, y=1, xref="paper", yref="paper")

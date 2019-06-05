@@ -182,7 +182,7 @@ for (gsymb in unique(g2t$GSYMB)) {
     gt_stats$trait[i_row] <- g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, TRAIT][1]
     gt_stats$n_study[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])
     gt_stats$n_snp[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, SNP])
-    gt_stats$pvalue_mlog_median[i_row] <- median(g2t[TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
+    gt_stats$pvalue_mlog_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
     gt_stats$or_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
     #
     rcras <- 0.0
