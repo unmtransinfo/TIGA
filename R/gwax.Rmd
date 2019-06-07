@@ -5,6 +5,8 @@ output:
   html_document:
     number_sections: yes
     toc: yes
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Introduction
@@ -83,6 +85,7 @@ ifile_trait <- "data/gwascat_trait.tsv"
 ifile_icite <- "data/gwascat_icite.tsv"
 ifile_tcrd <- "data/tcrd_targets.csv"
 ifile_efo <- "data/efo.tsv"
+ifile_efo2do <- "data/ebi-oxo_efo2doid_mappings_maxd-2.tsv"
 ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
 gt_statsfile <- "data/gt_stats.tsv.gz"
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
@@ -311,6 +314,19 @@ setDT(efo_gwas)
 sprintf("GWAS studies related by EFO-subclass: %d", uniqueN(union(efo_gwas$trait_uri, efo_gwas$subclass_uri)))
 ```
 
+## EFO to DOID (Disease Ontology ID)
+
+```{r}
+efo2do <- read_delim(ifile_efo2do, "\t", col_types=cols(.default=col_character()))
+setDT(efo2do)
+efo2do$curie_id = sub(":", "_", efo2do$curie_id, fixed=T)
+efo2do$mapped_curie = sub(":", "_", efo2do$mapped_curie, fixed=T)
+setnames(efo2do, old=c("curie_id",  "mapped_curie"), new=c("efo_id", "do_id"))
+gwas_efo_ids <- unique(sub("^.*/", "", efo_gwas$trait_uri))
+sprintf("Total GWAS EFO_IDs: %d ; mapped to DO_IDs: %d", 
+        length(gwas_efo_ids),
+        length(intersect(gwas_efo_ids, efo2do$efo_id)))
+```
 
 # GENE-TRAIT stats
 
