@@ -4,6 +4,9 @@
 ### gt_stats.tsv is used by GWAX web app.
 ### NHGRI-EBI GWAS Catalog: http://www.ebi.ac.uk/gwas/
 #############################################################################
+### According to EBI, additional information is available via the API,
+### see https://www.ebi.ac.uk/gwas/docs/api
+#############################################################################
 ### Jeremy Yang
 #############################################################################
 #

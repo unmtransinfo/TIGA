@@ -5,8 +5,6 @@ output:
   html_document:
     number_sections: yes
     toc: yes
-editor_options: 
-  chunk_output_type: console
 ---
 
 # Introduction
@@ -21,7 +19,8 @@ and thresholds will depend on use cases.
 
 * Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) v1.0.2, Sept 30, 2018.
 * Workflow designed for integration with TCRD & Pharos
-* RCRAS, Relative Citation Ratio (RCR) Aggregated Score based on iCite-RCR
+* RCRAS, Relative Citation Ratio (RCR) Aggregated Score based on iCite-RCR.
+* Confidence higher (and provenance/accountability) for `mapped` over `reported` SNP-gene associations.
 * Prototype RShiny app: <http://unmtid-shinyapps.net/gwax/>
 
 Issues:
@@ -31,9 +30,11 @@ Issues:
 To-do:
 
 * Confidence scoring for SNP-gene mappings.
-* Confidence higher for `reported` or `mapped`? Current guess: `reported`.
-* EFO subclass linking of related studies.
+* EFO subclass related studies, linking, aggregation, scoring.
+* EFO to DOID linking, aggregation, scoring.
 * Polygenic diseases/traits: Filter if less suitable for GWAS-based drug target discovery use cases.
+* Scoring for polygenicity?
+* Scoring for pleiotropy?
 
 ## About NHGRI-EBI GWAS Catalog
 
@@ -43,12 +44,12 @@ See <https://www.ebi.ac.uk/gwas/docs/fileheaders>.
 
 Some key definitions:
 
-	`REPORTED GENE(S)`*: Gene(s) reported by author
-	
 	`MAPPED GENE(S)`: Gene(s) mapped to the strongest SNP. If the SNP is located
 	within a gene, that gene is listed. If the SNP is intergenic, the upstream
 	and downstream genes are listed, separated by a hyphen.
 
+	`REPORTED GENE(S)`*: Gene(s) reported by author
+	
 	`OR or BETA`: Reported odds ratio or beta-coefficient associated with
 	strongest SNP risk allele. Note that if an OR <1 is reported this is
 	inverted, along with the reported allele, so that all ORs included in
@@ -316,16 +317,29 @@ sprintf("GWAS studies related by EFO-subclass: %d", uniqueN(union(efo_gwas$trait
 
 ## EFO to DOID (Disease Ontology ID)
 
+From EBI Ontology Xref Service (OxO).
+One-to-many and many-to-one mappings exist.
+Keep only closest mappings, maximum distance=2.
+
 ```{r}
 efo2do <- read_delim(ifile_efo2do, "\t", col_types=cols(.default=col_character()))
 setDT(efo2do)
-efo2do$curie_id = sub(":", "_", efo2do$curie_id, fixed=T)
-efo2do$mapped_curie = sub(":", "_", efo2do$mapped_curie, fixed=T)
-setnames(efo2do, old=c("curie_id",  "mapped_curie"), new=c("efo_id", "do_id"))
+efo2do[, `:=`(curie_id = sub(":", "_", curie_id, fixed=T), mapped_curie = sub(":", "_", mapped_curie, fixed=T), mapping_source_prefix = NULL, mapping_target_prefix = NULL)]
+setnames(efo2do, old=c("curie_id", "label",  "mapped_curie", "mapped_label"), new=c("efo_id", "efo_name", "do_id", "doid_name"))
+efo2do <- efo2do[, .SD[distance == min(distance)], by=c("efo_id", "do_id")] #keep only closest mappings
 gwas_efo_ids <- unique(sub("^.*/", "", efo_gwas$trait_uri))
-sprintf("Total GWAS EFO_IDs: %d ; mapped to DO_IDs: %d", 
-        length(gwas_efo_ids),
-        length(intersect(gwas_efo_ids, efo2do$efo_id)))
+efo2do_gwas <- efo2do[(efo_id %in% gwas_efo_ids)]
+setorder(efo2do_gwas, efo_id, do_id)
+sprintf("GWAS EFO_IDs (Total): %d", length(gwas_efo_ids))
+sprintf("GWAS EFO_ID to DO_ID mappings (distance<=2): EFO_IDs: %d, DO_IDs: %d", 
+        uniqueN(efo2do_gwas[, efo_id]), uniqueN(efo2do_gwas[, do_id]))
+sprintf("GWAS EFO_ID to DO_ID mappings (efo_name=doid_name): EFO_IDs: %d, DO_IDs: %d", 
+        uniqueN(efo2do_gwas[efo_name==doid_name, efo_id]), uniqueN(efo2do_gwas[efo_name==doid_name, do_id]))
+sprintf("GWAS EFO_ID to DO_ID mappings (distance=1): EFO_IDs: %d, DO_IDs: %d", 
+        uniqueN(efo2do_gwas[distance==1, efo_id]), uniqueN(efo2do_gwas[distance==1, do_id]))
+sprintf("GWAS EFO_ID to DO_ID mappings (distance=2): EFO_IDs: %d, DO_IDs: %d", 
+        uniqueN(efo2do_gwas[distance==2, efo_id]), uniqueN(efo2do_gwas[distance==2, do_id]))
+knitr::kable(efo2do_gwas[sample(1:nrow(efo2do_gwas), 10)], caption="EBI OXO EFO-DOID (sample)")
 ```
 
 # GENE-TRAIT stats
@@ -333,7 +347,6 @@ sprintf("Total GWAS EFO_IDs: %d ; mapped to DO_IDs: %d",
 Read gt_stats.tsv, built by gwax_gt_stats.R for GWAX. Statistics designed to weigh evidence aggregated across
 studies, for each gene-trait association.
 
-___TO DO:___ Add EFO subclass based evidence aggregation scores.
 
 ```{r}
 gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
