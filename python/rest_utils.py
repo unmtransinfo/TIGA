@@ -58,7 +58,7 @@ def RequestURL(url,headers,data,usr,pw,parse_json,parse_xml,nmax_retry,verbose):
       if not f:
         print('ERROR: urlopen failed.',file=sys.stderr)
         return None
-      ftxt=f.read()
+      fbytes=f.read()
       f.close()
     except urllib.request.HTTPError as e:
       if e.code==404:
@@ -80,17 +80,18 @@ def RequestURL(url,headers,data,usr,pw,parse_json,parse_xml,nmax_retry,verbose):
       return None
     break
 
-  if ftxt.strip()=='': return None
+  if fbytes.strip()=='': return None
 
   if parse_json:
     try:
-      rval=json.loads(ftxt.decode('unicode_escape'), encoding='utf_8')
+      rval=json.loads(fbytes.decode('utf_8'), encoding='utf_8')
     except ValueError as e:
       try:
         ### Should not be necessary.  Backslash escapes allowed in JSON.
-        ftxt_fix=ftxt.replace(r'\"','&quot;').replace(r'\\','')
+        ftxt_fix=fbytes.decode('utf_8').replace(r'\"','&quot;').replace(r'\\','')
+        ftxt_fix=ftxt_fix.replace(r'\r','\\\\r') #ok?
         ftxt_fix=ftxt_fix.replace(r'\n','\\\\n') #ok?
-        rval=json.loads(ftxt_fix.decode('unicode_escape'), encoding='utf_8')
+        rval=json.loads(ftxt_fix, encoding='utf_8')
         if verbose>1:
           print('Apparently fixed JSON Error: %s'%e,file=sys.stderr)
         if verbose>2:
@@ -100,15 +101,15 @@ def RequestURL(url,headers,data,usr,pw,parse_json,parse_xml,nmax_retry,verbose):
         if verbose:
           print('Failed to fix JSON Error: %s'%e,file=sys.stderr)
           print('DEBUG: ftxt_fix="%s"'%ftxt_fix,file=sys.stderr)
-        rval=ftxt
+        rval=fbytes.decode('utf_8')
   elif parse_xml:
     try:
-      rval=ParseXml(ftxt)
+      rval=ParseXml(fbytes.decode('utf_8'))
     except Exception as e:
       if verbose: print('XML Error: %s'%e,file=sys.stderr)
-      rval=ftxt
+      rval=fbytes.decode('utf_8')
   else: #raw
-    rval=ftxt
+    rval=fbytes.decode('utf_8')
 
   return rval
 
