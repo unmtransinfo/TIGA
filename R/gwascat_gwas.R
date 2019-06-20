@@ -3,6 +3,7 @@
 ### Clean studies file.
 #############################################################################
 library(readr)
+library(data.table)
 
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)==2) {
@@ -19,12 +20,14 @@ writeLines(sprintf("Input: %s", ifile))
 writeLines(sprintf("Output: %s", ofile))
 
 gwas <- read_delim(ifile, "\t")
+setDT(gwas)
 
-colnames(gwas) <- gsub("[ \\./]","_",colnames(gwas))
-colnames(gwas) <- gsub("__","_",colnames(gwas))
-colnames(gwas) <- gsub("_$","",colnames(gwas))
+setnames(gwas, gsub("[ \\./]","_",colnames(gwas)))
+setnames(gwas, gsub("__","_",colnames(gwas)))
+setnames(gwas, gsub("_$","",colnames(gwas)))
 
-gwas <- gwas[complete.cases(gwas[,c("STUDY_ACCESSION","PUBMEDID","DISEASE_TRAIT")]),]
+#Unnecessary; all studies have these fields.
+#gwas <- gwas[complete.cases(gwas[,c("STUDY_ACCESSION","PUBMEDID","DISEASE_TRAIT")]),]
 
 #Convert special chars.
 for (tag in colnames(gwas)) {
@@ -33,6 +36,20 @@ for (tag in colnames(gwas)) {
     gwas[[tag]] <- iconv(gwas[[tag]], from="latin1", to="UTF-8")
   }
 }
+
+# Parse study_N from INITIAL_SAMPLE_SIZE
+gwas[, study_N := INITIAL_SAMPLE_SIZE]
+gwas[, study_N := gsub("PMID:[0-9]+", "", study_N)]
+gwas[, study_N := gsub("[^0-9,]+", "\t", study_N)]
+gwas[, study_N := gsub(",", "", study_N)]
+gwas[, study_N := sub("^\t", "", study_N)]
+gwas[, study_N := gsub("\t\t*", "\t", study_N)]
+gwas[, study_N := sub("\t$", "", study_N)]
+gwas[, study_N := gsub("\t", "+", study_N)]
+gwas[, study_N := sapply(sapply(study_N, str2lang), eval)]
+gwas[, study_N := as.integer(study_N)]
+writeLines(sprintf("UNPARSED INITIAL_SAMPLE_SIZE: %s", gwas[is.na(study_N), INITIAL_SAMPLE_SIZE]))
+
 
 writeLines(sprintf("Total gwas count: %6d", nrow(gwas)))
 

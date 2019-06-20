@@ -26,6 +26,7 @@ and thresholds will depend on use cases.
 Issues:
 
 * BETA not comparable for different units, thus currently only OR used for GWAX.
+* Linkage Disequilibrium (LD). Should we use [SNPsnap](https://www.broadinstitute.org/mpg/snap/ldsearch.php) to identify LD associates?
 
 To-do:
 
@@ -91,7 +92,7 @@ ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
 gt_statsfile <- "data/gt_stats.tsv.gz"
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
-    ASSOCIATION_COUNT=col_integer()))
+    ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
 setDT(gwas)
 assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
@@ -137,6 +138,22 @@ plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="NR",
          margin = list(t=100, l=100),
          font = list(family="monospace", size=18),
          legend = list(x=.1, y=.9), showlegend=T)
+```
+
+### Sample size
+
+Statistical power and strength of evidence is dependent on size of the cohort.
+
+```{r}
+anns <- c(sprintf("median: %d", median(gwas$study_N)),
+          sprintf("mean: %.1f", mean(gwas$study_N)),
+          sprintf("range: [%d-%d]", min(gwas$study_N), max(gwas$study_N)))
+plot_ly(gwas, type="histogram", x=~study_N) %>%
+  layout(title="GWAS sample sizes",
+         xaxis=list(title="Sample size"), yaxis=list(title="N_Studies"),
+         margin = list(t=100, l=100),
+         font = list(family="monospace", size=18)) %>%
+  add_annotations(text=paste0(anns, collapse="<br>"), showarrow=F, x=0.5, y=.9, xref="paper", yref="paper")
 ```
 
 ### Journals
