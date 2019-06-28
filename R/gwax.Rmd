@@ -94,8 +94,7 @@ gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(),
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
     ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
 setDT(gwas)
-assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), 
-    DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
+assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), `OR or BETA`=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
 setDT(assn)
 snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(),
     REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
@@ -206,6 +205,24 @@ plot_ly(gwas_icite, x=~year, y=~relative_citation_ratio, color = ~journal, type=
 
 ```{r}
 sprintf("Associations total: %d ; SNPs: %d ; traits: %d ; PMIDs: %d", nrow(assn), uniqueN(assn$SNPS), uniqueN(assn$DISEASE_TRAIT), uniqueN(assn$PUBMEDID))
+```
+
+## CONTEXT aka functionalClass
+
+```{r}
+tbl <- table(assn$CONTEXT)
+plot_ly(type="pie", values=tbl, labels=paste0(names(tbl), " (", tbl[names(tbl)], ")"), textinfo="label+percent", textfont=list(size=12) ) %>%
+  layout(showlegend=F)
+```
+
+## (UP|DOWN)STREAM_GENE_DISTANCE
+
+```{r}
+sprintf("Associations with UPSTREAM_GENE_DISTANCE: %d (%.1f%%)", assn[!is.na(UPSTREAM_GENE_DISTANCE), .N], 100*assn[!is.na(UPSTREAM_GENE_DISTANCE), .N]/nrow(assn))
+sprintf("Associations with DOWNSTREAM_GENE_DISTANCE: %d (%.1f%%)", assn[!is.na(DOWNSTREAM_GENE_DISTANCE), .N], 100*assn[!is.na(DOWNSTREAM_GENE_DISTANCE), .N]/nrow(assn))
+
+plot_ly(type="histogram", x=pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T))
+quantile(pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T), na.rm=T)
 ```
 
 

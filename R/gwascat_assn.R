@@ -10,7 +10,13 @@
 ### If 95% CIs are not published, we estimate these using the standard error,
 ### where available."
 #############################################################################
+### Also get UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE for mapping
+### confidence scoring. Also get CONTEXT, functionalClass in API. 
+### INTERGENIC? "RISK ALLELE FREQUENCY"?
+### MERGED?
+#############################################################################
 library(readr)
+library(data.table)
 
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)==2) {
@@ -26,11 +32,12 @@ if (length(args)==2) {
 writeLines(sprintf("Input: %s", ifile))
 writeLines(sprintf("Output: %s", ofile))
 
-assn <- read_delim(ifile, "\t")
+assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), `OR or BETA`=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GNE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
+setDT(assn)
 
-colnames(assn) <- gsub("[ \\./]","_",colnames(assn))
-colnames(assn) <- gsub("__","_",colnames(assn))
-colnames(assn) <- gsub("_$","",colnames(assn))
+setnames(assn, gsub("[ \\./]" ,"_", colnames(assn)))
+setnames(assn, gsub("__" ,"_", colnames(assn)))
+setnames(assn, gsub("_$" ,"", colnames(assn)))
 
 assn <- assn[complete.cases(assn[,c("STUDY_ACCESSION","SNPS","DISEASE_TRAIT")]),]
 
@@ -80,6 +87,8 @@ writeLines(sprintf("Studies with all values >1 (OR?): %d", n_all_or))
 writeLines(sprintf("Studies with all values<=1 (BETA?): %d", n_all_beta))
 writeLines(sprintf("Studies with both values <=1 and >1: %d", n_both))
 
+write_delim(assn, ofile, delim="\t")
+
 tag="beta"
 qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
 writeLines(sprintf("%s %4s-ile: %9.1f",tag,names(qs),qs))
@@ -88,11 +97,9 @@ tag="oddsratio"
 qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
 writeLines(sprintf("%s %4s-ile: %9.1f",tag,names(qs),qs))
 
-write_delim(assn, ofile, delim="\t")
-
 ###
 # Heuristic: all units include (in|de)crease
-assn[["beta_units"]] <- sub("^.*\\] *", "", assn[["95%_CI_(TEXT)"]])
+assn[, beta_units := sub("^.*\\] *", "", `95%_CI_(TEXT)`)]
 assn$beta_units[!grepl("(in|de)crease", assn$beta_units)] <- NA
 tbl <- sort(table(assn$beta_units), decreasing = T)
 writeLines(sprintf("%d. (N=%d) %s", 1:100, tbl[1:100], names(tbl)[1:100]))
@@ -102,3 +109,7 @@ tbl <- as.data.frame(table(assn$beta_units))
 colnames(tbl) <- c("beta_units", "Freq")
 tbl <- tbl[order(-tbl$Freq),]
 writeLines(sprintf("%18s: %3d", tbl$beta_units[1:20], tbl$Freq[1:20]))
+
+# CONTEXT aka functionalClass (via API)
+tbl <- sort(table(assn$CONTEXT), decreasing = T)
+writeLines(sprintf("%d. (N=%d) %s", 1:100, tbl[1:100], names(tbl)[1:100]))
