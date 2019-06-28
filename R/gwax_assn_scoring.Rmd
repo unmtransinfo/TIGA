@@ -40,7 +40,7 @@ annos <- c(
 plots <- list(
   plot_ly(name="Histogram", type="histogram", x=pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T),
               histnorm="probability") %>%
-  add_annotations(text=paste0(annos, collapse="<br>"), x=1, xanchor="right", y=.1, xref="paper", yref="paper", showarrow=F),
+  add_annotations(text=paste0(annos, collapse="<br>"), x=1, xanchor="right", y=.3, yanchor="bottom", xref="paper", yref="paper", showarrow=F),
   plot_ly() %>%
     add_trace(name="ReLU", type="scatter", x=xvals,  mode="lines+markers", marker=list(size=5), y=1-xvals/xmax) %>%
     add_trace(name="Sigmoid", type="scatter", x=xvals, y = exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)))
