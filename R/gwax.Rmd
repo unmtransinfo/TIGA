@@ -211,8 +211,12 @@ sprintf("Associations total: %d ; SNPs: %d ; traits: %d ; PMIDs: %d", nrow(assn)
 
 ```{r}
 tbl <- table(assn$CONTEXT)
-plot_ly(type="pie", values=tbl, labels=paste0(names(tbl), " (", tbl[names(tbl)], ")"), textinfo="label+percent", textfont=list(size=12) ) %>%
-  layout(showlegend=F)
+tbl <- data.table(name = names(tbl), N = as.integer(tbl))
+tbl <- unique(tbl[grepl(";", name), `:=`(name = "Multiple", N = sum(N))])
+plot_ly(type="pie", values=tbl$N, labels=paste0(tbl$name, " (", tbl$N, ")"), textinfo="label+percent", textfont=list(size=12) ) %>%
+  layout(title="Association/SNP functional classes (aka CONTEXT)",
+         margin = list(t=100, b=100),
+         font=list(family="monospace", size=18), showlegend=F)
 ```
 
 ## (UP|DOWN)STREAM_GENE_DISTANCE
@@ -220,9 +224,14 @@ plot_ly(type="pie", values=tbl, labels=paste0(names(tbl), " (", tbl[names(tbl)],
 ```{r}
 sprintf("Associations with UPSTREAM_GENE_DISTANCE: %d (%.1f%%)", assn[!is.na(UPSTREAM_GENE_DISTANCE), .N], 100*assn[!is.na(UPSTREAM_GENE_DISTANCE), .N]/nrow(assn))
 sprintf("Associations with DOWNSTREAM_GENE_DISTANCE: %d (%.1f%%)", assn[!is.na(DOWNSTREAM_GENE_DISTANCE), .N], 100*assn[!is.na(DOWNSTREAM_GENE_DISTANCE), .N]/nrow(assn))
-
-plot_ly(type="histogram", x=pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T))
-quantile(pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T), na.rm=T)
+plot_ly(type="histogram", x=pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T)) %>%
+  layout(title="Association/SNP (UP|DOWN)STREAM_GENE_DISTANCE<br>(closest gene)",
+         margin = list(t=100, r=50),
+         xaxis=list(title="BPs", range=c(0,2e5)), yaxis=list(title="N_snp"),
+         font=list(family="monospace", size=18)) %>%
+  add_annotations(text=sprintf("N_[BP>200k] = %d", assn[pmin(UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE, na.rm=T)>2e5, .N]), x=1, xanchor="right", y=.1, xref="paper", yref="paper", showarrow=F)
+qtl <- quantile(pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T), na.rm=T)
+sprintf("%4sile: %d\n", names(qtl), qtl)
 ```
 
 
