@@ -1,0 +1,60 @@
+---
+title: "GWAX association scoring"
+author: "Jeremy Yang"
+output:
+  html_document
+---
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+base::date()
+```
+
+`UPSTREAM_GENE_DISTANCE`, `DOWNSTREAM_GENE_DISTANCE` for mapping
+confidence scoring. Also get `CONTEXT`, functionalClass in API. 
+`INTERGENIC`? `RISK ALLELE FREQUENCY`?  `MERGED`?
+
+```{r message=FALSE, warning=FALSE}
+library(readr)
+library(data.table)
+library(plotly)
+```
+
+Read association file.
+
+```{r}
+ifile_assn <- "data/gwascat_assn.tsv"
+assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), `OR_or_BETA`=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
+setDT(assn)
+sprintf("Associations with UPSTREAM_GENE_DISTANCE: %d (%.1f%%)", assn[!is.na(UPSTREAM_GENE_DISTANCE), .N], 100*assn[!is.na(UPSTREAM_GENE_DISTANCE), .N]/nrow(assn))
+sprintf("Associations with DOWNSTREAM_GENE_DISTANCE: %d (%.1f%%)", assn[!is.na(DOWNSTREAM_GENE_DISTANCE), .N], 100*assn[!is.na(DOWNSTREAM_GENE_DISTANCE), .N]/nrow(assn))
+```
+
+
+```{r}
+xmax <- 1e5
+xvals <- seq(0, xmax, by=1000)
+annos <- c(
+	sprintf("N_total = %d", assn[, .N]),
+	sprintf("N_[BP>200k] = %d", assn[pmin(UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE, na.rm=T)>xmax, .N]))
+plots <- list(
+  plot_ly(name="Histogram", type="histogram", x=pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T),
+              histnorm="probability") %>%
+  add_annotations(text=paste0(annos, collapse="<br>"), x=1, xanchor="right", y=.1, xref="paper", yref="paper", showarrow=F),
+  plot_ly() %>%
+    add_trace(name="ReLU", type="scatter", x=xvals,  mode="lines+markers", marker=list(size=5), y=1-xvals/xmax) %>%
+    add_trace(name="Sigmoid", type="scatter", x=xvals, y = exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)))
+  )
+subplot(plots, nrows=2, shareX=T, titleX=T, titleY=T, margin=.05) %>%
+  layout(title="Association/SNP (UP|DOWN)STREAM_GENE_DISTANCE<br>(closest gene)",
+         margin = list(t=100, r=50),
+         xaxis=list(title="BPs", range=c(0,xmax)), yaxis=list(title="N_snp"),
+         font=list(family="monospace", size=18),
+         legend = list(x=.8, y=.2), showlegend=T)
+```
+
+
+```{r}
+qtl <- quantile(pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T), na.rm=T)
+message(sprintf("%4sile: %d\n", names(qtl), qtl))
+```
