@@ -36,20 +36,25 @@ xmax <- 1e5
 xvals <- seq(0, xmax, by=1000)
 annos <- c(
 	sprintf("N_total = %d", assn[, .N]),
-	sprintf("N_[BP>200k] = %d", assn[pmin(UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE, na.rm=T)>xmax, .N]))
+	sprintf("N_[BP_up>%.1g] = %d", xmax, assn[UPSTREAM_GENE_DISTANCE>xmax, .N]),
+	sprintf("N_[BP_down>%.1g] = %d", xmax, assn[DOWNSTREAM_GENE_DISTANCE>xmax, .N]))
 plots <- list(
-  plot_ly(name="Histogram", type="histogram", x=pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T),
-              histnorm="probability") %>%
-  add_annotations(text=paste0(annos, collapse="<br>"), x=1, xanchor="right", y=.3, yanchor="bottom", xref="paper", yref="paper", showarrow=F),
+  plot_ly(alpha=0.6) %>%
+    add_histogram(name="UPSTREAM", x=assn$UPSTREAM_GENE_DISTANCE, histnorm="probability") %>%
+    add_histogram(name="DOWNSTREAM", x=assn$DOWNSTREAM_GENE_DISTANCE, histnorm="probability") %>%
+  add_annotations(text=paste0(annos, collapse="<br>"), x=1, xanchor="right", y=.5, yanchor="bottom", xref="paper", yref="paper", showarrow=F) %>%
+    layout(yaxis=list(title="probability")),
   plot_ly() %>%
-    add_trace(name="ReLU", type="scatter", x=xvals,  mode="lines+markers", marker=list(size=5), y=1-xvals/xmax) %>%
-    add_trace(name="Sigmoid", type="scatter", x=xvals, y = exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)))
+    add_trace(name="Exponential", type="scatter", x=xvals, y=exp(-xvals/4e4*log(2)), mode="lines", line=list(width=5)) %>%
+    add_trace(name="ReLU", type="scatter", x=xvals, y=1-xvals/xmax, mode="lines", line=list(width=5)) %>%
+    add_trace(name="Sigmoid", type="scatter", x=xvals, y=exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)), mode="lines", line=list(width=5)) %>%
+    layout(yaxis=list(title="f(x)"))
   )
-subplot(plots, nrows=2, shareX=T, titleX=T, titleY=T, margin=.05) %>%
-  layout(title="Association/SNP (UP|DOWN)STREAM_GENE_DISTANCE<br>(closest gene)",
-         margin = list(t=100, r=50),
-         xaxis=list(title="BPs", range=c(0,xmax)), yaxis=list(title="N_snp"),
-         font=list(family="monospace", size=18),
+subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
+  layout(title="Association/SNP-GENE_DISTANCE<br>(UP|DOWN)STREAM",
+         margin = list(l=80, t=100, r=50),
+         xaxis=list(title="BPs", range=c(0,xmax)),
+         font=list(family="monospace", size=14),
          legend = list(x=.8, y=.2), showlegend=T)
 ```
 

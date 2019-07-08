@@ -224,14 +224,38 @@ plot_ly(type="pie", values=tbl$N, labels=paste0(tbl$name, " (", tbl$N, ")"), tex
 ```{r}
 sprintf("Associations with UPSTREAM_GENE_DISTANCE: %d (%.1f%%)", assn[!is.na(UPSTREAM_GENE_DISTANCE), .N], 100*assn[!is.na(UPSTREAM_GENE_DISTANCE), .N]/nrow(assn))
 sprintf("Associations with DOWNSTREAM_GENE_DISTANCE: %d (%.1f%%)", assn[!is.na(DOWNSTREAM_GENE_DISTANCE), .N], 100*assn[!is.na(DOWNSTREAM_GENE_DISTANCE), .N]/nrow(assn))
-plot_ly(type="histogram", x=pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T)) %>%
-  layout(title="Association/SNP (UP|DOWN)STREAM_GENE_DISTANCE<br>(closest gene)",
-         margin = list(t=100, r=50),
-         xaxis=list(title="BPs", range=c(0,2e5)), yaxis=list(title="N_snp"),
-         font=list(family="monospace", size=18)) %>%
-  add_annotations(text=sprintf("N_[BP>200k] = %d", assn[pmin(UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE, na.rm=T)>2e5, .N]), x=1, xanchor="right", y=.1, xref="paper", yref="paper", showarrow=F)
-qtl <- quantile(pmin(assn$UPSTREAM_GENE_DISTANCE, assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T), na.rm=T)
-sprintf("%4sile: %d\n", names(qtl), qtl)
+qtl <- quantile(assn$UPSTREAM_GENE_DISTANCE, na.rm=T)
+sprintf("UPSTREAM: %4sile: %d\n", names(qtl), as.integer(qtl))
+qtl <- quantile(assn$DOWNSTREAM_GENE_DISTANCE, na.rm=T)
+sprintf("DOWNSTREAM: %4sile: %d\n", names(qtl), as.integer(qtl))
+```
+
+
+```{r}
+xmax <- 1e5
+xvals <- seq(0, xmax, by=1000)
+annos <- c(
+	sprintf("N_total = %d", assn[, .N]),
+	sprintf("N_[BP_up>%.1g] = %d", xmax, assn[UPSTREAM_GENE_DISTANCE>xmax, .N]),
+	sprintf("N_[BP_down>%.1g] = %d", xmax, assn[DOWNSTREAM_GENE_DISTANCE>xmax, .N]))
+plots <- list(
+  plot_ly(alpha=0.6) %>%
+    add_histogram(name="UPSTREAM", x=assn$UPSTREAM_GENE_DISTANCE, histnorm="probability") %>%
+    add_histogram(name="DOWNSTREAM", x=assn$DOWNSTREAM_GENE_DISTANCE, histnorm="probability") %>%
+  add_annotations(text=paste0(annos, collapse="<br>"), x=1, xanchor="right", y=.5, yanchor="bottom", xref="paper", yref="paper", showarrow=F) %>%
+    layout(yaxis=list(title="probability")),
+  plot_ly() %>%
+    add_trace(name="Exponential", type="scatter", x=xvals, y=exp(-xvals/4e4*log(2)), mode="lines", line=list(width=5)) %>%
+    add_trace(name="ReLU", type="scatter", x=xvals, y=1-xvals/xmax, mode="lines", line=list(width=5)) %>%
+    add_trace(name="Sigmoid", type="scatter", x=xvals, y=exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)), mode="lines", line=list(width=5)) %>%
+    layout(yaxis=list(title="f(x)"))
+  )
+subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
+  layout(title="Association/SNP-GENE_DISTANCE<br>(UP|DOWN)STREAM",
+         margin = list(l=80, t=100, r=50),
+         xaxis=list(title="BPs", range=c(0,xmax)),
+         font=list(family="monospace", size=14),
+         legend = list(x=.8, y=.2), showlegend=T)
 ```
 
 
