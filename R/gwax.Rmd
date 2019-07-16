@@ -94,7 +94,7 @@ gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(),
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
     ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
 setDT(gwas)
-assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), `OR or BETA`=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
+assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), OR_or_BETA=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
 setDT(assn)
 snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(),
     REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
@@ -263,7 +263,8 @@ subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
 
 * `GSYMB`, `MAPPED_GENE` fields may include chromosomal locations or be "intergenic".
 * Chromosomal locations (LOC*) may be non-coding RNA, etc.
-* Mappings within gene stronger associations than upstream or downstream.
+* Mappings _within_ gene stronger associations than _upstream_ or _downstream_.
+* We understand _upstream_ associations stronger than _downstream_ at equal distance.
 
 ```{r}
 sprintf("snp2gene: total associations: %d ; studies: %d ; snps: %d ; genes: %d ; intergenic associations: %d ; chromosomal location associations: %d",
