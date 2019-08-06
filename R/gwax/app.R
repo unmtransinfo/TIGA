@@ -12,7 +12,7 @@ library(DT, quietly=T)
 library(plotly, quietly=T)
 
 ##########################################################################################
-pareto_filter <- function(dt, col_a, col_b, n) {
+Pareto_filter <- function(dt, col_a, col_b, n) {
   if (nrow(dt) < n) { return(dt[, ok := T]) }
   dt$ok <- F
   n_ok_previous <- 0
@@ -252,7 +252,7 @@ server <- function(input, output, session) {
     gt_this$tdl <- factor(gt_this$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
     gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median, rcras)]
     message(sprintf("DEBUG: hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
-    gt_this <- pareto_filter(gt_this, "or_median", "n_study", input$maxHits)
+    gt_this <- Pareto_filter(gt_this, "or_median", "n_study", input$maxHits)
     setorder(gt_this, -n_study, -rcras, -or_median, n_traits_g)
     return(gt_this)
   })

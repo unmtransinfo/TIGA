@@ -27,15 +27,19 @@ Issues:
 
 * BETA not comparable for different units, thus currently only OR used for GWAX.
 * Linkage Disequilibrium (LD). Should we use [SNPsnap](https://www.broadinstitute.org/mpg/snap/ldsearch.php) to identify LD associates?
+* Can disease-gene associations be enriched by tissue-specificity via methods such as [NetWAS](https://hb.flatironinstitute.org/netwas)? If yes, should such a method be integrated with GWAX or perhaps supported as a post-processing step?
+* If a trait is a disease or syndrome, and so polygenic as to be poorly addressed by GWAS, can this be 
+inferred by some score?
 
 To-do:
 
 * Confidence scoring for SNP-gene mappings.
-* EFO subclass related studies, linking, aggregation, scoring.
+* EFO semantic subclass related studies, linking, aggregation, scoring.
 * EFO to DOID linking, aggregation, scoring.
 * Polygenic diseases/traits: Filter if less suitable for GWAS-based drug target discovery use cases.
 * Scoring for polygenicity?
 * Scoring for pleiotropy?
+* Implement multivariate non-parametric ranking via &mu; scores.
 
 ## About NHGRI-EBI GWAS Catalog
 
@@ -470,12 +474,12 @@ query_trait <- gt$trait[gt$trait_uri==query_uri][1]
 sprintf("%s: %s", query_uri, query_trait)
 ```
 
-### Pareto filter 
+### Pareto_filter() function
 
 Selects N non-dominated solutions on 2D multi-objective boundary.
 
 ```{r}
-pareto_filter <- function(dt, col_a, col_b, n) {
+Pareto_filter <- function(dt, col_a, col_b, n) {
   if (nrow(dt) < n) { return(dt[, ok := T]) }
   dt$ok <- F
   n_ok_previous <- 0
@@ -506,8 +510,8 @@ t2g <- t2g[!is.na(gsymb)]
 t2g <- t2g[!is.na(or_median)]
 #t2g[, specificity := (1/n_traits_g)]
 NMAX_PLOT <- 100
-t2g <- pareto_filter(t2g, "or_median", "n_study", NMAX_PLOT)
-message(sprintf("Pareto filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
+t2g <- Pareto_filter(t2g, "or_median", "n_study", NMAX_PLOT)
+message(sprintf("Pareto_filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
 ```
 
 ### Plot
