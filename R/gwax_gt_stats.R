@@ -159,8 +159,8 @@ gt_stats <- data.table(gsymb=rep(NA, NROW), trait_uri=rep(NA, NROW),
 	trait=rep(NA, NROW), n_study=as.integer(rep(NA, NROW)), n_snp=as.integer(rep(NA, NROW)),
 	n_traits_g=as.integer(rep(NA, NROW)),
 	n_genes_t=as.integer(rep(NA, NROW)),
-	pvalue_mlog_median=rep(NA, NROW),
-	or_median=rep(NA, NROW),
+	pvalue_mlog_median=as.numeric(rep(NA, NROW)),
+	or_median=as.numeric(rep(NA, NROW)),
 	rcras=rep(NA, NROW)
 	)
 #
@@ -171,7 +171,6 @@ t0 <- proc.time()
 for (gsymb in unique(g2t$GSYMB)) {
   n_traits_g <- uniqueN(g2t[GSYMB==gsymb, TRAIT_URI]) #n_traits for gene
   gt_stats$gsymb[i_row+1:i_row+n_traits_g] <- gsymb
-  gt_stats$n_traits_g[i_row+1:i_row+n_traits_g] <- n_traits_g
   # trait-loop:
   for (trait_uri in unique(g2t[GSYMB==gsymb, TRAIT_URI])) {
     if ((i_row%%10000)==0) {
@@ -202,23 +201,31 @@ for (gsymb in unique(g2t$GSYMB)) {
     gt_stats$rcras[i_row] <- rcras
   }
 }
-for (uri in unique(g2t$TRAIT_URI)) {
-  n_genes_t <- uniqueN(g2t[TRAIT_URI==uri, GSYMB])
-  gt_stats$n_genes_t[trait_uri==uri] <- n_genes_t
-}
+gt_stats[, n_genes_t := .N, by="trait_uri"]
+gt_stats[, n_traits_g := .N, by="gsymb"]
 #
 message(sprintf("%s, elapsed: %.1fs", Sys.time(), (proc.time()-t0)[3]))
 message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
-message(sprintf("DEBUG: COUNT, gsymb: %d", sum(!is.na(gt_stats$gsymb))))
-message(sprintf("DEBUG: COUNT, n_genes_t: %d", sum(!is.na(gt_stats$n_genes_t))))
-message(sprintf("DEBUG: COUNT, n_traits_g: %d", sum(!is.na(gt_stats$n_traits_g))))
-message(sprintf("DEBUG: COUNT, pvalue_mlog_median: %d", sum(!is.na(gt_stats$pvalue_mlog_median))))
-message(sprintf("DEBUG: COUNT, rcras: %d", sum(!is.na(gt_stats$rcras))))
+message(sprintf("DEBUG: gsymb: count=%d", sum(!is.na(gt_stats$gsymb))))
+message(sprintf("DEBUG: n_genes_t: count=%d [%d,%d]", sum(!is.na(gt_stats$n_genes_t)), min(gt_stats$n_genes_t), max(gt_stats$n_genes_t)))
+message(sprintf("DEBUG: n_traits_g: count=%d [%d,%d]", sum(!is.na(gt_stats$n_traits_g)), min(gt_stats$n_traits_g), max(gt_stats$n_traits_g)))
 #
-gt_stats <- merge(gt_stats, tcrd[, c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
 gt_stats$or_median <- round(as.double(gt_stats$or_median), 3)
 gt_stats$pvalue_mlog_median <- round(as.double(gt_stats$pvalue_mlog_median), 3)
 gt_stats$rcras <- round(as.double(gt_stats$rcras), 3)
+#
+message(sprintf("DEBUG: pvalue_mlog_median: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$pvalue_mlog_median)),
+                min(gt_stats$pvalue_mlog_median, na.rm=T),
+                max(gt_stats$pvalue_mlog_median, na.rm=T)))
+message(sprintf("DEBUG: or_median: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$or_median)),
+                min(gt_stats$or_median, na.rm=T),
+                max(gt_stats$or_median, na.rm=T)))
+message(sprintf("DEBUG: rcras: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$rcras)),
+                min(gt_stats$rcras, na.rm=T),
+                max(gt_stats$rcras, na.rm=T)))
+#
+gt_stats <- merge(gt_stats, tcrd[, c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
+#
 write_delim(gt_stats, ofile, delim="\t")
 ###
 message(sprintf("%s, elapsed (total): %.2fs", Sys.time(), (proc.time()-t0)[3]))

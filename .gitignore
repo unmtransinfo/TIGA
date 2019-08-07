@@ -2,5 +2,11 @@
 .Rhistory
 .RData
 .Ruserdata
+Rplot*
+*.Rproj
 /data/
 /R/gwax/rsconnect/
+/R/gwax/*.tsv.gz
+/R/gwax/*.RData
+.runsql_my
+/python/__pycache__/
