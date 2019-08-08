@@ -10,9 +10,8 @@
 # * Using muStat package.
 # * What about ties?
 ###
-library(readr)
-library(data.table)
-library(plotly)
+library(readr, quietly=T)
+library(data.table, quietly=T)
 library(muStat)
 
 t0 <- proc.time()
@@ -20,17 +19,21 @@ t0 <- proc.time()
 # Read gene-trait file.
 gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double()))
 setDT(gt)
+#
 gt <- gt[!is.na(or_median) & !is.na(gsymb) &!is.na(tdl)]
-MIN_ASSN <- 20
-traits <- gt[, .(N_gene = .N),  by=c("trait", "trait_uri")]
-traits <- traits[N_gene>=MIN_ASSN]
-gt <- gt[trait_uri %in% traits$trait_uri]
-gt$name <- paste(gt$gsymb, sub("^.*/", "", gt$trait_uri), sep=":")
+###
+#traits <- gt[, .(N_gene = .N),  by=c("trait", "trait_uri")]
+#MIN_ASSN <- 20
+#traits <- traits[N_gene>=MIN_ASSN]
+#gt <- gt[trait_uri %in% traits$trait_uri]
+###
+#gt$name <- paste(gt$gsymb, sub("^.*/", "", gt$trait_uri), sep=":")
+#
 message(sprintf("Genes in dataset: %d", uniqueN(gt$gsymb)))
 message(sprintf("Traits in dataset: %d", uniqueN(gt$trait_uri)))
 message(sprintf("G-T associations in dataset: %d", nrow(gt)))
 
-# Normalize data so bigger is better. I.e. use inverse of n\_traits\_g and n\_genes\_t.
+# Use inverse of n\_traits\_g and n\_genes\_t so bigger is better as needed for muStat.
 gt[, n_traits_g_inv := 1 / n_traits_g]
 gt[, n_genes_t_inv := 1 / n_genes_t]
 
@@ -45,6 +48,9 @@ for (trait_this in unique(gt$trait)) {
   gtmat <- as.matrix(gt[trait==trait_this, .(n_study, n_snp, n_traits_g_inv, n_genes_t_inv, pvalue_mlog_median, or_median, rcras)])
   ii <- ii + 1
   message(sprintf("[%d / %d] (N_gene: %3d) \"%s\"", ii, uniqueN(gt$trait), dim(gtmat)[1], trait_this))
+  if (dim(gtmat)[1]<2) { #No ranking for singleton.
+    next;
+  }
   ge <- mu.GE(gtmat)
   sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
   setDT(sums)
@@ -57,6 +63,7 @@ for (trait_this in unique(gt$trait)) {
   gt[trait==trait_this]$nBelow <- sums$nBelow
 }
 #
+gt[, `:=`(n_traits_g_inv = NULL, n_genes_t_inv = NULL)]
 write_delim(gt, "data/gt_stats_mu.tsv", delim="\t")
 #
 message(sprintf("NOTE: elapsed time: %.2fs",(proc.time()-t0)[3]))

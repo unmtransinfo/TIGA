@@ -46,9 +46,13 @@ if (file.exists("gwax.Rdata")) {
   setDT(gt)
 } else {
   message(sprintf("Loading dataset from files, writing Rdata..."))
-  gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
+#  gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
+#    n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
+#    pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double()))
+  gt <- read_delim("gt_stats_mu.tsv.gz", '\t', col_types=cols(.default=col_character(), 
     n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
-    pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double()))
+    pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double(),
+    mu_score=col_double(), nAbove=col_integer(), nBelow=col_integer(), mu_rank=col_integer()))
   setDT(gt)
   # Why NAs in or_median?
   gt <- gt[!is.na(or_median)]
@@ -250,7 +254,7 @@ server <- function(input, output, session) {
     gt_this <- gt_this[tdl %in% intersect(input$tdl_filters, tdls)]
     if (nrow(gt_this)==0) { return(NULL) }   
     gt_this$tdl <- factor(gt_this$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
-    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median, rcras)]
+    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median, rcras, mu_score, nAbove, nBelow, mu_rank)]
     message(sprintf("DEBUG: hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
     gt_this <- Pareto_filter(gt_this, "or_median", "n_study", input$maxHits)
     setorder(gt_this, -n_study, -rcras, -or_median, n_traits_g)
@@ -294,8 +298,12 @@ server <- function(input, output, session) {
         "N_study = ", hits()[(ok)]$n_study, "; ", "N_trait = ",
 hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
         "OR = ", round(hits()[(ok)]$or_median, digits=2), "; ", 
-        "pVal = ", sprintf("%.2g", 10^(-hits()[(ok)]$pvalue_mlog_median)), "; ",
-        "RCRAS = ", round(hits()[(ok)]$rcras, digits=2)
+        "pVal = ", sprintf("%.2g", 10^(-hits()[(ok)]$pvalue_mlog_median)), "<br>",
+        "RCRAS = ", round(hits()[(ok)]$rcras, digits=2), "; ",
+        "muScore = ", hits()[(ok)]$mu_score, "; ",
+        "nAbove = ", hits()[(ok)]$nAbove, "; ",
+        "nBelow = ", hits()[(ok)]$nBelow, "; ",
+        "muRank = ", hits()[(ok)]$mu_rank
         )
       ) %>%
       layout(xaxis=xaxis, yaxis=yaxis, 
@@ -307,7 +315,8 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
     return(p)
   })
   
-  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","rcras"
+  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","rcras",
+  #"mu_score", "nAbove", "nBelow", "mu_rank"
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
     DT::datatable(data=hits(), rownames=F,
@@ -316,7 +325,8 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
 	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
 		columnDefs = list(list(className='dt-center', targets=c(0, 2:(ncol(hits())-2))), list(visible=F, targets=ncol(hits())-1)) #Here numbered from 0.
 	),
-	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","RCRAS","ok")
+	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","RCRAS",
+	           "muScore", "nAbove", "nBelow", "muRank", "ok")
   ) %>% formatRound(digits=2, columns=8:10) #Here numbered from 1.
   }, server=T)
 
