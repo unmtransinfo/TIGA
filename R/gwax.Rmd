@@ -29,7 +29,8 @@ Issues:
 * Linkage Disequilibrium (LD). Should we use [SNPsnap](https://www.broadinstitute.org/mpg/snap/ldsearch.php) to identify LD associates?
 * Can disease-gene associations be enriched by tissue-specificity via methods such as [NetWAS](https://hb.flatironinstitute.org/netwas)? If yes, should such a method be integrated with GWAX or perhaps supported as a post-processing step?
 * If a trait is a disease or syndrome, and so polygenic as to be poorly addressed by GWAS, can this be 
-inferred by some score?
+inferred by some score? Perhaps simply the N\_gene count (mapped) for a trait.
+(E.g. "intelligence" N\_gene ~ 600, "schizophrenia" N\_gene ~ 800).
 
 To-do:
 
@@ -39,7 +40,6 @@ To-do:
 * Polygenic diseases/traits: Filter if less suitable for GWAS-based drug target discovery use cases.
 * Scoring for polygenicity?
 * Scoring for pleiotropy?
-* Implement multivariate non-parametric ranking via &mu; scores.
 
 ## About NHGRI-EBI GWAS Catalog
 
@@ -422,10 +422,21 @@ studies, for each gene-trait association.
 
 ```{r}
 gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
-            n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), 
-            pvalue_mlog_median=col_double(), or_median=col_double()))
+n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), 
+pvalue_mlog_median=col_double(), or_median=col_double(),
+mu_score=col_double(), nAbove=col_integer(), nBelow=col_integer(), mu_rank=col_integer()))
 setDT(gt)
 sprintf("nrow(gt) = %d", nrow(gt))
+```
+
+### Multivariate non-parametric ranking via &mu; scores.
+
+Since weighting among variables of merit is subjective, ranking by &mu; scores is
+used, based on the concept of non-dominated solutions and Pareto -boundary/-front.
+See Wittkowski (2008) and R package `muStat` for details.
+
+```{r}
+knitr::kable(gt[trait=="pathological myopia"], caption="Example: pathological myopia")
 ```
 
 ### Focus on traits with more data and evidence, likely high scientific interest.

@@ -43,7 +43,7 @@ writeLines(sprintf("Output file: %s", ofile))
 ###
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
 	DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
-	ASSOCIATION_COUNT=col_integer()))
+	ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
 setDT(gwas)
 gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), 
 	study_accession=col_character()))
@@ -127,6 +127,7 @@ writeLines(sprintf("%s: %d", names(t2), t2))
 assn <- assn[!is.na(oddsratio)]
 ### g2t should have one row for each gene-snp-study-trait association.
 g2t <- unique(snp2gene[, c("GSYMB", "SNP", "STUDY_ACCESSION")])
+g2t <- merge(g2t, gwas[, c("STUDY_ACCESSION", "study_N")], by="STUDY_ACCESSION", all.x=T, all.y=F)
 g2t <- merge(g2t, assn[, c("SNPS", "STUDY_ACCESSION","PVALUE_MLOG","oddsratio","beta")], 
 	all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
 
@@ -161,6 +162,7 @@ gt_stats <- data.table(gsymb=rep(NA, NROW), trait_uri=rep(NA, NROW),
 	n_genes_t=as.integer(rep(NA, NROW)),
 	pvalue_mlog_median=as.numeric(rep(NA, NROW)),
 	or_median=as.numeric(rep(NA, NROW)),
+	study_N_median=as.numeric(rep(NA, NROW)),
 	rcras=rep(NA, NROW)
 	)
 #
@@ -183,6 +185,7 @@ for (gsymb in unique(g2t$GSYMB)) {
     gt_stats$n_snp[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, SNP])
     gt_stats$pvalue_mlog_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
     gt_stats$or_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
+    gt_stats$study_N_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, study_N], na.rm=T)
     #
     rcras <- 0.0
     for (stacc in unique(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
@@ -220,6 +223,9 @@ message(sprintf("DEBUG: pvalue_mlog_median: count=%d [%.2f,%.2f]", sum(!is.na(gt
 message(sprintf("DEBUG: or_median: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$or_median)),
                 min(gt_stats$or_median, na.rm=T),
                 max(gt_stats$or_median, na.rm=T)))
+message(sprintf("DEBUG: study_N_median: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$study_N_median)),
+                min(gt_stats$study_N_median, na.rm=T),
+                max(gt_stats$study_N_median, na.rm=T)))
 message(sprintf("DEBUG: rcras: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$rcras)),
                 min(gt_stats$rcras, na.rm=T),
                 max(gt_stats$rcras, na.rm=T)))

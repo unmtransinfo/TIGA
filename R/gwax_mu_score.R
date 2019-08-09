@@ -1,14 +1,15 @@
 #!/usr/bin/env Rscript
 ###
-# Introduction
 # Multivariable non-parametric ranking via &mu; scores.
-## &mu; scores
+# &mu; scores
 ###
-# * Non-dominated solutions are cases which are not inferior to any other case at any variable.
-# * A &mu; score is defined as the number of lower cases minus the number of higher.
-# * The resulting ranking is the useful result, not so much the score itself.
-# * Using muStat package.
-# * What about ties?
+# Non-dominated solutions are not inferior to any other case at any variable.
+# A &mu; score is defined as the number of lower cases minus the number of higher.
+# The resulting ranking is the useful result, not so much the score itself.
+# Using muStat package.
+###
+# Issue: cases globally superior in one variable and inferior in one variable
+# have nAbove=0 and nBelow=0 and muScore=0. What should be the rank?
 ###
 library(readr, quietly=T)
 library(data.table, quietly=T)
@@ -17,7 +18,7 @@ library(muStat)
 t0 <- proc.time()
 
 # Read gene-trait file.
-gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double()))
+gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_median=col_double(), rcras=col_double()))
 setDT(gt)
 #
 gt <- gt[!is.na(or_median) & !is.na(gsymb) &!is.na(tdl)]
@@ -55,7 +56,16 @@ for (trait_this in unique(gt$trait)) {
   sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
   setDT(sums)
   sums$name <- gt[trait==trait_this, .(name)]
-  sums <- setorder(sums, -score)
+  # Bug in muStat?
+  if (sum(is.na(sums$score))>0) {
+    message(sprintf("DEBUG: missing score count: %d", sum(is.na(sums$score))))
+    badrows <- is.na(sums$score)
+    print(sums[badrows]) #DEBUG
+    sums[is.na(score), score := nAbove - nBelow]
+    message(sprintf("DEBUG: missing score count: %d (FIXED?)", sum(is.na(sums$score))))
+    print(sums[badrows]) #DEBUG
+  }
+  sums <- setorder(sums, -score, na.last=T)
   sums[, rank := 1:nrow(sums)]
   gt[trait==trait_this]$mu_score <- sums$score
   gt[trait==trait_this]$mu_rank <- sums$rank

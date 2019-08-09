@@ -68,6 +68,10 @@ effect size versus specificity, sized by weight of evidence.
 * Perl and R used for processing.
 * MySql database intended for transition toward IDG TCRD integration (currently not required for GWAX app).
 
+## GWAX Application
+
+* Currently at <http://unmtid-shinyapps.net/gwax/>
+
 ## To do:
 
 * Traits may be closely related as defined by the EFO

@@ -12,30 +12,6 @@ library(DT, quietly=T)
 library(plotly, quietly=T)
 
 ##########################################################################################
-Pareto_filter <- function(dt, col_a, col_b, n) {
-  if (nrow(dt) < n) { return(dt[, ok := T]) }
-  dt$ok <- F
-  n_ok_previous <- 0
-  #message(sprintf("DEBUG: max(%s) = %f ; max(%s) = %f ; N = %d", col_a, max(dt[[col_a]], na.rm=T), col_b, max(dt[[col_b]], na.rm=T), n))
-  # Include non-dominated solutions up to (n).
-  while (sum(dt$ok) < n) {
-    if (sum(!dt$ok)==0) { break } #None left -- should not happen.
-    i_notok <- which(!dt$ok)
-    for (i in i_notok) {
-      a <- dt[[col_a]][i]
-      b <- dt[[col_b]][i]
-      if (sum((!dt$ok) & (dt[[col_a]]>a) & (dt[[col_b]]>b), na.rm=T)==0) {
-        dt[i]$ok <- T
-        break
-      }
-    }
-    #message(sprintf("DEBUG: n_ok=%d ; n_ok_previous=%d", sum(dt$ok), n_ok_previous))
-    if (sum(dt$ok)==n_ok_previous) { break } #No more -- should not happen.
-    n_ok_previous <- sum(dt$ok)
-  }
-  return(dt)
-}
-##########################################################################################
 APPNAME <- "GWAX"
 MIN_ASSN <- 20
 #
@@ -51,7 +27,7 @@ if (file.exists("gwax.Rdata")) {
 #    pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double()))
   gt <- read_delim("gt_stats_mu.tsv.gz", '\t', col_types=cols(.default=col_character(), 
     n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
-    pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double(),
+    pvalue_mlog_median=col_double(), or_median=col_double(), study_N_median=col_integer(), rcras=col_double(),
     mu_score=col_double(), nAbove=col_integer(), nBelow=col_integer(), mu_rank=col_integer()))
   setDT(gt)
   # Why NAs in or_median?
@@ -94,8 +70,7 @@ of protein-coding genes associated with traits from genome-wide association stud
 <LI>Well studied traits only available via this app, with minimum associations
 (MIN_ASSN=%d, may be multiple for each gene). Traits are mapped to EFO, HPO,
 Orphanet, PATO or GO, with 91%% mapped to EFO.
-<LI>In this version, OR required and BETA ignored, due to problem of harmonizing varying BETA units
-<i>(TO BE ADDRESSED)</i>.
+<LI>In this version, OR required and BETA ignored, due to problem of harmonizing varying BETA units.
 </UL>
 <B>Datatypes:</B>
 <UL>
@@ -103,6 +78,7 @@ Orphanet, PATO or GO, with 91%% mapped to EFO.
   <UL>
   <LI><B>PVALUE_MLOG</B>: -LOG(p_value)
   <LI><B>OR</B>: odds ratio, inverted if &lt;1.
+  <LI><B>INITIAL_SAMPLE_SIZE</B>: N_subjects
   <LI><B>REPORTED GENE(s)</B>: Gene(s) reported by author.
   <LI><B>MAPPED GENE(s)</B>: Gene(s) mapped to the strongest SNP.
   </UL>
@@ -112,18 +88,21 @@ Orphanet, PATO or GO, with 91%% mapped to EFO.
   <LI><B>N_trait</B>: total traits associated with gene.
   <LI><B>N_snp</B>: SNPs involved with trait-gene association.
   <LI><B>N_study</B>: studies supporting trait-gene association.
+  <LI><B>study_N</B>: median(INITIAL_SAMPLE_SIZE) supporting trait-gene association.
   <LI><B>RCRAS</B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
   </UL>
 </UL>
 Note that this app will accept query parameter <B>efo_id</B> via URL, e.g.
 <B><TT>?efo_id=EFO_0000341</TT></B>.
+Hits are filtered and ranked based on non-parametric multivariate &mu; scores
+(Wittkowski, 2008).
 <B>References:</B>
 <UL>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/docs/fileheaders\">GWAS Catalog data dictionary</a>
 <LI><a href=\"https://www.ebi.ac.uk/efo/\">Experimental Factor Ontology (EFO)</a>
 </UL>
-<B>Authors:</B> Jeremy Yang, Stephen Mathias, Cristian Bologa, and Tudor Oprea.<BR/>
+<B>Authors:</B> Jeremy Yang, Stephen Mathias, Cristian Bologa, Lars Juhl Jensen, Christophe Lambert, and Tudor Oprea.<BR/>
 <B>Correspondence</B> from users of this app is welcome, and should be directed to 
 <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
   Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">The NHGRI-EBI GWAS Catalog</A>.<BR/>
@@ -167,7 +146,7 @@ ui <- fluidPage(
         ))),
   bsTooltip("traitQry", "Select from most studied traits.", "top"),
   bsTooltip("minStudy", "Minimum studies cutoff.", "top"),
-  bsTooltip("maxHits", "Max hits cutoff, filtered by Pareto 2D boundary for non-dominated solutions.", "top"),
+  bsTooltip("maxHits", "Max hits cutoff, filtered by muScore.", "top"),
   bsTooltip("tdl_filters", "Filters: IDG Target Development Levels (TDLs).", "top"),
   bsTooltip("fam_filters", "Filters: IDG protein families.", "top"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
@@ -254,10 +233,10 @@ server <- function(input, output, session) {
     gt_this <- gt_this[tdl %in% intersect(input$tdl_filters, tdls)]
     if (nrow(gt_this)==0) { return(NULL) }   
     gt_this$tdl <- factor(gt_this$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
-    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median, rcras, mu_score, nAbove, nBelow, mu_rank)]
+    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median, study_N_median, rcras, mu_score, nAbove, nBelow, mu_rank)]
     message(sprintf("DEBUG: hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
-    gt_this <- Pareto_filter(gt_this, "or_median", "n_study", input$maxHits)
-    setorder(gt_this, -n_study, -rcras, -or_median, n_traits_g)
+    gt_this[, ok := as.logical(mu_rank<=input$maxHits)]
+    setorder(gt_this, mu_rank)
     return(gt_this)
   })
 
@@ -298,6 +277,7 @@ server <- function(input, output, session) {
         "N_study = ", hits()[(ok)]$n_study, "; ", "N_trait = ",
 hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
         "OR = ", round(hits()[(ok)]$or_median, digits=2), "; ", 
+        "study_N = ", hits()[(ok)]$study_N_median, "; ", 
         "pVal = ", sprintf("%.2g", 10^(-hits()[(ok)]$pvalue_mlog_median)), "<br>",
         "RCRAS = ", round(hits()[(ok)]$rcras, digits=2), "; ",
         "muScore = ", hits()[(ok)]$mu_score, "; ",
@@ -315,7 +295,7 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
     return(p)
   })
   
-  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","rcras",
+  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","study_N_median", "rcras",
   #"mu_score", "nAbove", "nBelow", "mu_rank"
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
@@ -325,9 +305,9 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
 	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
 		columnDefs = list(list(className='dt-center', targets=c(0, 2:(ncol(hits())-2))), list(visible=F, targets=ncol(hits())-1)) #Here numbered from 0.
 	),
-	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","RCRAS",
+	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","study_N","RCRAS",
 	           "muScore", "nAbove", "nBelow", "muRank", "ok")
-  ) %>% formatRound(digits=2, columns=8:10) #Here numbered from 1.
+  ) %>% formatRound(digits=2, columns=c(8,9,11)) #Here numbered from 1.
   }, server=T)
 
   hits_export <- reactive({
@@ -336,7 +316,7 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
     hits_out[["Trait"]] <- query_trait_name()
     hits_out[["TraitURI"]] <- query_trait_uri()
     hits_out <- hits_out[,c(ncol(hits_out)-1,ncol(hits_out),1:(ncol(hits_out)-2))]
-    names(hits_out) <- c("Trait","TraitURI","GeneSymbol","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","RCRAS")
+    names(hits_out) <- c("Trait","TraitURI","GeneSymbol","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","study_N","RCRAS","muScore","nAbove","nBelow","muRank")
     return(hits_out)
   })
 
