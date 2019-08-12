@@ -61,11 +61,14 @@ qryTraitRand <- sample(traits, 1)
 #
 #############################################################################
 HelpHtm <- function() {(
-  sprintf("<P><B>GWAX</B>, GWAS Explorer, facilitates visualization and prioritization
-of protein-coding genes associated with traits from genome-wide association studies
-(GWAS), using the GWAS Catalog dataset from NIH-NHGRI and EBI.
+  sprintf("<P><B>GWAX</B>, GWAS Explorer, is designed to facilitate drug target illumination by 
+scoring and ranking of protein-coding genes associated with traits from genome-wide association studies
+(GWAS). Rather than a comprehensive analysis of GWAS for all biological implications and insights, this
+more focused use case provides a rationale by which GWAS findings can be aggregated and filtered for actionable
+intelligence, usable by drug discovery scientists to enrich prioritization of target hypotheses.
 <P>
 <B>Dataset:</B>
+Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">The NHGRI-EBI GWAS Catalog</A>.
 <UL>
 <LI>Well studied traits only available via this app, with minimum associations
 (MIN_ASSN=%d, may be multiple for each gene). Traits are mapped to EFO, HPO,
@@ -84,28 +87,43 @@ Orphanet, PATO or GO, with 91%% mapped to EFO.
   </UL>
   <LI>GWAX:
   <UL>
-  <LI><B>N_gene</B>: total genes associated with trait.
-  <LI><B>N_trait</B>: total traits associated with gene.
-  <LI><B>N_snp</B>: SNPs involved with trait-gene association.
-  <LI><B>N_study</B>: studies supporting trait-gene association.
-  <LI><B>study_N</B>: median(INITIAL_SAMPLE_SIZE) supporting trait-gene association.
-  <LI><B>RCRAS</B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
+  <LI><B>N_snp<SUP>*</SUP></B>: SNPs involved with trait-gene association.
+  <LI><B>N_study<SUP>*</SUP></B>: studies supporting trait-gene association.
+  <LI><B>study_N<SUP>*</SUP></B>: median(INITIAL_SAMPLE_SIZE) supporting trait-gene association.
+  <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
+  <LI><B>N_trait<SUP>**</SUP></B>: total traits associated with gene.
+  <LI><B>N_gene<SUP>**</SUP></B>: total genes associated with trait.
   </UL>
+  <LI><SUP>*</SUP>Variable used in muScore.
+  <LI><SUP>**</SUP>Variable inverse used in muScore.
 </UL>
-Note that this app will accept query parameter <B>efo_id</B> via URL, e.g.
-<B><TT>?efo_id=EFO_0000341</TT></B>.
+
 Hits are filtered and ranked based on non-parametric multivariate &mu; scores
 (Wittkowski, 2008).
-<B>References:</B>
+<BR/>
+<B>UI:</B>
+<UL>
+<LI>Plot marker sized by <B>1/N_trait</B>.
+<LI>Note that this app will accept query parameter <B>efo_id</B> via URL, e.g.
+<B><TT>?efo_id=EFO_0000341</TT></B>.
+</UL>
+<BR/>
+<B>More documentation:</B>
 <UL>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/docs/fileheaders\">GWAS Catalog data dictionary</a>
 <LI><a href=\"https://www.ebi.ac.uk/efo/\">Experimental Factor Ontology (EFO)</a>
 </UL>
-<B>Authors:</B> Jeremy Yang, Stephen Mathias, Cristian Bologa, Lars Juhl Jensen, Christophe Lambert, and Tudor Oprea.<BR/>
+<BR/>
+<B>Authors:</B> Jeremy Yang<SUP>1</SUP>, Stephen Mathias<SUP>1</SUP>, Cristian
+Bologa<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP>, Christophe Lambert<SUP>1</SUP>, and Tudor
+Oprea<SUP>1</SUP>.<BR/>
+<I><SUP>1</SUP>University of New Mexico, Translational Informatics Division, Dept. of
+Internal Medicine; <SUP>2</SUP>Novo Nordisk Center for Protein Research, Copenhagen,
+Denmark.</I>
+<BR/>
 <B>Correspondence</B> from users of this app is welcome, and should be directed to 
 <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
-  Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">The NHGRI-EBI GWAS Catalog</A>.<BR/>
   Built with R-Shiny &amp; Plotly.<BR/>
   This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>",
 	MIN_ASSN)
@@ -113,7 +131,7 @@ Hits are filtered and ranked based on non-parametric multivariate &mu; scores
 
 ##########################################################################################
 ui <- fluidPage(
-  titlePanel(h2(sprintf("%s: GWAS Explorer", APPNAME), tags$em("(BETA)"), span(icon("lightbulb", lib="font-awesome"))),
+  titlePanel(h2(sprintf("%s: GWAS Explorer", APPNAME), tags$em("(BETA)"), span(style="font-size: 28px; color:Dodgerblue;", icon("lightbulb", lib="font-awesome"))),
       windowTitle=APPNAME),
   fluidRow(
     column(3, 
@@ -125,9 +143,9 @@ ui <- fluidPage(
         checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=axes, inline=T),
         br(),
-	actionButton("randQuery", "Demo", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
-	actionButton("goRefresh", "Refresh", style='padding:4px;background-color:#DDDDDD;font-weight:bold'),
-	actionButton("showHelp", "Help", style='padding:4px;background-color:#DDDDDD; font-weight:bold')
+	actionButton("goRefresh", "Refresh", style='padding:2px;background-color:#DDDDDD;font-weight:bold'),
+	actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold'),
+	actionButton("randQuery", "RandomQuery", style='padding:2px; background-color:#DDDDDD; font-weight:bold')
       )),
     column(9, plotlyOutput("plot", height = "600px"))),
   fluidRow(column(12, DT::dataTableOutput("datarows"))),
@@ -295,15 +313,14 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
     return(p)
   })
   
-  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","study_N_median", "rcras",
-  #"mu_score", "nAbove", "nBelow", "mu_rank"
+  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","study_N_median","rcras","mu_score","nAbove","nBelow","mu_rank"
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
     DT::datatable(data=hits(), rownames=F,
 	selection=list(target="row", mode="multiple", selected=NULL),
 	class="cell-border stripe", style="bootstrap",
 	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
-		columnDefs = list(list(className='dt-center', targets=c(0, 2:(ncol(hits())-2))), list(visible=F, targets=ncol(hits())-1)) #Here numbered from 0.
+		columnDefs = list(list(className='dt-center', targets=c(0, 2:(ncol(hits())-2))), list(visible=F, targets=c(12, 13, ncol(hits())-1))) #Here numbered from 0.
 	),
 	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","study_N","RCRAS",
 	           "muScore", "nAbove", "nBelow", "muRank", "ok")

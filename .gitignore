@@ -8,5 +8,6 @@ Rplot*
 /R/gwax/rsconnect/
 /R/gwax/*.tsv.gz
 /R/gwax/*.RData
+/R/gwax/*.html
 .runsql_my
 /python/__pycache__/
