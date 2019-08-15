@@ -1,5 +1,8 @@
 #!/usr/bin/env Rscript
 ###
+# Run after gwax_gt_stats.R (could be combined), with input from that code,
+# gt_stats.tsv.gz.
+###
 # Multivariable non-parametric ranking via &mu; scores.
 # &mu; scores
 ###

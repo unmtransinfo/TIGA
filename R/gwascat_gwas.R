@@ -19,7 +19,7 @@ if (length(args)==2) {
 writeLines(sprintf("Input: %s", ifile))
 writeLines(sprintf("Output: %s", ofile))
 
-gwas <- read_delim(ifile, "\t")
+gwas <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), DATE=col_date(), `ASSOCIATION COUNT`=col_integer(), `DATE ADDED TO CATALOG`=col_date()))
 setDT(gwas)
 
 setnames(gwas, gsub("[ \\./]","_",colnames(gwas)))
