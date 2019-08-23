@@ -12,8 +12,9 @@
 #############################################################################
 ### Also get UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE for mapping
 ### confidence scoring. Also get CONTEXT, functionalClass in API. 
-### INTERGENIC? "RISK ALLELE FREQUENCY"?
-### MERGED?
+### INTERGENIC? "RISK ALLELE FREQUENCY"?  MERGED?
+#############################################################################
+### Output file next processed by gwax_gt_stats.R
 #############################################################################
 library(readr)
 library(data.table)
@@ -32,36 +33,36 @@ if (length(args)==2) {
 writeLines(sprintf("Input: %s", ifile))
 writeLines(sprintf("Output: %s", ofile))
 
-assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), `OR or BETA`=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GNE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
+assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), `OR or BETA`=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), `DATE ADDED TO CATALOG`=col_date(format="%Y-%m-%d")))
 setDT(assn)
 
 setnames(assn, gsub("[ \\./]" ,"_", colnames(assn)))
 setnames(assn, gsub("__" ,"_", colnames(assn)))
 setnames(assn, gsub("_$" ,"", colnames(assn)))
 
-assn <- assn[complete.cases(assn[,c("STUDY_ACCESSION","SNPS","DISEASE_TRAIT")]),]
+assn <- assn[complete.cases(assn[, .(STUDY_ACCESSION, SNPS, DISEASE_TRAIT)]), ]
 
 #Convert special chars.
 for (tag in colnames(assn)) {
   if (typeof(assn[[tag]])=="character") {
-    writeLines(sprintf("NOTE: cleaning: %s", tag))
+    message(sprintf("NOTE: cleaning: %s", tag))
     assn[[tag]] <- iconv(assn[[tag]], from="latin1", to="UTF-8")
   }
 }
 
-writeLines(sprintf("Total assn count: %6d", nrow(assn)))
-writeLines(sprintf("OR_or_BETA MISSING: %6d", nrow(assn[is.na(assn$OR_or_BETA),])))
-writeLines(sprintf("OR_or_BETA values: %6d", nrow(assn[!is.na(assn$OR_or_BETA),])))
+message(sprintf("Total assn count: %6d", nrow(assn)))
+message(sprintf("OR_or_BETA MISSING: %6d", nrow(assn[is.na(assn$OR_or_BETA),])))
+message(sprintf("OR_or_BETA values: %6d", nrow(assn[!is.na(assn$OR_or_BETA),])))
 
 tag="OR_or_BETA"
-assn$OR_or_BETA <- as.numeric(assn$OR_or_BETA)
+assn[[tag]] <- as.numeric(assn[[tag]])
 qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
 writeLines(sprintf("%s %4s-ile: %9.1f",tag,names(qs),qs))
 
-assn$oddsratio <- NA
-assn$beta <- NA
+assn$oddsratio <- as.numeric(NA)
+assn$beta <- as.numeric(NA)
 
-staccs <- sort(unique(assn$STUDY_ACCESSION))
+staccs <- sort(unique(assn[, STUDY_ACCESSION]))
 writeLines(sprintf("Studies, total: %6d", length(staccs)))
 i <- 0
 n_all_or <- 0
@@ -69,16 +70,16 @@ n_all_beta <- 0
 n_both <- 0
 for (stacc in staccs) {
   i <- i + 1
-  or_or_beta_this <- assn$OR_or_BETA[assn$STUDY_ACCESSION==stacc]
+  or_or_beta_this <- assn[STUDY_ACCESSION==stacc, OR_or_BETA]
   all_or <- as.logical(min(or_or_beta_this, na.rm=T)>1)
   all_beta <- as.logical(max(or_or_beta_this, na.rm=T)<=1)
   if (all_or) {
     n_all_or <- n_all_or + 1
-    assn$oddsratio[assn$STUDY_ACCESSION==stacc] <- or_or_beta_this
+    set(assn, which(assn$STUDY_ACCESSION==stacc), "oddsratio",  or_or_beta_this)
   }
   else if (all_beta) {
     n_all_beta <- n_all_beta + 1
-    assn$beta[assn$STUDY_ACCESSION==stacc] <- or_or_beta_this
+    set(assn, which(assn$STUDY_ACCESSION==stacc), "beta",  or_or_beta_this)
   } else {
     n_both <- n_both + 1
   }
@@ -86,9 +87,10 @@ for (stacc in staccs) {
 writeLines(sprintf("Studies with all values >1 (OR?): %d", n_all_or))
 writeLines(sprintf("Studies with all values<=1 (BETA?): %d", n_all_beta))
 writeLines(sprintf("Studies with both values <=1 and >1: %d", n_both))
-
-write_delim(assn, ofile, delim="\t")
-
+#
+###
+# Descriptive only, no more changes to assn.
+###
 tag="beta"
 qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
 writeLines(sprintf("%s %4s-ile: %9.1f",tag,names(qs),qs))
@@ -113,3 +115,15 @@ writeLines(sprintf("%18s: %3d", tbl$beta_units[1:20], tbl$Freq[1:20]))
 # CONTEXT aka functionalClass (via API)
 tbl <- sort(table(assn$CONTEXT), decreasing = T)
 writeLines(sprintf("%d. (N=%d) %s", 1:100, tbl[1:100], names(tbl)[1:100]))
+
+###
+# Also see GENOTYPING_TECHNOLOGY
+tbl <- as.data.frame(table(assn$GENOTYPING_TECHNOLOGY))
+colnames(tbl) <- c("GENOTYPING_TECHNOLOGY", "Freq")
+tbl <- tbl[order(-tbl$Freq),]
+writeLines(sprintf("%5d: %s", tbl$Freq, tbl$GENOTYPING_TECHNOLOGY))
+
+
+###
+# Write file for GWAX:
+write_delim(assn, ofile, delim="\t")

@@ -21,7 +21,7 @@ library(muStat)
 t0 <- proc.time()
 
 # Read gene-trait file.
-gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_median=col_double(), rcras=col_double()))
+gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_wsnp=col_double(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_median=col_double(), rcras=col_double()))
 setDT(gt)
 #
 gt <- gt[!is.na(or_median) & !is.na(gsymb) &!is.na(tdl)]
@@ -49,7 +49,7 @@ gt[, `:=`(mu_score=as.integer(NA), nAbove=as.integer(NA), nBelow=as.integer(NA),
 
 ii <- 0
 for (trait_this in unique(gt$trait)) {
-  gtmat <- as.matrix(gt[trait==trait_this, .(n_study, n_snp, n_traits_g_inv, n_genes_t_inv, pvalue_mlog_median, or_median, rcras)])
+  gtmat <- as.matrix(gt[trait==trait_this, .(n_study, n_snp, n_wsnp, n_traits_g_inv, n_genes_t_inv, pvalue_mlog_median, or_median, rcras)])
   ii <- ii + 1
   message(sprintf("[%d / %d] (N_gene: %3d) \"%s\"", ii, uniqueN(gt$trait), dim(gtmat)[1], trait_this))
   if (dim(gtmat)[1]<2) { #No ranking for singleton.
