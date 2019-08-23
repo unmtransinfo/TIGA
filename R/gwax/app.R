@@ -22,12 +22,8 @@ if (file.exists("gwax.Rdata")) {
   setDT(gt)
 } else {
   message(sprintf("Loading dataset from files, writing Rdata..."))
-#  gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
-#    n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
-#    pvalue_mlog_median=col_double(), or_median=col_double(), rcras=col_double()))
   gt <- read_delim("gt_stats_mu.tsv.gz", '\t', col_types=cols(.default=col_character(), 
-    n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(),
-    pvalue_mlog_median=col_double(), or_median=col_double(), study_N_median=col_integer(), rcras=col_double(),
+    n_study=col_integer(), n_snp=col_integer(), n_wsnp=col_double(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_median=col_integer(), rcras=col_double(),
     mu_score=col_double(), nAbove=col_integer(), nBelow=col_integer(), mu_rank=col_integer()))
   setDT(gt)
   # Why NAs in or_median?
@@ -88,6 +84,7 @@ Orphanet, PATO or GO, with 91%% mapped to EFO.
   <LI>GWAX:
   <UL>
   <LI><B>N_snp<SUP>*</SUP></B>: SNPs involved with trait-gene association.
+  <LI><B>N_wsnp<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
   <LI><B>N_study<SUP>*</SUP></B>: studies supporting trait-gene association.
   <LI><B>study_N<SUP>*</SUP></B>: median(INITIAL_SAMPLE_SIZE) supporting trait-gene association.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
@@ -251,7 +248,7 @@ server <- function(input, output, session) {
     gt_this <- gt_this[tdl %in% intersect(input$tdl_filters, tdls)]
     if (nrow(gt_this)==0) { return(NULL) }   
     gt_this$tdl <- factor(gt_this$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
-    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_traits_g, pvalue_mlog_median, or_median, study_N_median, rcras, mu_score, nAbove, nBelow, mu_rank)]
+    gt_this <- gt_this[, .(gsymb, name, fam, tdl, n_study, n_snp, n_wsnp, n_traits_g, pvalue_mlog_median, or_median, study_N_median, rcras, mu_score, nAbove, nBelow, mu_rank)]
     message(sprintf("DEBUG: hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
     gt_this[, ok := as.logical(mu_rank<=input$maxHits)]
     setorder(gt_this, mu_rank)
@@ -292,8 +289,8 @@ server <- function(input, output, session) {
         marker=list(symbol="circle", size=pmax(10, 50/hits()[(ok)]$n_traits_g)),
         text=paste0(hits()[(ok)]$gsymb, ": ", hits()[(ok)]$name, "<br>",
         hits()[(ok)]$fam, ", ", hits()[(ok)]$tdl, "<br>",
-        "N_study = ", hits()[(ok)]$n_study, "; ", "N_trait = ",
-hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
+        "N_study = ", hits()[(ok)]$n_study, "; ", "N_trait = ", hits()[(ok)]$n_traits_g, "<br>",
+	"N_snp = ", hits()[(ok)]$n_snp, "; N_wsnp = ", hits()[(ok)]$n_wsnp, "<br>",
         "OR = ", round(hits()[(ok)]$or_median, digits=2), "; ", 
         "study_N = ", hits()[(ok)]$study_N_median, "; ", 
         "pVal = ", sprintf("%.2g", 10^(-hits()[(ok)]$pvalue_mlog_median)), "<br>",
@@ -313,18 +310,18 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
     return(p)
   })
   
-  #"gsymb","name","fam","tdl","n_study","n_snp","n_traits_g","pvalue_mlog_median","or_median","study_N_median","rcras","mu_score","nAbove","nBelow","mu_rank"
+  #"gsymb","name","fam","tdl","n_study","n_snp","n_wsnp","n_traits_g","pvalue_mlog_median","or_median","study_N_median","rcras","mu_score","nAbove","nBelow","mu_rank"
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
     DT::datatable(data=hits(), rownames=F,
 	selection=list(target="row", mode="multiple", selected=NULL),
 	class="cell-border stripe", style="bootstrap",
 	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
-		columnDefs = list(list(className='dt-center', targets=c(0, 2:(ncol(hits())-2))), list(visible=F, targets=c(12, 13, ncol(hits())-1))) #Here numbered from 0.
+		columnDefs = list(list(className='dt-center', targets=c(0, 2:(ncol(hits())-2))), list(visible=F, targets=c(13, 14, ncol(hits())-1))) #Here numbered from 0.
 	),
-	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","study_N","RCRAS",
+	colnames=c("GSYMB","GeneName","idgFam","idgTDL","N_study","N_snp","N_wsnp","N_trait","pVal_mlog","OR","study_N","RCRAS",
 	           "muScore", "nAbove", "nBelow", "muRank", "ok")
-  ) %>% formatRound(digits=2, columns=c(8,9,11)) #Here numbered from 1.
+  ) %>% formatRound(digits=2, columns=c(7,9,10,12)) #Here numbered from 1.
   }, server=T)
 
   hits_export <- reactive({
@@ -333,7 +330,7 @@ hits()[(ok)]$n_traits_g, "; N_snp = ", hits()[(ok)]$n_snp, "<br>",
     hits_out[["Trait"]] <- query_trait_name()
     hits_out[["TraitURI"]] <- query_trait_uri()
     hits_out <- hits_out[,c(ncol(hits_out)-1,ncol(hits_out),1:(ncol(hits_out)-2))]
-    names(hits_out) <- c("Trait","TraitURI","GeneSymbol","GeneName","idgFam","idgTDL","N_study","N_snp","N_trait","pVal_mlog","OR","study_N","RCRAS","muScore","nAbove","nBelow","muRank")
+    names(hits_out) <- c("Trait","TraitURI","GeneSymbol","GeneName","idgFam","idgTDL","N_study","N_snp","N_wsnp","N_trait","pVal_mlog","OR","study_N","RCRAS","muScore","nAbove","nBelow","muRank")
     return(hits_out)
   })
 
