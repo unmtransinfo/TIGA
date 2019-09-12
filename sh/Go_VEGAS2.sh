@@ -11,6 +11,8 @@
 # VEGAS2 gene based scores can be computed for each GWAS study, from the
 # SNP+pval files provided by the GWAS Catalog.
 ###
+# ~250GB RAM required.
+###
 #
 cwd=$(pwd)
 #
