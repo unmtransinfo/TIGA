@@ -12,17 +12,18 @@
 # SNP+pval files provided by the GWAS Catalog.
 ###
 # ~250GB RAM required.
-# Parallelize?
 ###
 #
 cwd=$(pwd)
 #
-DATADIR="${cwd}/data/vegas"
+DATADIR="${cwd}/data"
 #
 VEGAS="${cwd}/perl/vegas2v2.pl"
 #
 cd $DATADIR
 #
+###
+INFILE="/home/data/VEGAS/data/VEGAS2v2example/example.txt"
 ###
 # Example file has 26 genes; full file ~26k.
 #GLISTFILE="/home/data/VEGAS/data/VEGAS2v2example/example.glist"
@@ -30,33 +31,17 @@ GLISTFILE="/home/data/VEGAS/data/glist-hg19.txt"
 #
 ###
 # CUSTOM_DIR should contain: ${CUSTOM_PREFIX}.(bed,bim,fam)
+#CUSTOM_DIR="/home/data/VEGAS/data/VEGAS2v2example"
+#CUSTOM_PREFIX="example"
 ###
 CUSTOM_DIR="/home/data/VEGAS/data/g1000p3"
 CUSTOM_PREFIX="g1000p3_EUR"
 #
 OUT_PREFIX="vegas_example"
 #
-date
-T0=$(date +%s)
+$VEGAS -G \
+	-glist $GLISTFILE \
+	-custom ${CUSTOM_DIR}/${CUSTOM_PREFIX} \
+	-snpandp $INFILE \
+	-out $OUT_PREFIX
 #
-n_file=$(ls -1 vegas_in_*.tsv |wc -l)
-i=0
-#
-for ifile in $(ls vegas_in_*.tsv) ; do
-	i=$(($i+1))
-	acc=$(echo $ifile |perl -pe 's/vegas_in_(.*)\.tsv/$1/')
-	printf "%d/%d. %s\n" "${i}" "${n_file}" "${acc}"
-	out_prefix="vegas_out_${acc}"
-	T0_this=$(date +%s)
-	$VEGAS -G \
-		-glist $GLISTFILE \
-		-custom ${CUSTOM_DIR}/${CUSTOM_PREFIX} \
-		-snpandp $ifile \
-		-out $out_prefix
-	printf "%s: elapsed time: %ds\n" "${acc}" "$[$(date +%s) - ${T0_this}]"
-done
-#
-printf "TOTAL elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
-date
-#
-
