@@ -54,12 +54,16 @@ def RequestURL(url,headers,data,usr,pw,parse_json,parse_xml,nmax_retry,verbose):
   while True:
     i_try+=1
     try:
-      f=urllib.request.urlopen(req,timeout=REST_TIMEOUT)
-      if not f:
+      response=urllib.request.urlopen(req,timeout=REST_TIMEOUT)
+      if not response:
         print('ERROR: urlopen failed.',file=sys.stderr)
         return None
-      fbytes=f.read()
-      f.close()
+      status=response.getcode()
+      #print('DEBUG: status: {0}'.format(status), file=sys.stderr)
+      #info=response.info()
+      #url=response.geturl()
+      fbytes=response.read()
+      response.close()
     except urllib.request.HTTPError as e:
       if e.code==404:
         return ([])

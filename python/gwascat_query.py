@@ -3,17 +3,13 @@
 	GWAS Catalog REST API client.
 
 	https://www.ebi.ac.uk/gwas/docs/api
-	https://www.ebi.ac.uk/gwas/rest/docs/api
-		See "Response structure", "Links", etc.
-		&page=1&size=50 (default size=20, max 500)
-		http://stateless.co/hal_specification.html
-	https://www.ebi.ac.uk/gwas/rest/docs/sample-scripts
 	https://www.ebi.ac.uk/gwas/rest/api
+	https://www.ebi.ac.uk/gwas/rest/docs/api
+	https://www.ebi.ac.uk/gwas/rest/docs/sample-scripts
 
 	author: Jeremy Yang
 """
-import sys,os,re,argparse,json
-import urllib.parse
+import sys,os,re,argparse,json,time,logging
 #
 import rest_utils
 #
@@ -22,28 +18,67 @@ PROG=os.path.basename(sys.argv[0])
 API_HOST='www.ebi.ac.uk'
 API_BASE_PATH='/gwas/rest/api'
 #
-# https://www.ebi.ac.uk/gwas/rest/api/studies/search/findByPublicationIdPubmedId?pubmedId=28530673
-# https://www.ebi.ac.uk/gwas/rest/api/studies/GCST004364
 ##############################################################################
-def SearchStudies(base_url, ids, idtype, fout, verbose):
-  url=base_url+'/studies/search'
-  if idtype=='pmid':
-    url+='/findByPublicationIdPubmedId?pubmedId='
-  elif idtype=='gcst':
-    url+='/'
-  else:
-    print('ERROR: Not yet supported: idtype = %s'%(idtype), file=sys.stderr)
-    return
+def ListStudies(base_url, fout, verbose):
+  """Only simple metadata."""
+  url_this=base_url+'/studies?size=100'
+  tags=[]; n_study=0; rval=None;
+  while True:
+    if rval:
+      if 'next' not in rval['_links']: break
+      elif url_this == rval['_links']['last']['href']: break
+      else: url_this = rval['_links']['next']['href']
+    logging.debug(url_this)
+    rval = rest_utils.GetURL(url_this, parse_json=True, verbose=verbose)
+    if not rval or '_embedded' not in rval or 'studies' not in rval['_embedded']: break
+    studies = rval['_embedded']['studies']
+    if not studies: break
+    for study in studies:
+      if not tags:
+        for tag in study.keys():
+          if type(study[tag]) not in (list, dict): tags.append(tag) #Only simple metadata.
+        fout.write('\t'.join(tags))
+      n_study+=1
+      vals = [str(study[tag]).replace('\n', ' ') if tag in study and study[tag] is not None else '' for tag in tags]
+      fout.write('\t'.join(vals)+'\n')
+  logging.info('n_study: {0}'.format(n_study))
 
+##############################################################################
+def SearchStudies(base_url, ids, searchtype, fout, verbose):
+  url=base_url+'/studies/search'
+  if searchtype=='gcst':
+    url+='/'
+  elif searchtype.lower()=='pubmedid':
+    url+='/findByPublicationIdPubmedId?pubmedId='
+  elif searchtype.lower()=='efotrait':
+    url+='/findByEfoTrait?efoTrait='
+  elif searchtype.lower()=='efouri':
+    url+='/findByEfoUri?efoUri='
+  elif searchtype.lower()=='accessionid':
+    url+='/findByAccessionId?accessionId='
+  else:
+    logging.error('Not yet supported: searchtype: %s'%(searchtype))
+    return
+  tags=[]; n_study=0; rval=None;
   for id_this in ids:
     url_this=url+'%s'%id_this
-    rval=rest_utils.GetURL(url_this, parse_json=True, verbose=verbose)
-    if not rval:
-      continue
-    print('DEBUG: %s'%json.dumps(rval,sort_keys=True,indent=2))
+    rval = rest_utils.GetURL(url_this, parse_json=True, verbose=verbose)
+    if not rval or '_embedded' not in rval or 'studies' not in rval['_embedded']: continue
+    studies = rval['_embedded']['studies']
+    if not studies: continue
+    for study in studies:
+      if not tags:
+        for tag in study.keys():
+          if type(study[tag]) not in (list, dict): tags.append(tag) #Only simple metadata.
+        fout.write('\t'.join(tags))
+      n_study+=1
+      vals = [str(study[tag]).replace('\n', ' ') if tag in study and study[tag] is not None else '' for tag in tags]
+      fout.write('\t'.join(vals)+'\n')
+    logging.debug('%s'%json.dumps(rval,sort_keys=True,indent=2))
+  logging.info('n_study: {0}'.format(n_study))
 
 ##############################################################################
-def StudyAssociations(base_url, ids, fout, verbose):
+def GetStudyAssociations(base_url, ids, fout, verbose):
   """
 	/studies/GCST000227/associations?projection=associationByStudy
 	Mapped genes via SNP links.
@@ -51,7 +86,6 @@ def StudyAssociations(base_url, ids, fout, verbose):
 	sra = strongestRiskAllele
   """
   url=base_url+'/studies'
-  idtype='gcst'
   url+='/'
 
   n_id=0;
@@ -66,7 +100,7 @@ def StudyAssociations(base_url, ids, fout, verbose):
     if '_embedded' in rval and 'associations' in rval['_embedded']:
       assns = rval['_embedded']['associations']
     else:
-      print('ERROR: no associations for study: %s'%id_this, file=sys.stderr)
+      logging.error('ERROR: no associations for study: %s'%id_this)
       continue
 
     for assn in assns:
@@ -123,7 +157,7 @@ def StudyAssociations(base_url, ids, fout, verbose):
             vals_sra.append(str(sra[tag]) if tag in sra and sra[tag] is not None else '')
           fout.write('\t'.join(vals+vals_locus+['' for tag in tags_arg]+vals_sra+[snp_href])+'\n')
 
-  print('%ss: %d ; assns: %d ; loci: %d ; reportedGenes: %d ; alleles: %d ; snps: %d'%(idtype, n_id, n_assn, n_loci, n_arg, n_sra, n_snp), file=sys.stderr)
+  logging.info('IDs: %d ; assns: %d ; loci: %d ; reportedGenes: %d ; alleles: %d ; snps: %d'%(n_id, n_assn, n_loci, n_arg, n_sra, n_snp))
 
 ##############################################################################
 def GetSnps(base_url, ids, fout, verbose):
@@ -195,10 +229,9 @@ def GetSnps(base_url, ids, fout, verbose):
           vals_gene.append(';'.join(geneids) if geneids else '')
         else:
           vals_gene.append(str(gene[tag]) if tag in gene and gene[tag] is not None else '')
-
       fout.write('\t'.join(vals+vals_gc+vals_gcloc+vals_gene)+'\n')
 
-  print('SNPs: %d ; genomicContexts: %d ; genes: %d ; locations: %d'%(n_snp, n_gc, n_gene, n_gcloc), file=sys.stderr)
+  logging.info('SNPs: %d ; genomicContexts: %d ; genes: %d ; locations: %d'%(n_snp, n_gc, n_gene, n_gcloc))
 
 ##############################################################################
 # https://www.ebi.ac.uk/gwas/rest/api/studies/GCST004364?projection=study
@@ -206,13 +239,13 @@ def GetSnps(base_url, ids, fout, verbose):
 ##############################################################################
 if __name__=='__main__':
 
-  idtypes=['pmid', 'gcst', 'efo', 'rs']
-  parser = argparse.ArgumentParser(
-        description='GWAS Catalog query client')
-  ops = ['searchStudies', 'studyAssociations', 'getSnps']
+  epilog = "Examples: PubmedId=28530673; gcst=GCST004364; EfoUri=EFO_0004232"
+  parser = argparse.ArgumentParser(description='GWAS Catalog REST API client', epilog=epilog)
+  searchtypes=['pubmedmid', 'gcst', 'efotrait', 'efouri', 'accessionid', 'rs']
+  ops = ['listStudies', 'searchStudies', 'getStudyAssociations', 'getSnps']
   parser.add_argument("op", choices=ops, help='operation')
   parser.add_argument("--ids", dest="ids", help="IDs, comma-separated")
-  parser.add_argument("--idtype", choices=idtypes, help="ID type")
+  parser.add_argument("--searchtype", choices=searchtypes, help="ID type")
   parser.add_argument("--i", dest="ifile", help="input file, IDs")
   parser.add_argument("--o", dest="ofile", help="output (TSV)")
   parser.add_argument("--api_host", default=API_HOST)
@@ -228,6 +261,10 @@ if __name__=='__main__':
   else:
     fout=sys.stdout
 
+  logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.WARN if args.verbose<1 else logging.INFO if args.verbose<2 else logging.DEBUG))
+
+  t0 = time.time()
+
   ids=[]
   if args.ifile:
     fin=open(args.ifile)
@@ -240,17 +277,19 @@ if __name__=='__main__':
     ids=re.split(r'\s*,\s*',args.ids.strip())
 
   if args.op == 'searchStudies':
-    SearchStudies(base_url, ids, args.idtype, fout, args.verbose)
+    SearchStudies(base_url, ids, args.searchtype, fout, args.verbose)
 
-  elif args.op == 'studyAssociations':
-    if args.idtype and args.idtype != 'gcst':
-      parser.error('Operation "%s" requires idtype "gcst"'%args.op)
-    StudyAssociations(base_url, ids, fout, args.verbose)
+  elif args.op == 'listStudies':
+    ListStudies(base_url, fout, args.verbose)
+
+  elif args.op == 'getStudyAssociations':
+    GetStudyAssociations(base_url, ids, fout, args.verbose)
 
   elif args.op == 'getSnps':
-    if args.idtype and args.idtype != 'rs':
-      parser.error('Operation "%s" requires idtype "rs"'%args.op)
     GetSnps(base_url, ids, fout, args.verbose)
 
   else:
     parser.error("Unknown operation: %s"%args.op)
+
+  logging.info('{0}: elapsed time: {1}'.format(os.path.basename(sys.argv[0]), time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0))))
+

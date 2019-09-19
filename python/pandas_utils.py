@@ -66,6 +66,7 @@ if __name__=='__main__':
   if args.csv: delim=','
   elif args.tsv: delim='\t'
   elif re.search('\.csv', args.ifile, re.I): delim=','
+  elif re.search('\.tsv', args.ifile, re.I) or re.search('\.tab', args.ifile, re.I): delim='\t'
   else: delim='\t'
 
   if args.op == 'csv2tsv':

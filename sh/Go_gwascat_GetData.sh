@@ -5,9 +5,8 @@
 ### NHGRI-EBI GWAS Catalog: http://www.ebi.ac.uk/gwas/
 #############################################################################
 ### According to EBI, additional information is available via the API,
-### see https://www.ebi.ac.uk/gwas/docs/api
-#############################################################################
-### Jeremy Yang
+### see https://www.ebi.ac.uk/gwas/docs/api,https://www.ebi.ac.uk/gwas/docs/faq#E,
+### particularly on "Genomic Mappings" (SNP-gene) .
 #############################################################################
 #
 cwd=$(pwd)
@@ -128,7 +127,7 @@ ${cwd}/python/gwascat_query.py \
 	--i $DATADIR/z.gcst \
 	--idtype "gcst" \
 	--o $DATADIR/gwascat_query_studyAssociations_out.tsv \
-	studyAssociations
+	getStudyAssociations
 #
 ${cwd}/python/sample_lines.py \
 	--i $DATADIR/gwascat_snp2gene.tsv \
