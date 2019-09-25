@@ -89,8 +89,8 @@ def GetStudyAssociations(base_url, ids, fout, verbose):
   url+='/'
 
   n_id=0;
-  n_assn=0; n_loci=0; n_arg=0; n_sra=0; n_snp=0;
-  tags=[]; tags_locus=[]; tags_sra=[]; tags_arg=[];
+  n_assn=0; n_loci=0; n_arg=0; n_sra=0; n_snp=0; gcsts=set([])
+  tags_assn=[]; tags_study=[]; tags_locus=[]; tags_sra=[]; tags_arg=[];
   for id_this in ids:
     n_id+=1
     url_this=url+'%s/associations?projection=associationByStudy'%id_this
@@ -108,7 +108,10 @@ def GetStudyAssociations(base_url, ids, fout, verbose):
       if n_assn==1:
         for key,val in assn.items():
           if type(val) not in (list, dict):
-            tags.append(key)
+            tags_assn.append(key)
+        for key in assn['study'].keys():
+          if type(assn['study'][key]) not in (list, dict):
+            tags_study.append(key)
         for key in assn['loci'][0].keys():
           if key not in ('strongestRiskAlleles', 'authorReportedGenes'):
             tags_locus.append(key)
@@ -118,20 +121,25 @@ def GetStudyAssociations(base_url, ids, fout, verbose):
         for key in assn['loci'][0]['authorReportedGenes'][0].keys():
           tags_arg.append(key)
 
-        fout.write('\t'.join(tags
+        fout.write('\t'.join(list(map(lambda s: 'study_'+s, tags_study))
+		+tags_assn
 		+list(map(lambda s: 'locus_'+s, tags_locus))
 		+list(map(lambda s: 'reported_'+s, tags_arg))
 		+list(map(lambda s: 'allele_'+s, tags_sra))
 		+['snp_url'])+'\n')
 
       vals=[];
-      for tag in tags:
-        vals.append(str(assn[tag]) if tag in assn and assn[tag] is not None else '')
+      for tag in tags_study:
+        vals.append(CleanStr(assn['study'][tag]) if tag in assn['study'] and assn['study'][tag] is not None else '')
+        try: gcsts.add(assn['study']['accessionId'])
+        except: pass
+      for tag in tags_assn:
+        vals.append(CleanStr(assn[tag]) if tag in assn and assn[tag] is not None else '')
       for locus in assn['loci']:
         n_loci+=1
         vals_locus=[];
         for tag in tags_locus:
-          vals_locus.append(str(locus[tag]) if tag in locus and locus[tag] is not None else '')
+          vals_locus.append(CleanStr(locus[tag]) if tag in locus and locus[tag] is not None else '')
         for arg in locus['authorReportedGenes']:
           n_arg+=1
           vals_arg=[];
@@ -145,7 +153,7 @@ def GetStudyAssociations(base_url, ids, fout, verbose):
               if None in geneids: geneids.remove(None)
               vals_arg.append(';'.join(geneids) if geneids else '')
             else:
-              vals_arg.append(str(arg[tag]) if tag in arg else '')
+              vals_arg.append(CleanStr(arg[tag]) if tag in arg else '')
           fout.write('\t'.join(vals+vals_locus+vals_arg+['' for tag in tags_sra]+[''])+'\n')
 
         for sra in locus['strongestRiskAlleles']:
@@ -154,10 +162,14 @@ def GetStudyAssociations(base_url, ids, fout, verbose):
           snp_href = sra['_links']['snp']['href'] if '_links' in sra and 'snp' in sra['_links'] and 'href' in sra['_links']['snp'] else ''
           if snp_href: n_snp+=1
           for tag in tags_sra:
-            vals_sra.append(str(sra[tag]) if tag in sra and sra[tag] is not None else '')
+            vals_sra.append(CleanStr(sra[tag]) if tag in sra and sra[tag] is not None else '')
           fout.write('\t'.join(vals+vals_locus+['' for tag in tags_arg]+vals_sra+[snp_href])+'\n')
 
-  logging.info('IDs: %d ; assns: %d ; loci: %d ; reportedGenes: %d ; alleles: %d ; snps: %d'%(n_id, n_assn, n_loci, n_arg, n_sra, n_snp))
+  logging.info('INPUT RCSTs: %d; OUTPUT RCSTs: %d ; assns: %d ; loci: %d ; reportedGenes: %d ; alleles: %d ; snps: %d'%(n_id, len(gcsts), n_assn, n_loci, n_arg, n_sra, n_snp))
+
+##############################################################################
+def CleanStr(val):
+  return str(val).replace(r'[\t\r\n]', ' ')
 
 ##############################################################################
 def GetSnps(base_url, ids, fout, verbose):
@@ -261,7 +273,7 @@ if __name__=='__main__':
   else:
     fout=sys.stdout
 
-  logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.WARN if args.verbose<1 else logging.INFO if args.verbose<2 else logging.DEBUG))
+  logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.DEBUG if args.verbose>1 else logging.INFO))
 
   t0 = time.time()
 

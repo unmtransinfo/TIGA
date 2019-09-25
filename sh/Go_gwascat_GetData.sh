@@ -7,6 +7,7 @@
 ### According to EBI, additional information is available via the API,
 ### see https://www.ebi.ac.uk/gwas/docs/api,https://www.ebi.ac.uk/gwas/docs/faq#E,
 ### particularly on "Genomic Mappings" (SNP-gene) .
+### Also it appears beta and OR values are separated better.
 #############################################################################
 #
 cwd=$(pwd)
@@ -116,30 +117,21 @@ cat \
 #############################################################################
 ### Additional information via the API:
 ### But exactly what should be used?
-${cwd}/python/sample_lines.py \
-	--i $DATADIR/gwascat_gwas.tsv \
-	--k 20 \
-	chooseK \
-	|awk -F '\t' '{print $15}' \
-	|sed -e '1d' \
-	>$DATADIR/z.gcst
+#
+cat $DATADIR/gwascat_gwas.tsv \
+	|sed -e '1d' |awk -F '\t' '{print $15}' \
+	>$DATADIR/gwascat_gwas.gcst
 ${cwd}/python/gwascat_query.py \
-	--i $DATADIR/z.gcst \
-	--idtype "gcst" \
-	--o $DATADIR/gwascat_query_studyAssociations_out.tsv \
+	--i $DATADIR/gwascat_gwas.gcst \
+	--o $DATADIR/gwascat_StudyAssociations.tsv \
 	getStudyAssociations
 #
-${cwd}/python/sample_lines.py \
-	--i $DATADIR/gwascat_snp2gene.tsv \
-	--k 100 \
-	chooseK \
-	|awk -F '\t' '{print $3}' \
-	|sed -e '1d' \
-	>$DATADIR/z.rs
+cat $DATADIR/gwascat_snp2gene.tsv \
+	|sed -e '1d' |awk -F '\t' '{print $3}' \
+	>$DATADIR/gwascat_snp2gene.rs
 ${cwd}/python/gwascat_query.py \
-	--i $DATADIR/z.rs \
-	--idtype "rs" \
-	--o $DATADIR/gwascat_query_getSnps_out.tsv \
+	--i $DATADIR/gwascat_snp2gene.rs \
+	--o $DATADIR/gwascat_Snps.tsv \
 	getSnps
 #
 ${cwd}/python/pandas_utils.py --i $DATADIR/gwascat_query_getSnps_out.tsv showcols
