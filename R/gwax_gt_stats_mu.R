@@ -21,7 +21,7 @@ library(muStat)
 t0 <- proc.time()
 
 # Read gene-trait file.
-gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_wsnp=col_double(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_median=col_double(), rcras=col_double()))
+gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_wsnp=col_double(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double()))
 setDT(gt)
 #
 gt <- gt[!is.na(or_median) & !is.na(gsymb) &!is.na(tdl)]

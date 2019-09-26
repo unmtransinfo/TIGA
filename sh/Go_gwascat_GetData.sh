@@ -121,13 +121,18 @@ cat \
 cat $DATADIR/gwascat_gwas.tsv \
 	|sed -e '1d' |awk -F '\t' '{print $15}' \
 	>$DATADIR/gwascat_gwas.gcst
+# ~3hr
 ${cwd}/python/gwascat_query.py \
 	--i $DATADIR/gwascat_gwas.gcst \
 	--o $DATADIR/gwascat_StudyAssociations.tsv \
 	getStudyAssociations
 #
+# re.match(r'(rs|SNP|snp|chr)', val)
 cat $DATADIR/gwascat_snp2gene.tsv \
 	|sed -e '1d' |awk -F '\t' '{print $3}' \
+	|sort -u \
+	>$DATADIR/gwascat_snp2gene.snpId
+cat $DATADIR/gwascat_snp2gene.snpId |grep '^rs' \
 	>$DATADIR/gwascat_snp2gene.rs
 ${cwd}/python/gwascat_query.py \
 	--i $DATADIR/gwascat_snp2gene.rs \

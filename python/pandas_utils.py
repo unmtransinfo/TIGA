@@ -42,6 +42,7 @@ if __name__=='__main__':
   parser.add_argument("--compression", choices=compressions)
   parser.add_argument("--csv", action="store_true", help="delimiter is comma")
   parser.add_argument("--tsv", action="store_true", help="delimiter is tab")
+  parser.add_argument("--disallow_bad_lines", action="store_true", help="default=allow+skip+warn")
   parser.add_argument("-v", "--verbose", action="count")
   args = parser.parse_args()
 
@@ -63,16 +64,11 @@ if __name__=='__main__':
   elif re.search('\.zip$', args.ifile, re.I): compression='zip'
   else: compression=None
 
-  if args.csv: delim=','
+  if args.csv or args.op=='csv2tsv': delim=','
   elif args.tsv: delim='\t'
   elif re.search('\.csv', args.ifile, re.I): delim=','
   elif re.search('\.tsv', args.ifile, re.I) or re.search('\.tab', args.ifile, re.I): delim='\t'
   else: delim='\t'
-
-  if args.op == 'csv2tsv':
-    df = pandas.read_csv(args.ifile, sep=',', compression=compression)
-    df.to_csv(fout, '\t', index=False)
-    exit(0)
 
   cols=None; coltags=None;
   if args.cols:
@@ -84,11 +80,14 @@ if __name__=='__main__':
   search_rels = [rel.strip() for rel in re.split(r',', args.search_rels.strip())] if (args.search_rels is not None) else None
   search_typs = [typ.strip() for typ in re.split(r',', args.search_typs.strip())] if (args.search_typs is not None) else None
 
-  df = pandas.read_csv(args.ifile, sep=delim, compression=compression)
+  df = pandas.read_csv(args.ifile, sep=delim, compression=compression, error_bad_lines=args.disallow_bad_lines)
 
   if args.op == 'summary':
     print("rows: %d ; cols: %d"%(df.shape[0], df.shape[1]))
     print("coltags: %s"%(', '.join(['"%s"'%tag for tag in df.columns])))
+
+  elif args.op=='csv2tsv':
+    df.to_csv(fout, '\t', index=False)
 
   elif args.op == 'showcols':
     for j,tag in enumerate(df.columns):

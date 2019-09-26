@@ -167,7 +167,7 @@ gt_stats <- data.table(gsymb=rep(NA, NROW), trait_uri=rep(NA, NROW), trait=rep(N
 	n_genes_t=as.integer(rep(NA, NROW)),
 	pvalue_mlog_median=as.numeric(rep(NA, NROW)),
 	or_median=as.numeric(rep(NA, NROW)),
-	study_N_median=as.numeric(rep(NA, NROW)),
+	study_N_mean=as.numeric(rep(NA, NROW)),
 	rcras=rep(NA, NROW)
 	)
 #
@@ -188,7 +188,7 @@ for (gsymb in unique(g2t$GSYMB)) {
     gt_stats$n_study[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])
     gt_stats$pvalue_mlog_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
     gt_stats$or_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
-    gt_stats$study_N_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, study_N], na.rm=T)
+    gt_stats$study_N_mean[i_row] <- mean(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, study_N], na.rm=T)
     gt_stats$n_snp[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, SNP])
     # Deduplicate (group-by) SNPs for `n_wsnp` computation. 
     gt_stats$n_wsnp[i_row] <- sum(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt)), by="SNP"][, GDistWt], na.rm=T)
@@ -230,9 +230,9 @@ message(sprintf("DEBUG: pvalue_mlog_median: count=%d [%.2f,%.2f]", sum(!is.na(gt
 message(sprintf("DEBUG: or_median: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$or_median)),
                 min(gt_stats$or_median, na.rm=T),
                 max(gt_stats$or_median, na.rm=T)))
-message(sprintf("DEBUG: study_N_median: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$study_N_median)),
-                min(gt_stats$study_N_median, na.rm=T),
-                max(gt_stats$study_N_median, na.rm=T)))
+message(sprintf("DEBUG: study_N_mean: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$study_N_mean)),
+                min(gt_stats$study_N_mean, na.rm=T),
+                max(gt_stats$study_N_mean, na.rm=T)))
 message(sprintf("DEBUG: rcras: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$rcras)),
                 min(gt_stats$rcras, na.rm=T),
                 max(gt_stats$rcras, na.rm=T)))
