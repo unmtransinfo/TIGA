@@ -134,6 +134,7 @@ cat $DATADIR/gwascat_snp2gene.tsv \
 	>$DATADIR/gwascat_snp2gene.snpId
 cat $DATADIR/gwascat_snp2gene.snpId |grep '^rs' \
 	>$DATADIR/gwascat_snp2gene.rs
+# ~15hr
 ${cwd}/python/gwascat_query.py \
 	--i $DATADIR/gwascat_snp2gene.rs \
 	--o $DATADIR/gwascat_Snps.tsv \

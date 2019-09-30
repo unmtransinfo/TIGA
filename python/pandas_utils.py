@@ -43,6 +43,8 @@ if __name__=='__main__':
   parser.add_argument("--csv", action="store_true", help="delimiter is comma")
   parser.add_argument("--tsv", action="store_true", help="delimiter is tab")
   parser.add_argument("--disallow_bad_lines", action="store_true", help="default=allow+skip+warn")
+  parser.add_argument("--nrows", type=int)
+  parser.add_argument("--skiprows", type=int)
   parser.add_argument("-v", "--verbose", action="count")
   args = parser.parse_args()
 
@@ -80,18 +82,20 @@ if __name__=='__main__':
   search_rels = [rel.strip() for rel in re.split(r',', args.search_rels.strip())] if (args.search_rels is not None) else None
   search_typs = [typ.strip() for typ in re.split(r',', args.search_typs.strip())] if (args.search_typs is not None) else None
 
-  df = pandas.read_csv(args.ifile, sep=delim, compression=compression, error_bad_lines=args.disallow_bad_lines)
+  if args.op == 'showcols': args.nrows=1
 
-  if args.op == 'summary':
+  df = pandas.read_csv(args.ifile, sep=delim, compression=compression, error_bad_lines=args.disallow_bad_lines, nrows=args.nrows, skiprows=args.skiprows)
+
+  if args.op == 'showcols':
+    for j,tag in enumerate(df.columns):
+      print('%d. "%s"'%(j+1,tag))
+
+  elif args.op == 'summary':
     print("rows: %d ; cols: %d"%(df.shape[0], df.shape[1]))
     print("coltags: %s"%(', '.join(['"%s"'%tag for tag in df.columns])))
 
   elif args.op=='csv2tsv':
     df.to_csv(fout, '\t', index=False)
-
-  elif args.op == 'showcols':
-    for j,tag in enumerate(df.columns):
-      print('%d. "%s"'%(j+1,tag))
 
   elif args.op == 'selectcols':
     df = df[coltags] if coltags else df.iloc[:, cols]
