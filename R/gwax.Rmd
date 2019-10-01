@@ -37,6 +37,7 @@ To-do:
 * Confidence scoring for SNP-gene mappings, based on up/down-stream distance; include in &mu; scores.
 * EFO+DOID semantic subclass related studies, linking, aggregation, scoring.
 * Polygenic diseases/traits: Filter if less suitable for GWAS-based drug target discovery use cases.
+* Use Ensembl IDs (from API) rather than gene symbols for more accurate SNP to gene mapping.
 
 ## About NHGRI-EBI GWAS Catalog
 
@@ -288,7 +289,17 @@ snp2gene[, REPORTED_OR_MAPPED := sub('^md$', 'mapped_downstream', REPORTED_OR_MA
 snp2gene_counts <- snp2gene[, .(.N), by="REPORTED_OR_MAPPED"]
 knitr::kable(snp2gene_counts)
 ```
+# GWAS Catalog API, Ensembl IDs, Ensemble API and annotations
 
+The API provides additional data including Ensembl IDs for mapped genes, from which we query the Ensembl API
+for additional annotations including gene ___biotype___, thereby filtering for __protein_coding__.
+
+```{r}
+ensbInfo <- read_delim("data/gwascat_Snps_EnsemblInfo.tsv.gz", "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
+setDT(ensbInfo)
+biotypes <- ensbInfo[, .(.N), by="biotype"][order(-N)]
+knitr::kable(biotypes[, Percent := round(100 * N / sum(N), 1)][N >= 100])
+```
 
 # Gene counts
 
@@ -518,7 +529,7 @@ t2g[is.na(tdl), tdl := "NA"]
 t2g$tdl <- factor(t2g$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
 t2g[, markersize := 15/n_traits_g]
 t2g[, text := paste0(gsymb, "<br>", name, "<br>", "Family: ", fam, "<br>", "TDL: ", tdl, "<br>", "n_traits_this_gene=", n_traits_g, " ; n_snp=", n_snp, " ; n_study=", n_study,
-"OR = ", or_median, "; ", "study_N = ", study_N_median, "; ",
+"OR = ", or_median, "; ", "study_N = ", study_N_mean, "; ",
 " ; pVal=", sprintf("%.2g",10^(-pvalue_mlog_median)), "RCRAS = ", rcras, "; ", 
 "muScore = ", mu_score, "; ", "nAbove = ", nAbove, "; ", "nBelow = ", nBelow, "; ","muRank = ", mu_rank, "; ")]
 plot_ly(type='scatter', mode='markers', data=t2g[(ok)], 

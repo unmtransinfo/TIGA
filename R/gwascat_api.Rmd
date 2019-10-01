@@ -1,0 +1,141 @@
+---
+title: "GWAS Catalog API: additional data"
+author: "Jeremy Yang"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+---
+
+# Process files from GWAS Catalog API.
+
+* <https://www.ebi.ac.uk/gwas/docs/api>
+* <https://www.ebi.ac.uk/gwas/rest/api>
+* <https://www.ebi.ac.uk/gwas/rest/docs/api>
+* See [gwascat\_query.py](python/gwascat_query.py)
+* See [Go\_gwascat\_GetData.sh](sh/Go_gwascat_GetData.sh)
+
+What data add value for our use case relative to the downloads?
+
+* Ensemble gene IDs (better than symbols in association file).
+
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+base::date()
+```
+
+```{r message=FALSE, warning=FALSE}
+library(readr, quietly=T)
+library(data.table, quietly=T)
+library(plotly, quietly=T)
+```
+
+# Read associations
+
+
+```{r}
+studyAssns <- read_delim("data/gwascat_StudyAssociations.tsv.gz", "\t", col_types = cols(.default=col_character(), standardError = col_double(), pvalue = col_double(), betaNum = col_double(), orPerCopyNum = col_double(), multiSnpHaplotype = col_logical(), snpInteraction = col_logical(), pvalueMantissa = col_double(), pvalueExponent = col_double(), locus_haplotypeSnpCount = col_integer(), allele_genomeWide = col_logical(), allele_limitedList = col_logical()))
+setDT(studyAssns)
+message(sprintf("associations: %d", nrow(studyAssns)))
+```
+Parse RS IDs from allele names, for joining with SNP data.
+
+View beta units for harmonization feasibility.  "unit"?
+
+
+```{r}
+studyAssns[, rsId := sub("-.", "", allele_riskAlleleName)]
+studyAssns[, betaUnit := sub("^\\(?[Zz][- ]?[Ss]core\\)?$", "Z-score", betaUnit)]
+betaUnits <- studyAssns[, .(.N), by="betaUnit"][order(-N)]
+knitr::kable(betaUnits[, Percent := round(100 * N / sum(N), 1)][N >= 50])
+```
+
+
+
+# Read SNPs
+
+
+```{r}
+studySnps <- read_delim("data/gwascat_Snps.tsv.gz", "\t", col_types=cols(.default=col_character(), merged=col_logical(), lastUpdateDate=col_datetime(),   genomicContext_isIntergenic = col_logical(), genomicContext_isUpstream = col_logical(), genomicContext_isDownstream = col_logical(), genomicContext_distance = col_double(), genomicContext_isClosestGene = col_logical(), loc_chromosomePosition = col_double()))
+setDT(studySnps)
+message(sprintf("SNPs: %d", nrow(studySnps)))
+```
+
+```{r}
+functionalClasses <- studySnps[, .(.N), by="functionalClass"][order(-N)]
+knitr::kable(functionalClasses[, Percent := round(100 * N / sum(N), 1)][N >= 100])
+```
+
+# Gene mapping (Genomic context)
+
+* Currently all via "Ensembl_pipeline". Is this pipeline published or documented?
+
+
+```{r}
+table(studySnps$genomicContext_source, studySnps$genomicContext_isClosestGene)
+```
+* Can we infer protein-coding from gene names? Not well. Need to use Ensembl API.
+* "LINC" = Long Intergenic Non-protein-Coding
+* "LOC" = chromosomal location, non-coding
+* "AC?" e.g. "AC012314.11"
+
+```{r}
+geneNames <- unique(studySnps$gene_geneName)
+sprintf("Gene names: %d", length(geneNames))
+sprintf("LINC* names: %d", sum(grepl("^LINC", geneNames, ignore.case=T)))
+sprintf("LOC* names: %d", sum(grepl("^LOC", geneNames, ignore.case=T)))
+```
+
+# Ensembl data
+
+Via Ensembl IDs, and Ensembl API, annotations classify _biotype_ as protein_coding, lncRNA, etc. and
+thereby allow us to select only protein_coding mappings for IDG applications.
+
+Merge protein_coding only with SNP2GENE file, mapped genes only.
+
+* GSYMB is from downloaded association file.
+* geneName from GWAS Catalog API.
+* EnsemblName from Ensembl API (preferred), via Ensembl ID.
+
+```{r}
+ensemblInfo <- read_delim("data/gwascat_Snps_EnsemblInfo.tsv.gz", "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
+setDT(ensemblInfo)
+biotypes <- ensemblInfo[, .(.N), by="biotype"][order(-N)]
+knitr::kable(biotypes[, Percent := round(100 * N / sum(N), 1)][N >= 100], caption="Ensembl gene biotypes")
+```
+
+```{r}
+snp2gene <- read_delim("data/gwascat_snp2gene.tsv", "\t", col_types=cols(.default=col_character()))
+setDT(snp2gene)
+snp2gene <- snp2gene[, STUDY_ACCESSION := NULL]
+snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED != "r"])
+ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, EnsemblName=display_name)][, protein_coding := T]
+proteinSnps <- merge(studySnps[, .(rsId, ensemblId=gene_ensemblGeneIds, geneName=gene_geneName)], ensemblInfo, by="ensemblId", all.x=F)
+snp2gene <- unique(merge(snp2gene, proteinSnps, by.x="SNP", by.y="rsId", all.x=F, all.y=F, allow.cartesian=T))
+snp2gene[, ensemblUrl := sprintf("http://rest.ensembl.org/lookup/id/%s", ensemblId)]
+snp2gene[, `:=`(GSYMB=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
+snp2gene <- unique(snp2gene)
+
+```
+## Gene name discrepancies
+
+```{r}
+sprintf("Gene name discrepancies: %d (%.1f%%)", nrow(snp2gene[geneName!=EnsemblName]), 100*nrow(snp2gene[geneName!=EnsemblName])/nrow(snp2gene))
+knitr::kable(snp2gene[geneName!=EnsemblName][sample(.N, 12)], caption="Gene name discrepancies (examples)")
+```
+
+Also check TCRD xrefs.
+
+```{r}
+tcrd <- read_delim("data/tcrd_targets.tsv", "\t", col_types=cols(.default=col_character(), idgList=col_logical()), na = c("", "NA", "NULL"))
+setDT(tcrd)
+tcrd <- tcrd[, .(tcrdProteinId, TDL, ncbiGeneId, uniprotId, ensemblGeneId)]
+snp2gene <- merge(snp2gene, tcrd, by.x="ensemblId", by.y="ensemblGeneId", all.x=T)
+sprintf("ensemblGeneIds NOT mapped to TCRD: %d (%.1f%%)", 
+        sum(is.na(snp2gene$tcrdProteinId)),
+        100*sum(is.na(snp2gene$tcrdProteinId))/nrow(snp2gene))
+```
+
+
+

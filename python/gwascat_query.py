@@ -39,7 +39,7 @@ def ListStudies(base_url, fout, verbose):
       if not tags:
         for tag in study.keys():
           if type(study[tag]) not in (list, dict): tags.append(tag) #Only simple metadata.
-        fout.write('\t'.join(tags))
+        fout.write('\t'.join(tags)+'\n')
       n_study+=1
       vals = [str(study[tag]).replace('\n', ' ') if tag in study and study[tag] is not None else '' for tag in tags]
       fout.write('\t'.join(vals)+'\n')
@@ -72,7 +72,7 @@ def SearchStudies(base_url, ids, searchtype, fout, verbose):
       if not tags:
         for tag in study.keys():
           if type(study[tag]) not in (list, dict): tags.append(tag) #Only simple metadata.
-        fout.write('\t'.join(tags))
+        fout.write('\t'.join(tags)+'\n')
       n_study+=1
       vals = [str(study[tag]).replace('\n', ' ') if tag in study and study[tag] is not None else '' for tag in tags]
       fout.write('\t'.join(vals)+'\n')

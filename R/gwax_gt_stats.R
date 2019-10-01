@@ -17,8 +17,10 @@ if (length(args)==5) {
   (ifile_snp2gene	<- args[4])
   (ifile_trait	<- args[5])
   (ifile_icite	<- args[6])
-  (ifile_tcrd	<- args[7])
-  (ofile	<- args[8])
+  (ifile_snps	<- args[7])
+  (ifile_ensembl	<- args[8])
+  (ifile_tcrd	<- args[9])
+  (ofile	<- args[10])
 } else if (length(args)==0) {
   ifile_gwas <- "data/gwascat_gwas.tsv"
   ifile_counts <- "data/gwascat_counts.tsv"
@@ -26,10 +28,12 @@ if (length(args)==5) {
   ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
   ifile_trait <- "data/gwascat_trait.tsv"
   ifile_icite <- "data/gwascat_icite.tsv"
+  ifile_snps <- "data/gwascat_Snps.tsv.gz" #API
+  ifile_ensembl <- "data/gwascat_Snps_EnsemblInfo.tsv.gz"
   ifile_tcrd <- "data/tcrd_targets.csv"
   ofile <- "data/gt_stats.tsv"
 } else {
-  message("ERROR: Syntax: gwax_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE OFILE\n...or... no args for defaults")
+  message("ERROR: Syntax: gwax_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE\n...or... no args for defaults")
   quit()
 }
 writeLines(sprintf("Input gwas file: %s", ifile_gwas))
@@ -39,6 +43,7 @@ writeLines(sprintf("Input snp2gene file: %s", ifile_snp2gene))
 writeLines(sprintf("Input trait file: %s", ifile_trait))
 writeLines(sprintf("Input iCite file: %s", ifile_icite))
 writeLines(sprintf("Input TCRD file: %s", ifile_tcrd))
+writeLines(sprintf("Input Ensembl file: %s", ifile_ensembl))
 writeLines(sprintf("Output file: %s", ofile))
 #
 ###
@@ -63,6 +68,10 @@ snp2gene <- read_delim(ifile_snp2gene, "\t",
 	col_types=cols(.default=col_character(),
 	REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
 setDT(snp2gene)
+snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED!="r"]) #Ignore reported.
+#
+ensemblInfo <- read_delim(ifile_ensembl, "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
+setDT(ensemblInfo)
 #
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
@@ -88,7 +97,14 @@ icite_gwas[is.na(rcras_study), rcras_study := 0]
 icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_ratio, rcras_pmid, rcras_study, trait_count, gene_r_count, gene_m_count, study_perpmid_count)]
 setkey(icite_gwas, pmid, STUDY_ACCESSION)
 ###
-
+# Link to Ensembl via IDs from Catalog API.
+studySnps <- read_delim(ifile_snps, "\t", col_types=cols(.default=col_character(), merged=col_logical(), lastUpdateDate=col_datetime(),   genomicContext_isIntergenic = col_logical(), genomicContext_isUpstream = col_logical(), genomicContext_isDownstream = col_logical(), genomicContext_distance = col_double(), genomicContext_isClosestGene = col_logical(), loc_chromosomePosition = col_double()))
+setDT(studySnps)
+ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, ensemblName=display_name)][, protein_coding := T]
+proteinSnps <- merge(studySnps[, .(rsId, ensemblId=gene_ensemblGeneIds, geneName=gene_geneName)], ensemblInfo, by="ensemblId", all.x=F)
+snp2gene <- unique(merge(snp2gene, proteinSnps, by.x="SNP", by.y="rsId", all.x=F, all.y=F, allow.cartesian=T))
+snp2gene[, `:=`(GSYMB=NULL, geneName := NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
+snp2gene <- unique(snp2gene)
 #
 ###
 tcrd <- read_csv(ifile_tcrd, col_types=cols(.default=col_character()))
