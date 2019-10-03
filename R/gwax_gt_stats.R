@@ -30,7 +30,7 @@ if (length(args)==5) {
   ifile_icite <- "data/gwascat_icite.tsv"
   ifile_snps <- "data/gwascat_Snps.tsv.gz" #API
   ifile_ensembl <- "data/gwascat_Snps_EnsemblInfo.tsv.gz"
-  ifile_tcrd <- "data/tcrd_targets.csv"
+  ifile_tcrd <- "data/tcrd_targets.tsv"
   ofile <- "data/gt_stats.tsv"
 } else {
   message("ERROR: Syntax: gwax_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE\n...or... no args for defaults")
@@ -79,7 +79,7 @@ setDT(trait)
 # Estimate RCR prior for new publications as median.
 icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
 	relative_citation_ratio=col_double(), field_citation_rate=col_double(), citation_count=col_integer(),
-	nih_percentile=col_double(), expected_citations_per_year=col_double(), citations_per_year=col_double(), year=col_integer()))
+	nih_percentile=col_double(), expected_citations_per_year=col_double(), citations_per_year=col_double(), year=col_integer()), na=c("", "NA", "None"))
 setDT(icite)
 rcr_median <- median(icite$relative_citation_ratio, na.rm=T)
 icite[is.na(relative_citation_ratio) & (as.integer(format(Sys.time(), "%Y"))-year<2) , relative_citation_ratio := rcr_median]
@@ -98,16 +98,17 @@ icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_rati
 setkey(icite_gwas, pmid, STUDY_ACCESSION)
 ###
 # Link to Ensembl via IDs from Catalog API.
+# (Switching to EnsemblIDs from gene symbols.)
 studySnps <- read_delim(ifile_snps, "\t", col_types=cols(.default=col_character(), merged=col_logical(), lastUpdateDate=col_datetime(),   genomicContext_isIntergenic = col_logical(), genomicContext_isUpstream = col_logical(), genomicContext_isDownstream = col_logical(), genomicContext_distance = col_double(), genomicContext_isClosestGene = col_logical(), loc_chromosomePosition = col_double()))
 setDT(studySnps)
 ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, ensemblName=display_name)][, protein_coding := T]
 proteinSnps <- merge(studySnps[, .(rsId, ensemblId=gene_ensemblGeneIds, geneName=gene_geneName)], ensemblInfo, by="ensemblId", all.x=F)
 snp2gene <- unique(merge(snp2gene, proteinSnps, by.x="SNP", by.y="rsId", all.x=F, all.y=F, allow.cartesian=T))
-snp2gene[, `:=`(GSYMB=NULL, geneName := NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
+snp2gene[, `:=`(GSYMB=NULL, geneName=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
 snp2gene <- unique(snp2gene)
 #
 ###
-tcrd <- read_csv(ifile_tcrd, col_types=cols(.default=col_character()))
+tcrd <- read_delim(ifile_tcrd, "\t", col_types=cols(.default=col_character(), idgList=col_logical()))
 setDT(tcrd)
 ###
 #Clean & transform:
@@ -124,58 +125,78 @@ assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
 assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
 writeLines(sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE)))
 ###
-gsyms_tcrd <- unique(tcrd$protein_sym)
-writeLines(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
+#gsyms_tcrd <- unique(tcrd$tcrdGeneSymbol)
+#writeLines(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
+ensgs_tcrd <- unique(tcrd$ensemblGeneId)
+writeLines(sprintf("TCRD targets: %d ; ensemblGeneIds: %d", nrow(tcrd), length(ensgs_tcrd)))
 
-gsyms_gwax <- unique(snp2gene$GSYMB)
-gsyms_common <- intersect(gsyms_gwax, gsyms_tcrd)
-writeLines(sprintf("GSYMBs mapped to TCRD: %d", length(gsyms_common)))
+#gsyms_gwax <- unique(snp2gene$GSYMB)
+#gsyms_common <- intersect(gsyms_gwax, gsyms_tcrd)
+#writeLines(sprintf("GSYMBs mapped to TCRD: %d", length(gsyms_common)))
+ensgs_gwax <- unique(snp2gene$ensemblId)
+ensgs_common <- intersect(ensgs_gwax, ensgs_tcrd)
+writeLines(sprintf("EnsemblIds mapped to TCRD: %d", length(ensgs_common)))
 
-tcrd <- merge(tcrd, data.table(gsym=gsyms_gwax, in_gwascat=rep(T, length(gsyms_gwax))),
-	by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
-tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
-tcrd$idg2 <- as.logical(tcrd$idg2)
-t2 <- table(tcrd$tdl[tcrd$in_gwascat])
-writeLines(sprintf("%s: %d", names(t2), t2))
+#tcrd <- merge(tcrd, data.table(gsym=gsyms_gwax, in_gwascat=rep(T, length(gsyms_gwax))),
+#	by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
+tcrd <- merge(tcrd, data.table(ensg=ensgs_gwax, in_gwascat=rep(T, length(ensgs_gwax))),
+	by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
+tcrd[, in_gwascat := !is.na(in_gwascat)]
+writeLines(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwascat), .N]))
 ###
 # Currently, we require OR and ignore BETA. (TO BE ADDRESSED.)
 assn <- assn[!is.na(oddsratio)]
 ### g2t should have one row for each gene-snp-study-trait association.
-g2t <- unique(snp2gene[, c("GSYMB", "SNP", "STUDY_ACCESSION")])
+#g2t <- unique(snp2gene[, c("GSYMB", "SNP", "STUDY_ACCESSION")])
+g2t <- unique(snp2gene[, c("ensemblId", "ensemblName", "SNP", "STUDY_ACCESSION")])
 g2t <- merge(g2t, gwas[, c("STUDY_ACCESSION", "study_N")], by="STUDY_ACCESSION", all.x=T, all.y=F)
 g2t <- merge(g2t, assn[, c("SNPS", "STUDY_ACCESSION", "PVALUE_MLOG", "UPSTREAM_GENE_DISTANCE", "DOWNSTREAM_GENE_DISTANCE", "oddsratio", "beta")], all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
 #
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
-g2t <- g2t[!is.na(GSYMB)]
-g2t <- g2t[!is.na(oddsratio)]
-g2t <- g2t[!grepl("(^LOC|^intergenic)", GSYMB)] #non-coding RNA, etc.
+#
+#g2t <- g2t[!is.na(GSYMB)]
+#g2t <- g2t[!grepl("(^LOC|^intergenic)", GSYMB)] #non-coding RNA, etc.
+g2t <- g2t[!is.na(ensemblId)] #None to delete.
+#
+message(sprintf("Deleting assocations lacking OR: %d", sum(is.na(g2t$oddsratio))))
+g2t <- g2t[!is.na(oddsratio)] #Many to delete.
 ###
 # Gene-distance weighting function.
 g2t[, GDistWt := 2^(-pmin(g2t$UPSTREAM_GENE_DISTANCE, g2t$DOWNSTREAM_GENE_DISTANCE, na.rm=T)/5e4)]
 message(sprintf("DEBUG: GDistWt: count: %d / %d (%.1f%%)", 
                 sum(!is.na(g2t$GDistWt)), nrow(g2t), 100*sum(!is.na(g2t$GDistWt))/nrow(g2t)))
 #
+#message(sprintf("DEBUG: with pvalue_mlog, g2t: %d ; genes: %d ; traits: %d",
+#	 nrow(g2t[!is.na(g2t$PVALUE_MLOG),]),
+#	 uniqueN(g2t$GSYMB[!is.na(g2t$PVALUE_MLOG)]),
+#	 uniqueN(g2t$TRAIT[!is.na(g2t$PVALUE_MLOG)])))
+#message(sprintf("DEBUG: with OR, g2t: %d ; genes: %d ; traits: %d",
+#	 nrow(g2t[!is.na(g2t$oddsratio),]),
+#	 uniqueN(g2t$GSYMB[!is.na(g2t$oddsratio)]),
+#	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)])))
 message(sprintf("DEBUG: with pvalue_mlog, g2t: %d ; genes: %d ; traits: %d",
 	 nrow(g2t[!is.na(g2t$PVALUE_MLOG),]),
-	 uniqueN(g2t$GSYMB[!is.na(g2t$PVALUE_MLOG)]),
+	 uniqueN(g2t$ensemblId[!is.na(g2t$PVALUE_MLOG)]),
 	 uniqueN(g2t$TRAIT[!is.na(g2t$PVALUE_MLOG)])))
 message(sprintf("DEBUG: with OR, g2t: %d ; genes: %d ; traits: %d",
 	 nrow(g2t[!is.na(g2t$oddsratio),]),
-	 uniqueN(g2t$GSYMB[!is.na(g2t$oddsratio)]),
+	 uniqueN(g2t$ensemblId[!is.na(g2t$oddsratio)]),
 	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)])))
-#message(sprintf("DEBUG: with BETA, g2t: %d ; genes: %d ; traits: %d",
-#	 nrow(g2t[!is.na(g2t$beta),]),
-#	 uniqueN(g2t$GSYMB[!is.na(g2t$beta)]),
-#	 uniqueN(g2t$TRAIT[!is.na(g2t$beta)])))
 ###
 ### GENE-TRAIT stats
 ### From g2t, create gt_stats table for TSV export.
 ### Too slow. Vectorize/optimize!
 NROW <- 0
-for (gsymb in unique(g2t$GSYMB)) {
-  NROW <- NROW + uniqueN(g2t[GSYMB==gsymb, TRAIT_URI])
+#for (gsymb in unique(g2t$GSYMB)) {
+#  NROW <- NROW + uniqueN(g2t[GSYMB==gsymb, TRAIT_URI])
+#}
+for (ensg in unique(g2t$ensemblId)) {
+  NROW <- NROW + uniqueN(g2t[ensemblId==ensg, TRAIT_URI])
 }
-gt_stats <- data.table(gsymb=rep(NA, NROW), trait_uri=rep(NA, NROW), trait=rep(NA, NROW), 
+message(sprintf("Building gt_stats with NROW: %s", NROW))
+gt_stats <- data.table(ensemblId=rep(NA, NROW), 
+  #gsymb=rep(NA, NROW),
+	trait_uri=rep(NA, NROW), trait=rep(NA, NROW), 
 	n_study=as.integer(rep(NA, NROW)), 
 	n_snp=as.integer(rep(NA, NROW)),
 	n_wsnp=as.numeric(rep(NA, NROW)),
@@ -191,26 +212,41 @@ message(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d", nrow(gt
 i_row <- 0 #gt_stats populated row count
 t0 <- proc.time()
 # gene-loop:
-for (gsymb in unique(g2t$GSYMB)) {
+#for (gsymb in unique(g2t$GSYMB)) {
+for (ensg in unique(g2t$ensemblId)) {
   # trait-loop:
-  for (trait_uri in unique(g2t[GSYMB==gsymb, TRAIT_URI])) {
+  #for (trait_uri in unique(g2t[GSYMB==gsymb, TRAIT_URI])) {
+  for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
     if ((i_row%%10000)==0) {
       message(sprintf("i_row: %d / %d (%.1f%%) ; %s, elapsed: %.1fs", i_row, NROW, 100*i_row/NROW, Sys.time(), (proc.time()-t0)[3]))
     }
     i_row <- i_row + 1
-    gt_stats$gsymb[i_row] <- gsymb
+    #
+    #gt_stats$gsymb[i_row] <- gsymb
+    #gt_stats$trait_uri[i_row] <- trait_uri
+    #gt_stats$trait[i_row] <- g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, TRAIT][1]
+    #gt_stats$n_study[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])
+    #gt_stats$pvalue_mlog_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
+    #gt_stats$or_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
+    #gt_stats$study_N_mean[i_row] <- mean(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, study_N], na.rm=T)
+    #gt_stats$n_snp[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, SNP])
+    ## Deduplicate (group-by) SNPs for `n_wsnp` computation. 
+    #gt_stats$n_wsnp[i_row] <- sum(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt)), by="SNP"][, GDistWt], na.rm=T)
+    #
+    gt_stats$ensemblId[i_row] <- ensg
     gt_stats$trait_uri[i_row] <- trait_uri
-    gt_stats$trait[i_row] <- g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, TRAIT][1]
-    gt_stats$n_study[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])
-    gt_stats$pvalue_mlog_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
-    gt_stats$or_median[i_row] <- median(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
-    gt_stats$study_N_mean[i_row] <- mean(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, study_N], na.rm=T)
-    gt_stats$n_snp[i_row] <- uniqueN(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, SNP])
+    gt_stats$trait[i_row] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri, TRAIT][1]
+    gt_stats$n_study[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])
+    gt_stats$pvalue_mlog_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
+    gt_stats$or_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
+    gt_stats$study_N_mean[i_row] <- mean(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, study_N], na.rm=T)
+    gt_stats$n_snp[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, SNP])
     # Deduplicate (group-by) SNPs for `n_wsnp` computation. 
-    gt_stats$n_wsnp[i_row] <- sum(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt)), by="SNP"][, GDistWt], na.rm=T)
+    gt_stats$n_wsnp[i_row] <- sum(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt)), by="SNP"][, GDistWt], na.rm=T)
     #
     rcras <- 0.0
-    for (stacc in unique(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
+    #for (stacc in unique(g2t[GSYMB==gsymb & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
+    for (stacc in unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
       grc <- gwas_counts[study_accession==stacc, gene_r_count]
       if (is.na(grc) | length(grc)==0 | grc==0) { next; }
       rcras_study <- 0.0
@@ -227,11 +263,13 @@ for (gsymb in unique(g2t$GSYMB)) {
   }
 }
 gt_stats[, n_genes_t := .N, by="trait_uri"]
-gt_stats[, n_traits_g := .N, by="gsymb"]
+#gt_stats[, n_traits_g := .N, by="gsymb"]
+gt_stats[, n_traits_g := .N, by="ensemblId"]
 #
 message(sprintf("%s, elapsed: %.1fs", Sys.time(), (proc.time()-t0)[3]))
 message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
-message(sprintf("DEBUG: gsymb: count=%d", sum(!is.na(gt_stats$gsymb))))
+#message(sprintf("DEBUG: gsymb: count=%d", sum(!is.na(gt_stats$gsymb))))
+message(sprintf("DEBUG: ensemblId: count=%d", sum(!is.na(gt_stats$ensemblId))))
 message(sprintf("DEBUG: n_genes_t: count=%d [%d,%d]", sum(!is.na(gt_stats$n_genes_t)), min(gt_stats$n_genes_t), max(gt_stats$n_genes_t)))
 message(sprintf("DEBUG: n_traits_g: count=%d [%d,%d]", sum(!is.na(gt_stats$n_traits_g)), min(gt_stats$n_traits_g), max(gt_stats$n_traits_g)))
 #
@@ -256,7 +294,8 @@ message(sprintf("DEBUG: n_wsnp: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$n_wsn
                 min(gt_stats$n_wsnp, na.rm=T),
                 max(gt_stats$n_wsnp, na.rm=T)))
 #
-gt_stats <- merge(gt_stats, tcrd[, c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
+#gt_stats <- merge(gt_stats, tcrd[, c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
+gt_stats <- merge(gt_stats, tcrd[, c("ensemblGeneId", "tcrdGeneSymbol", "TDL", "tcrdTargetFamily", "idgList", "tcrdTargetName")], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
 #
 write_delim(gt_stats, ofile, delim="\t")
 ###

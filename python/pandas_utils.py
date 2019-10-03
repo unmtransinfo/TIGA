@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ###
-import sys,os,argparse,re
+import sys,os,argparse,re,pickle
 import pandas
 
 #############################################################################
@@ -29,7 +29,7 @@ def SearchRows(df, cols, coltags, qrys, rels, typs, fout):
 if __name__=='__main__':
   parser = argparse.ArgumentParser(
         description='Pandas utilities for simple datafile transformations.')
-  ops = ['csv2tsv', 'summary','showcols','selectcols','uvalcounts','colvalcounts','sortbycols','deduplicate','colstats','searchrows']
+  ops = ['csv2tsv', 'summary','showcols','selectcols','uvalcounts','colvalcounts','sortbycols','deduplicate','colstats','searchrows','pickle']
   compressions=['gzip', 'zip', 'bz2']
   parser.add_argument("op", choices=ops, help='operation')
   parser.add_argument("--i", dest="ifile", help="input (CSV|TSV)")
@@ -135,6 +135,13 @@ if __name__=='__main__':
     #print("DEBUG: search_rels=%s"%str(search_rels), file=sys.stderr)
     #print("DEBUG: search_typs=%s"%str(search_typs), file=sys.stderr)
     SearchRows(df, cols, coltags, search_qrys, search_rels, search_typs, fout)
+
+  elif args.op == 'pickle':
+    if not args.ofile:
+      parser.error('%s requires --o.'%args.op)
+    fout.close()
+    with open(args.ofile, 'wb') as fout:
+      pickle.dump(df, fout, pickle.HIGHEST_PROTOCOL)
 
   else:
     parser.error('Unknown operation: %s'%args.op)

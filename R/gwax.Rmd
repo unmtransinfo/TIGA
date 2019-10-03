@@ -272,6 +272,10 @@ subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
 
 # SNP to gene mappings
 
+* Catalog mapping via __Ensembl Post-GWAS Analysis Pipeline (POSTGAP)__:
+   * [POSTGAP Documentation](https://uswest.ensembl.org/Help/View?db=core;id=596)
+   * [POSTGAP Wiki](https://github.com/Ensembl/postgap/wiki/How-do-I-use-POSTGAP-output%3F)
+   * [POSTGAP GitHub](https://github.com/Ensembl/postgap/) (_"This script is designed to automatically finemap and highlight the causal variants behind GWAS results by cross-examining GWAS, population genetic, epigenetic and cis-regulatory datasets."_)
 * `GSYMB`, `MAPPED_GENE` fields may include chromosomal locations or be "intergenic".
 * Chromosomal locations (LOC*) may be non-coding RNA, etc.
 * Mappings _within_ gene stronger associations than _upstream_ or _downstream_.
