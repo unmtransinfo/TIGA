@@ -113,7 +113,7 @@ if __name__=='__main__':
       if coltags and tag not in coltags: continue
       print('%d. %s:'%(j+1, tag))
       for key,val in df[tag].value_counts().iteritems():
-        print('\t%6d: %s'%(val, key))
+        print('\t%s: %6d: %s'%(tag, val, key))
 
   elif args.op == 'colstats':
     for j,tag in enumerate(df.columns):

@@ -4,10 +4,10 @@
 .Ruserdata
 Rplot*
 *.Rproj
-/data/
-/R/gwax/rsconnect/
-/R/gwax/*.tsv.gz
-/R/gwax/*.RData
-/R/gwax/*.html
+data/
+R/gwax/rsconnect/
+R/gwax/*.tsv.gz
+R/gwax/*.RData
+R/gwax/*.html
 .runsql_my
-/python/__pycache__/
+python/__pycache__/

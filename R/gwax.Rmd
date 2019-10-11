@@ -21,13 +21,13 @@ and thresholds will depend on use cases.
 * Workflow designed for integration with TCRD & Pharos
 * RCRAS, Relative Citation Ratio (RCR) Aggregated Score based on iCite-RCR.
 * Confidence higher (and provenance/accountability) for `mapped` over `reported` SNP-gene associations.
+* Ensembl IDs (from API) used rather than gene symbols for more accurate gene mapping.
 * Prototype RShiny app: <http://unmtid-shinyapps.net/gwax/>
 
 Issues:
 
-* BETA not comparable for different units, thus currently only OR used for GWAX. (But maybe can be aggregated if units agree.)
-* Linkage Disequilibrium (LD). Should we use [SNPsnap](https://www.broadinstitute.org/mpg/snap/ldsearch.php) to identify LD associates?
-* Can disease-gene associations be enriched by tissue-specificity via methods such as [NetWAS](https://hb.flatironinstitute.org/netwas)? If yes, should such a method be integrated with GWAX or perhaps supported as a post-processing step?
+* BETA not comparable for different units, thus currently only OR used for GWAX.
+* Can disease-gene associations be enriched by tissue-specificity via methods such as [NetWAS](https://hb.flatironinstitute.org/netwas)? If yes, should such a method be integrated with GWAX or perhaps supported as a post-processing step? Or/and is POSTGAP (Ensembl) already considering such sources.
 * If a trait is a disease or syndrome, and so polygenic as to be poorly addressed by GWAS, can this be 
 inferred by some score? Perhaps simply the N\_gene count (mapped) for a trait.
 (E.g. "intelligence" N\_gene ~ 600, "schizophrenia" N\_gene ~ 800).
@@ -37,7 +37,6 @@ To-do:
 * Confidence scoring for SNP-gene mappings, based on up/down-stream distance; include in &mu; scores.
 * EFO+DOID semantic subclass related studies, linking, aggregation, scoring.
 * Polygenic diseases/traits: Filter if less suitable for GWAS-based drug target discovery use cases.
-* Use Ensembl IDs (from API) rather than gene symbols for more accurate SNP to gene mapping.
 
 ## About NHGRI-EBI GWAS Catalog
 
@@ -256,9 +255,9 @@ plots <- list(
   add_annotations(text=paste0(annos, collapse="<br>"), x=1, xanchor="right", y=.5, yanchor="bottom", xref="paper", yref="paper", showarrow=F) %>%
     layout(yaxis=list(title="probability")),
   plot_ly() %>%
-    add_trace(name="Exponential", type="scatter", x=xvals, y=exp(-xvals/4e4*log(2)), mode="lines", line=list(width=5)) %>%
-    add_trace(name="ReLU", type="scatter", x=xvals, y=1-xvals/xmax, mode="lines", line=list(width=5)) %>%
-    add_trace(name="Sigmoid", type="scatter", x=xvals, y=exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)), mode="lines", line=list(width=5)) %>%
+    add_trace(name="Exponential", type="scatter", x=xvals, y=exp(-xvals/4e4*log(2)), mode="lines", line=list(width=5, color='#CC2222')) %>%
+    add_trace(name="ReLU", type="scatter", x=xvals, y=1-xvals/xmax, mode="lines", line=list(width=3, color='#777777', dash="dot"))  %>%
+  # add_trace(name="Sigmoid", type="scatter", x=xvals, y=exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)), mode="lines", line=list(width=5)) %>%
     layout(yaxis=list(title="f(x)"))
   )
 subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
@@ -443,8 +442,7 @@ studies, for each gene-trait association.
 
 ```{r}
 gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
-n_study=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), 
-pvalue_mlog_median=col_double(), or_median=col_double(),
+n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(),
 mu_score=col_double(), nAbove=col_integer(), nBelow=col_integer(), mu_rank=col_integer()))
 setDT(gt)
 sprintf("nrow(gt) = %d", nrow(gt))
@@ -484,7 +482,7 @@ knitr::kable(trait_top[order(-N_study), .(TRAIT, N_study, N_genes)][1:18], capti
  * `pVal` - median of trait-SNP pValues
  * `RCRAS` - Relative Citation Ratio Aggregated Score 
  * `1/N_gene` - # genes associated with trait
- * `N_sample` - median of sample sizes
+ * `N_sample` - mean of sample sizes
 
 
 Color unmapped gray.
@@ -551,6 +549,6 @@ Top hits:
 
 ```{r}
 setorder(t2g, mu_rank)
-knitr::kable(t2g[(ok)][1:10][, .(gsymb, name, fam, tdl, n_study, rcras, or_median, pvalue_mlog_median, mu_score, mu_rank)], caption=sprintf("GWAX: %s, top hits", query_trait))
+knitr::kable(t2g[(ok)][1:10][, .(gsymb, name, fam, tdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, mu_score, mu_rank)], caption=sprintf("GWAX: %s, top hits", query_trait))
 ```
 

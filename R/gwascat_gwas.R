@@ -51,7 +51,7 @@ gwas[, study_N := as.integer(study_N)]
 writeLines(sprintf("UNPARSED INITIAL_SAMPLE_SIZE: %s", gwas[is.na(study_N), INITIAL_SAMPLE_SIZE]))
 
 
-writeLines(sprintf("Total gwas count: %6d", nrow(gwas)))
+message(sprintf("Total gwas count: %6d", nrow(gwas)))
 
 write_delim(gwas, ofile, delim="\t")
 ###
