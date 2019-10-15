@@ -5,6 +5,7 @@
 Rplot*
 *.Rproj
 data/
+old/
 R/gwax/rsconnect/
 R/gwax/*.tsv.gz
 R/gwax/*.RData

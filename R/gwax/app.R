@@ -29,33 +29,37 @@ if (file.exists("gwax.Rdata")) {
   setDT(gt)
   setnames(gt, old=c("tcrdGeneSymbol", "tcrdTargetFamily", "tcrdTargetName"), new=c("gsymb", "geneFamily", "geneName"))
   #
-  traits <- gt[, .(.N),  by=c("trait", "trait_uri")]
-  traits <- traits[N>=MIN_ASSN]
-  traits_menu <- sub("^.*/", "", traits$trait_uri) #named vector
-  names(traits_menu) <- traits$trait
-  traits_menu <- traits_menu[order(names(traits_menu))]
+  trait <- gt[, .(.N),  by=c("trait", "trait_uri")]
+  trait <- trait[N>=MIN_ASSN]
+  trait[['id']] <- as.factor(sub("^.*/","", trait$trait_uri))
+  trait[['ontology']] <- as.factor(sub("_.*$","", trait$id))
+  tbl <- trait[, .N, by="ontology"][order(-N)]
+  message(sprintf("traits (%10s): %4d / %4d (%4.1f%%)\n", tbl$ontology, tbl$N, sum(tbl$N), 100*tbl$N/sum(tbl$N)))
+  trait_menu <- sub("^.*/", "", trait$trait_uri) #named vector
+  names(trait_menu) <- trait$trait
+  trait_menu <- trait_menu[order(names(trait_menu))]
   #
-  save(gt, traits_menu, file="gwax.Rdata")
+  save(gt, trait_menu, file="gwax.Rdata")
 }
 #
 t_elapsed <- (proc.time()-t0)[3]
 #
 message(sprintf("Gene count, IDs: %d; symbols: %d", uniqueN(gt$ensemblId), uniqueN(gt$gsymb)))
 message(sprintf("Trait count (total): %d", uniqueN(gt$trait)))
-message(sprintf("Trait count (filtered; n_assn<%d): %d", MIN_ASSN, uniqueN(gt$trait)-length(traits_menu)))
-message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(traits_menu)))
+message(sprintf("Trait count (filtered; n_assn<%d): %d", MIN_ASSN, uniqueN(gt$trait)-length(trait_menu)))
+message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(trait_menu)))
 message(sprintf("DEBUG: COUNT or_median: %d", sum(!is.na(gt$or_median))))
 message(sprintf("DEBUG: COUNT pvalue_mlog_median: %d", sum(!is.na(gt$pvalue_mlog_median))))
 message(sprintf("DEBUG: COUNT rcras: %d", sum(!is.na(gt$rcras))))
 #
 db_htm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_load: %.1fs)",
-	uniqueN(gt$gsymb), uniqueN(gt$trait), length(traits_menu), t_elapsed)
+	uniqueN(gt$gsymb), uniqueN(gt$trait), length(trait_menu), t_elapsed)
 ###
 tdls <- c("Tclin", "Tchem", "Tbio", "Tdark")
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
 axes <- c("Effect", "Evidence")
 #
-qryTraitRand <- sample(traits_menu, 1)
+qryTraitRand <- sample(trait_menu, 1)
 message(sprintf("DEBUG: qryTraitRand: %s", qryTraitRand))
 #
 #############################################################################
@@ -79,7 +83,7 @@ Orphanet, PATO or GO, with 91%% mapped to EFO.
 <UL>
   <LI>GWAS Catalog:
   <UL>
-  <LI><B>PVALUE_MLOG</B>: -LOG(p_value)
+  <LI><B>PVALUE_MLOG</B>: -Log(pValue)
   <LI><B>OR</B>: odds ratio, inverted if &lt;1.
   <LI><B>INITIAL_SAMPLE_SIZE</B>: N_subjects
   <LI><B>REPORTED GENE(s)</B>: Gene(s) reported by author.
@@ -88,7 +92,7 @@ Orphanet, PATO or GO, with 91%% mapped to EFO.
   <LI>GWAX:
   <UL>
   <LI><B>N_snp<SUP>*</SUP></B>: SNPs involved with trait-gene association.
-  <LI><B>N_wsnp<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
+  <LI><B>N_snpw<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
   <LI><B>N_study<SUP>*</SUP></B>: studies supporting trait-gene association.
   <LI><B>study_N<SUP>*</SUP></B>: mean(INITIAL_SAMPLE_SIZE) supporting trait-gene association.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
@@ -138,18 +142,17 @@ Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and En
 
 ##########################################################################################
 ui <- fluidPage(
-  titlePanel(h2("IDG",  span(style="font-size: 28px; color:Dodgerblue;", icon("lightbulb", lib="font-awesome")),  sprintf("%s: GWAS Explorer", APPNAME), span(style="color:#555555", "(BETA)"), ":", span(style="font-size:18px", "GWAS-evidenced drug target illumination")),
+  titlePanel(h2("IDG", tags$img(id="idg_logo", height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: GWAS Explorer", APPNAME),tags$img(id="gwas_catalog_logo", height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog-based drug target illumination (BETA)")),
       windowTitle=APPNAME),
   fluidRow(
     column(3, 
       wellPanel(
-	selectInput("traitQry", "Query trait", choices=traits_menu, selectize=T, selected=qryTraitRand),
+	selectInput("traitQry", "Query trait", choices=trait_menu, selectize=T, selected=qryTraitRand),
         sliderInput("maxHits", "Max_hits", 50, 300, 100, step=50),
-        #sliderInput("minStudy", "Min_study", 1, 5, 1, step=1),
         checkboxGroupInput("tdl_filters", "TDL", choices=tdls, selected=tdls, inline=T),
         checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
-        radioButtons("sizeBy", "SizeMarkerBy", choiceNames=c("N_study", "N_trait", "RCRAS"), choiceValues=c("n_study", "n_traits_g", "rcras"), selected="n_study", inline=T),
+        radioButtons("sizeBy", "SizeMarkerBy", choiceNames=c("N_study", "1/N_trait", "RCRAS"), choiceValues=c("n_study", "n_traits_g", "rcras"), selected="n_study", inline=T),
         br(),
 	actionButton("goRefresh", "Refresh", style='padding:2px;background-color:#DDDDDD;font-weight:bold'),
 	actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold'),
@@ -171,7 +174,6 @@ ui <- fluidPage(
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
   bsTooltip("traitQry", "Select from most studied traits.", "top"),
-  #bsTooltip("minStudy", "Minimum studies cutoff.", "top"),
   bsTooltip("maxHits", "Max hits cutoff, filtered by muScore.", "top"),
   bsTooltip("tdl_filters", "Filters: IDG Target Development Levels (TDLs).", "top"),
   bsTooltip("fam_filters", "Filters: IDG protein families.", "top"),
@@ -230,7 +232,7 @@ server <- function(input, output, session) {
     input$goRefresh # Re-run this and downstream on action button.
     if (input$randQuery>qryTraitRand_previous) {
       qryTraitRand_previous <<- input$randQuery # Must assign to up-scoped variable.
-      qryTraitRand <- sample(traits_menu, 1)
+      qryTraitRand <- sample(trait_menu, 1)
       message(sprintf("DEBUG: qryTraitRand_previous=%d; qryTraitRand=%s", qryTraitRand_previous, qryTraitRand))
       updateTextInput(session, "traitQry", value=as.character(qryTraitRand)) #Better than updateSelectizeInput ??
     }
@@ -274,7 +276,6 @@ server <- function(input, output, session) {
     htm <- paste0(htm, sprintf("\"%s\"", query_trait_name()))
     htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", id2uri(query_trait_id()), query_trait_id()))
     message(sprintf("Query: \"%s\" (%s)", query_trait_name(), query_trait_id()))
-    #htm <- paste0(htm, "; minStudy = ", input$minStudy)
     htm <- paste0(htm, "; sizeBy = ", input$sizeBy)
     if (!is.null(hits())) {
       htm <- paste0(htm, sprintf("; found N_genes: %d", nrow(hits())))
@@ -296,7 +297,6 @@ server <- function(input, output, session) {
     #xaxis <- list(title="Evidence (muScore)", range=xrange, type=ifelse("Evidence" %in% input$logaxes, "log", "normal"))
     xaxis <- list(title="Evidence (muScore)", type="normal", zeroline=F, showline=F)
     yaxis <- list(title="Effect (OddsRatio)", type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
-    #yaxis <- list(title="Effect (OddsRatio)", type="normal")
 
     if (input$sizeBy=="n_traits_g") {
       sizes <- round(50/hits()[(ok), n_traits_g], 0)
@@ -309,12 +309,6 @@ server <- function(input, output, session) {
     }
     
     sizes <- pmax(sizes, rep(10, nrow(hits())))
-    
-    #message(sprintf("DEBUG: length(sizes)= %d", length(sizes)))
-    #message(sprintf("DEBUG: sizes = %s", paste(collapse=",", as.character(sizes))))
-    #message(sprintf("DEBUG: n_traits_g = %s", paste(collapse=",", as.character(round(50/hits()[(ok), n_traits_g])))))
-    #message(sprintf("DEBUG: n_study = %s", paste(collapse=",", as.character(10*hits()[(ok), n_study]))))
-    #message(sprintf("DEBUG: rcras = %s", paste(collapse=",", as.character(10*hits()[(ok), rcras]))))
     
     p <- plot_ly(type='scatter', mode='markers', data=hits()[(ok)],
         x=~mu_score  + rnorm(nrow(hits()[(ok)]), sd=(.01*(max(hits()$mu_score)))), #Custom jitter
@@ -358,7 +352,7 @@ server <- function(input, output, session) {
 		columnDefs = list(
 			list(className='dt-center', targets=c(0, 3:(ncol(hits())-2))), #Numbered from 0.
 			list(visible=F, targets=c(0, 14, 15, ncol(hits())-1)))), #Numbered from 0.
-	colnames=c("ENSG","GSYMB","GeneName","idgFam","idgTDL","N_study","study_N","N_snp","N_snpw","N_trait","log_pVal","OR","RCRAS",
+	colnames=c("ENSG","GSYMB","GeneName","idgFam","idgTDL","N_study","study_N","N_snp","N_snpw","N_trait","pVal_mlog","OR","RCRAS",
 	           "muScore", "nAbove", "nBelow", "muRank", "ok")
   ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(7,9,11,12,13)) #Numbered from 1.
   }, server=T)
@@ -367,14 +361,13 @@ server <- function(input, output, session) {
     if (is.null(hits())) { return(NULL) }
     hits_out <- hits()
     hits_out[["Trait"]] <- query_trait_name()
-    hits_out[["TraitURI"]] <- query_trait_uri()
-    hits_out <- hits_out[,c(ncol(hits_out)-1,ncol(hits_out),1:(ncol(hits_out)-2))]
-    names(hits_out) <- c("Trait","TraitURI","EnsemblID","GeneSymbol","GeneName","idgFam","idgTDL","N_study","N_snp","N_wsnp","N_trait","pVal_mlog","OR","study_N","RCRAS","muScore","nAbove","nBelow","muRank")
+    hits_out[["TraitId"]] <- query_trait_id()
+    hits_out <- hits_out[, .(Trait, TraitId, ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_wsnp, n_traits_g, pvalue_mlog_median, or_median, rcras, mu_score, nAbove, nBelow, mu_rank)]
     return(hits_out)
   })
 
   output$hits_file <- downloadHandler(
-    filename = function() { "gwax_hits.tsv" },
+    filename = function() { sprintf("gwax_hits_%s.tsv", query_trait_id()) },
     content = function(file) {
       if (is.null(hits_export())) { return(NULL) }
       write_delim(hits_export(), file, delim="\t")
