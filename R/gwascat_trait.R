@@ -1,27 +1,37 @@
 #!/usr/bin/env Rscript
 ##########################################################################################
 ### Analyze/describe assn file traits.
+### Note that EFO includes entities and IDs from other ontologies.
+### Output gwascat_trait.tsv for use by gwax_gt_stats.R.
 ##########################################################################################
 library(readr)
 require(data.table, quietly=T)
 
-ifile_efo <- "data/efo.tsv"
+ifile_default <- "/home/data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv"
+ofile_default <- "data/gwascat_trait.tsv"
 
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)==1) {
   (ifile <- args[1])
+} else if (length(args)==2) {
+  (ifile <- args[1])
+  (ofile <- args[2])
 } else if (length(args)==0) {
-  ifile <- "/home/data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv"
+  ifile <- ifile_default
+  ofile <- ofile_default
 } else {
-  message("ERROR: Syntax: gwascat_trait.R GWASFILE\n\t...or no args for defaults.")
+  message("ERROR: Syntax: gwascat_trait.R [GWASFILE [OFILE]]\n\t...or no args for defaults.")
   quit()
 }
 writeLines(sprintf("Input: %s", ifile))
+writeLines(sprintf("Output: %s", ofile))
 
-trait <- read_delim(ifile, "\t")
+ifile_efo <- "data/efo.tsv"
+
+trait <- read_delim(ifile, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
-
-trait <- trait[, .(MAPPED_TRAIT, MAPPED_TRAIT_URI)]
+setnames(trait, old="STUDY ACCESSION", new="STUDY_ACCESSION")
+trait <- trait[, .(STUDY_ACCESSION, MAPPED_TRAIT, MAPPED_TRAIT_URI)]
 
 trait <- unique(trait[complete.cases(trait),])
 
@@ -29,42 +39,51 @@ trait <- unique(trait[complete.cases(trait),])
 trait_multi <- trait[grepl(",", trait$MAPPED_TRAIT_URI)]
 trait <- trait[!grepl(",", trait$MAPPED_TRAIT_URI)]
 for (i in 1:nrow(trait_multi)) {
-  uris <- strsplit(as.character(trait_multi$MAPPED_TRAIT_URI[i]), ', ', perl=T)[[1]]
-  traits <- strsplit(as.character(trait_multi$MAPPED_TRAIT[i]), ', ', perl=T)[[1]]
+  uris <- strsplit(trait_multi$MAPPED_TRAIT_URI[i], ', ', perl=T)[[1]]
+  traits <- strsplit(trait_multi$MAPPED_TRAIT[i], ', ', perl=T)[[1]]
+  accs <- rep(trait_multi$STUDY_ACCESSION[i], length(uris))
   if (length(uris)!=length(traits)) {
     message(sprintf("ERROR: length(uris)!=length(traits) (%d!=%d) \"%s\"", length(uris), length(traits), trait_multi$MAPPED_TRAIT[i]))
-    traits <- NA #Commas in trait names, so must be curated manually.
+    traits <- rep(trait_multi$MAPPED_TRAIT[i], length(uris)) #Commas in trait names, so must be curated manually.
   }
-  trait <- rbind(trait, data.frame(MAPPED_TRAIT=traits, MAPPED_TRAIT_URI=uris))
+  trait <- rbind(trait, data.frame(STUDY_ACCESSION=accs, MAPPED_TRAIT=traits, MAPPED_TRAIT_URI=uris))
 }
 
-trait[['ontology']] <- as.factor(sub("[^/]+$","", trait$MAPPED_TRAIT_URI))
 trait[['id']] <- as.factor(sub("^.*/","", trait$MAPPED_TRAIT_URI))
-
+trait[['ontology']] <- as.factor(sub("_.*$","", trait$id))
 trait <- unique(trait)
 
 ###
 #v1.0.2 counts:
-#HP: http://purl.obolibrary.org/obo/: 295
-#EFO: http://www.ebi.ac.uk/efo/: 3899
-#Orphanet: http://www.orpha.net/ORDO/: 78
+#EFO: 1794
+#GO: 69
+#HP: 49
+#Orphanet: 43
+#CHEBI: 2
+#PATO: 1
 ###
 
-tbl <- table(trait$ontology)
-message(sprintf("Ontology: %32s: %4d / %4d (%4.1f%%)\n", names(tbl), tbl, sum(tbl), 100*tbl/sum(tbl)))
+tbl <- trait[, .N, by="ontology"][order(-N)]
+message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", tbl$ontology, tbl$N, sum(tbl$N), 100*tbl$N/sum(tbl$N)))
 
 ###
 efo <- read_delim(ifile_efo, "\t")
 setDT(efo)
-efo <- efo[node_or_edge == "node" & grepl("^EFO", id)]
+efo <- efo[node_or_edge == "node"]
 efo[, `:=`(node_or_edge = NULL, source = NULL, target = NULL)]
 
-trait <- merge(trait, efo, by="id", all.x=T, all.y=F)
+# EFO includes other ontologies.
+efo[['ontology']] <- as.factor(sub("_.*$","", efo$id))
+tbl <- efo[, .N, by="ontology"][order(-N)]
+message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", tbl$ontology, tbl$N, sum(tbl$N), 100*tbl$N/sum(tbl$N)))
+efo[, ontology := NULL]
 
-trait_unmapped <- trait[grepl("^EFO", id) & is.na(label), .(id, MAPPED_TRAIT)]
-n_trait_mapped <- nrow(trait[grepl("^EFO", id) & !is.na(label)])
+trait <- merge(trait, efo[, .(id, efo_label = label)], by="id", all.x=T, all.y=F)
 
-message(sprintf("EFO IDs mapped to efo.owl: %d / %d (%.1f%%)", n_trait_mapped, 
+trait_unmapped <- trait[is.na(efo_label), .(id, MAPPED_TRAIT)]
+n_trait_mapped <- nrow(trait[!is.na(efo_label)])
+message(sprintf("EFO+ IDs mapped to efo.owl: %d / %d (%.1f%%)", n_trait_mapped, 
                 n_trait_mapped + uniqueN(trait_unmapped$id),
                 100 * (n_trait_mapped / (n_trait_mapped + uniqueN(trait_unmapped$id)))))
 #
+write_delim(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT, MAPPED_TRAIT_URI, id, efo_label)], ofile, "\t")

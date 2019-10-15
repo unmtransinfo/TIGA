@@ -99,7 +99,7 @@ ifile_tcrd <- "data/tcrd_targets.csv"
 ifile_efo <- "data/efo.tsv"
 ifile_efo2do <- "data/ebi-oxo_efo2doid_mappings_maxd-2.tsv"
 ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
-gt_statsfile <- "data/gt_stats_mu.tsv.gz"
+gt_statsfile <- "data/gt_stats.tsv.gz"
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
     ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
@@ -308,7 +308,7 @@ knitr::kable(biotypes[, Percent := round(100 * N / sum(N), 1)][N >= 100])
 
 
 ```{r}
-names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
+names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI", "id", "efo_label")
 trait <- trait[!is.na(trait$TRAIT_URI)]
 trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 trait[, trait_id := sub("^.*/", "", TRAIT_URI)]
@@ -366,7 +366,7 @@ sprintf("GTs with beta, g2t: %d ; genes: %d ; traits: %d",
 
 # Traits and EFO
 
-EFO = Experimental Factor Ontology. Includes Orphanet, PO, Mondo and Uberon classes.
+EFO = Experimental Factor Ontology. Includes GO, Orphanet, PO, Mondo and Uberon classes.
 TSV from source OWL. 
 
 ```{r warning=FALSE}
@@ -465,7 +465,7 @@ be suitably specific for drug discovery?
 
 ```{r}
 trait_top <- trait[, .(TRAIT, N_study=uniqueN(STUDY_ACCESSION)), by="TRAIT_URI"]
-trait_top <- unique(merge(trait_top, gt[, .(N_genes=uniqueN(gsymb)), by="trait_uri"], by.x="TRAIT_URI", by.y="trait_uri", all.x=T, all.y=F))
+trait_top <- unique(merge(trait_top, gt[, .(N_genes=uniqueN(ensemblId)), by="trait_uri"], by.x="TRAIT_URI", by.y="trait_uri", all.x=T, all.y=F))
 knitr::kable(trait_top[order(-N_study), .(TRAIT, N_study, N_genes)][1:18], caption="Most-highly studied traits")
 ```
 
@@ -516,7 +516,7 @@ sprintf("%s: %s", query_uri, query_trait)
 
 ```{r}
 t2g <- gt[trait_uri==query_uri]
-t2g <- t2g[!is.na(gsymb)]
+t2g <- t2g[!is.na(ensemblId)]
 t2g <- t2g[!is.na(or_median)]
 NMAX_PLOT <- 100
 t2g[, ok := as.logical(mu_rank<=NMAX_PLOT)]
@@ -527,19 +527,19 @@ message(sprintf("&mu;_filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
 ### Plot
 
 ```{r}
-t2g[is.na(tdl), tdl := "NA"]
-t2g$tdl <- factor(t2g$tdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
-t2g[, markersize := 15/n_traits_g]
-t2g[, text := paste0(gsymb, "<br>", name, "<br>", "Family: ", fam, "<br>", "TDL: ", tdl, "<br>", "n_traits_this_gene=", n_traits_g, " ; n_snp=", n_snp, " ; n_study=", n_study,
-"OR = ", or_median, "; ", "study_N = ", study_N_mean, "; ",
+t2g[is.na(TDL), TDL := "NA"]
+t2g$TDL <- factor(t2g$TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
+t2g[, markersize := 10*n_study]
+t2g[, text := paste0("<b>", tcrdGeneSymbol, "</b> (", ensemblId, ")<br><b>", tcrdTargetName, "</b><br>", "Family: ", tcrdTargetFamily, "<br>", "TDL: ", TDL, "<br>", "N_traits=", n_traits_g, " ; N_snp=", n_snp, " ; N_study=", n_study, "study_N = ",
+"OR = ", or_median, "; ",  study_N_mean, "; ",
 " ; pVal=", sprintf("%.2g",10^(-pvalue_mlog_median)), "RCRAS = ", rcras, "; ", 
 "muScore = ", mu_score, "; ", "nAbove = ", nAbove, "; ", "nBelow = ", nBelow, "; ","muRank = ", mu_rank, "; ")]
 plot_ly(type='scatter', mode='markers', data=t2g[(ok)], 
-  color=~tdl, colors=c("blue", "green", "red", "black", "gray"),
-	x=~n_study + rnorm(sum(t2g$ok), sd=.05), #Custom jitter
+  color=~TDL, colors=c("blue", "green", "red", "black", "gray"),
+	x=~mu_score,
 	y=~or_median, marker=list(symbol="circle", size=~markersize), text=~text) %>%
-  layout(xaxis=list(type="log", title="Evidence (N_study)"), 
-         yaxis=list(type="log", title="Effect (OddsRatio)"), 
+  layout(xaxis=list(title="Evidence (muScore)", zeroline=F, showline=F), 
+         yaxis=list(title="Effect (OddsRatio)"), 
         title=paste0("GWAX: ", query_trait, "<br>(Trait_ID: ", sub('^.*/', '', query_uri), ")"),
         margin=list(t=100,r=50,b=60,l=60), legend=list(x=.75, y=.9), showlegend=T, font=list(family="monospace", size=18)) %>%
   add_annotations(text=sprintf("N_gene = %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
@@ -549,6 +549,6 @@ Top hits:
 
 ```{r}
 setorder(t2g, mu_rank)
-knitr::kable(t2g[(ok)][1:10][, .(gsymb, name, fam, tdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, mu_score, mu_rank)], caption=sprintf("GWAX: %s, top hits", query_trait))
+knitr::kable(t2g[(ok)][1:10][, .(GSYMB=tcrdGeneSymbol, name=tcrdTargetName, family=tcrdTargetFamily, TDL, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, mu_score, mu_rank)], caption=sprintf("GWAX: %s, top hits", query_trait))
 ```
 

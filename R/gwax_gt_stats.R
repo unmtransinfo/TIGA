@@ -113,7 +113,7 @@ tcrd <- read_delim(ifile_tcrd, "\t", na=c("", "NA", "NULL"), col_types=cols(.def
 setDT(tcrd)
 ###
 #Clean & transform:
-names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI")
+setnames(trait, c("STUDY_ACCESSION", "TRAIT", "TRAIT_URI", "id", "efo_label"))
 trait <- trait[!is.na(trait$TRAIT_URI)]
 trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 ###
@@ -196,7 +196,6 @@ for (ensg in unique(g2t$ensemblId)) {
 }
 message(sprintf("Building gt_stats with NROW: %s", NROW))
 gt_stats <- data.table(ensemblId=rep(NA, NROW), 
-  #gsymb=rep(NA, NROW),
 	trait_uri=rep(NA, NROW), trait=rep(NA, NROW), 
 	n_study=as.integer(rep(NA, NROW)), 
 	n_snp=as.integer(rep(NA, NROW)),
@@ -213,10 +212,8 @@ message(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d", nrow(gt
 i_row <- 0 #gt_stats populated row count
 t0 <- proc.time()
 # gene-loop:
-#for (gsymb in unique(g2t$GSYMB)) {
 for (ensg in unique(g2t$ensemblId)) {
   # trait-loop:
-  #for (trait_uri in unique(g2t[GSYMB==gsymb, TRAIT_URI])) {
   for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
     if ((i_row%%10000)==0) {
       message(sprintf("i_row: %d / %d (%.1f%%) ; %s, elapsed: %.1fs", i_row, NROW, 100*i_row/NROW, Sys.time(), (proc.time()-t0)[3]))
@@ -252,45 +249,28 @@ for (ensg in unique(g2t$ensemblId)) {
   }
 }
 gt_stats[, n_genes_t := .N, by="trait_uri"]
-#gt_stats[, n_traits_g := .N, by="gsymb"]
 gt_stats[, n_traits_g := .N, by="ensemblId"]
-#
-message(sprintf("%s, elapsed: %.1fs", Sys.time(), (proc.time()-t0)[3]))
-message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
-#message(sprintf("DEBUG: gsymb: count=%d", sum(!is.na(gt_stats$gsymb))))
-message(sprintf("DEBUG: ensemblId: count=%d", sum(!is.na(gt_stats$ensemblId))))
-message(sprintf("DEBUG: n_genes_t: count=%d [%d,%d]", sum(!is.na(gt_stats$n_genes_t)), min(gt_stats$n_genes_t), max(gt_stats$n_genes_t)))
-message(sprintf("DEBUG: n_traits_g: count=%d [%d,%d]", sum(!is.na(gt_stats$n_traits_g)), min(gt_stats$n_traits_g), max(gt_stats$n_traits_g)))
 #
 gt_stats$or_median <- round(as.double(gt_stats$or_median), 3)
 gt_stats$pvalue_mlog_median <- round(as.double(gt_stats$pvalue_mlog_median), 3)
 gt_stats$rcras <- round(as.double(gt_stats$rcras), 3)
 gt_stats$n_wsnp <- round(as.double(gt_stats$n_wsnp), 3)
 #
-message(sprintf("DEBUG: pvalue_mlog_median: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$pvalue_mlog_median)),
-                min(gt_stats$pvalue_mlog_median, na.rm=T),
-                max(gt_stats$pvalue_mlog_median, na.rm=T)))
-message(sprintf("DEBUG: or_median: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$or_median)),
-                min(gt_stats$or_median, na.rm=T),
-                max(gt_stats$or_median, na.rm=T)))
-message(sprintf("DEBUG: study_N_mean: count=%d [%.1f,%.1f]", sum(!is.na(gt_stats$study_N_mean)),
-                min(gt_stats$study_N_mean, na.rm=T),
-                max(gt_stats$study_N_mean, na.rm=T)))
-message(sprintf("DEBUG: rcras: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$rcras)),
-                min(gt_stats$rcras, na.rm=T),
-                max(gt_stats$rcras, na.rm=T)))
-message(sprintf("DEBUG: n_wsnp: count=%d [%.2f,%.2f]", sum(!is.na(gt_stats$n_wsnp)),
-                min(gt_stats$n_wsnp, na.rm=T),
-                max(gt_stats$n_wsnp, na.rm=T)))
+message(sprintf("%s, elapsed: %.1fs", Sys.time(), (proc.time()-t0)[3]))
+message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
+message(sprintf("gene (ensemblId) count: %d", uniqueN(gt_stats$ensemblId)))
+message(sprintf("trait (trait_uri) count: %d", uniqueN(gt_stats$trait_uri)))
+message(sprintf("DEBUG: n_genes_t: [%d,%d]", min(gt_stats$n_genes_t), max(gt_stats$n_genes_t)))
+message(sprintf("DEBUG: n_traits_g: [%d,%d]", min(gt_stats$n_traits_g), max(gt_stats$n_traits_g)))
+message(sprintf("DEBUG: pvalue_mlog_median: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_median, na.rm=T), max(gt_stats$pvalue_mlog_median, na.rm=T)))
+message(sprintf("DEBUG: or_median: [%.2f,%.2f]", min(gt_stats$or_median, na.rm=T), max(gt_stats$or_median, na.rm=T)))
+message(sprintf("DEBUG: study_N_mean: [%.1f,%.1f]", min(gt_stats$study_N_mean, na.rm=T), max(gt_stats$study_N_mean, na.rm=T)))
+message(sprintf("DEBUG: rcras: [%.2f,%.2f]", min(gt_stats$rcras, na.rm=T), max(gt_stats$rcras, na.rm=T)))
+message(sprintf("DEBUG: n_wsnp: [%.2f,%.2f]", min(gt_stats$n_wsnp, na.rm=T), max(gt_stats$n_wsnp, na.rm=T)))
 #
-#gt_stats <- merge(gt_stats, tcrd[, c("protein_sym", "tdl", "fam", "idg2", "name")], by.x="gsymb", by.y="protein_sym", all.x=T, all.y=F)
 gt_stats <- merge(gt_stats, tcrd[, c("ensemblGeneId", "tcrdGeneSymbol", "TDL", "tcrdTargetFamily", "idgList", "tcrdTargetName")], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
 #
-###
-message(sprintf("%s, elapsed: %.2fs", Sys.time(), (proc.time()-t0)[3]))
-
-# End of former gwax_gt_stats.R
-###
+#############################################################################
 # Beginning of former gwax_gt_stats_mu.R
 
 ###
@@ -305,14 +285,13 @@ message(sprintf("%s, elapsed: %.2fs", Sys.time(), (proc.time()-t0)[3]))
 # Issue: cases globally superior in one variable and inferior in one variable
 # have nAbove=0 and nBelow=0 and muScore=0. What should be the rank?
 ###
-
-message("DEBUG: Mu procedure...")
+message("DEBUG: Mu computation...")
 #
 gt_stats <- gt_stats[!is.na(or_median) & !is.na(ensemblId) &!is.na(TDL)]
 ###
 #
-message(sprintf("Genes IDs in dataset: %d", uniqueN(gt_stats$ensemblId)))
-message(sprintf("Genes symbols in dataset: %d", uniqueN(gt_stats$tcrdGeneSymbol)))
+message(sprintf("Genes (ensemblIDs): %d", uniqueN(gt_stats$ensemblId)))
+message(sprintf("Genes (symbols): %d", uniqueN(gt_stats$tcrdGeneSymbol)))
 message(sprintf("Traits in dataset: %d", uniqueN(gt_stats$trait_uri)))
 message(sprintf("G-T associations in dataset: %d", nrow(gt_stats)))
 

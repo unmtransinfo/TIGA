@@ -1,7 +1,7 @@
 ##########################################################################################
 ### GWAX: GWAS Explorer
 ### gt = gene-trait data
-### Dataset gt_stats.tsv from gwascat_gt_stats.R.
+### Dataset gt_stats.tsv from gwax_gt_stats.R.
 ### Jeremy Yang
 ##########################################################################################
 library(readr)
@@ -17,42 +17,46 @@ MIN_ASSN <- 5
 #
 t0 <- proc.time()
 if (file.exists("gwax.Rdata")) {
-  message(sprintf("Loading dataset from Rdata..."))
+  message(sprintf("Loading gwax.Rdata..."))
   load("gwax.Rdata")
   setDT(gt)
 } else {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
-    n_study=col_integer(), n_snp=col_integer(), n_wsnp=col_double(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(),
-    mu_score=col_double(), nAbove=col_integer(), nBelow=col_integer(), mu_rank=col_integer()))
+	n_study=col_integer(), n_snp=col_integer(), n_wsnp=col_double(), n_traits_g=col_integer(),
+	n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(),
+	mu_score=col_double(), nAbove=col_integer(), nBelow=col_integer(), mu_rank=col_integer()))
   setDT(gt)
-  ###
-  traits_df <- gt[, .(.N),  by=c("trait", "trait_uri")]
-  traits_df <- traits_df[N>=MIN_ASSN]
-  traits <- sub("^.*/", "", traits_df$trait_uri) #named vector
-  names(traits) <- traits_df$trait
-  traits <- traits[order(names(traits))]
   setnames(gt, old=c("tcrdGeneSymbol", "tcrdTargetFamily", "tcrdTargetName"), new=c("gsymb", "geneFamily", "geneName"))
-  save(gt, traits, file="gwax.Rdata")
+  #
+  traits <- gt[, .(.N),  by=c("trait", "trait_uri")]
+  traits <- traits[N>=MIN_ASSN]
+  traits_menu <- sub("^.*/", "", traits$trait_uri) #named vector
+  names(traits_menu) <- traits$trait
+  traits_menu <- traits_menu[order(names(traits_menu))]
+  #
+  save(gt, traits_menu, file="gwax.Rdata")
 }
 #
 t_elapsed <- (proc.time()-t0)[3]
 #
 message(sprintf("Gene count, IDs: %d; symbols: %d", uniqueN(gt$ensemblId), uniqueN(gt$gsymb)))
 message(sprintf("Trait count (total): %d", uniqueN(gt$trait)))
-message(sprintf("Trait count (n_assn>=%d): %d", MIN_ASSN, length(traits)))
+message(sprintf("Trait count (filtered; n_assn<%d): %d", MIN_ASSN, uniqueN(gt$trait)-length(traits_menu)))
+message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(traits_menu)))
 message(sprintf("DEBUG: COUNT or_median: %d", sum(!is.na(gt$or_median))))
 message(sprintf("DEBUG: COUNT pvalue_mlog_median: %d", sum(!is.na(gt$pvalue_mlog_median))))
 message(sprintf("DEBUG: COUNT rcras: %d", sum(!is.na(gt$rcras))))
 #
 db_htm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_load: %.1fs)",
-	uniqueN(gt$gsymb), uniqueN(gt$trait), length(traits), t_elapsed)
+	uniqueN(gt$gsymb), uniqueN(gt$trait), length(traits_menu), t_elapsed)
 ###
 tdls <- c("Tclin", "Tchem", "Tbio", "Tdark")
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
 axes <- c("Effect", "Evidence")
 #
-qryTraitRand <- sample(traits, 1)
+qryTraitRand <- sample(traits_menu, 1)
+message(sprintf("DEBUG: qryTraitRand: %s", qryTraitRand))
 #
 #############################################################################
 HelpHtm <- function() {(
@@ -139,7 +143,7 @@ ui <- fluidPage(
   fluidRow(
     column(3, 
       wellPanel(
-	selectInput("traitQry", "Query trait", choices=traits, selectize=T, selected=qryTraitRand),
+	selectInput("traitQry", "Query trait", choices=traits_menu, selectize=T, selected=qryTraitRand),
         sliderInput("maxHits", "Max_hits", 50, 300, 100, step=50),
         #sliderInput("minStudy", "Min_study", 1, 5, 1, step=1),
         checkboxGroupInput("tdl_filters", "TDL", choices=tdls, selected=tdls, inline=T),
@@ -226,7 +230,7 @@ server <- function(input, output, session) {
     input$goRefresh # Re-run this and downstream on action button.
     if (input$randQuery>qryTraitRand_previous) {
       qryTraitRand_previous <<- input$randQuery # Must assign to up-scoped variable.
-      qryTraitRand <- sample(traits, 1)
+      qryTraitRand <- sample(traits_menu, 1)
       message(sprintf("DEBUG: qryTraitRand_previous=%d; qryTraitRand=%s", qryTraitRand_previous, qryTraitRand))
       updateTextInput(session, "traitQry", value=as.character(qryTraitRand)) #Better than updateSelectizeInput ??
     }
@@ -250,7 +254,7 @@ server <- function(input, output, session) {
   })
   
   hits <- reactive({
-    #gt_this <- gt[(trait_uri==query_trait_uri()) & (n_study>=input$minStudy)]
+    if (is.null(query_trait_uri())) { return(NULL) }
     gt_this <- gt[trait_uri==query_trait_uri()]
     if (nrow(gt_this)==0) { return(NULL) }
     gt_this <- gt_this[(geneFamily %in% input$fam_filters) | (("Other" %in% input$fam_filters) & (is.na(geneFamily) | !(geneFamily %in% idgfams)))]
@@ -354,9 +358,9 @@ server <- function(input, output, session) {
 		columnDefs = list(
 			list(className='dt-center', targets=c(0, 3:(ncol(hits())-2))), #Numbered from 0.
 			list(visible=F, targets=c(0, 14, 15, ncol(hits())-1)))), #Numbered from 0.
-	colnames=c("ENSG","GSYMB","GeneName","idgFam","idgTDL","N_study","study_N","N_snp","N_wsnp","N_trait","pVal_mlog","OR","RCRAS",
+	colnames=c("ENSG","GSYMB","GeneName","idgFam","idgTDL","N_study","study_N","N_snp","N_snpw","N_trait","log_pVal","OR","RCRAS",
 	           "muScore", "nAbove", "nBelow", "muRank", "ok")
-  ) %>% formatRound(digits=2, columns=c(7,9,11,12,13)) #Numbered from 1.
+  ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(7,9,11,12,13)) #Numbered from 1.
   }, server=T)
 
   hits_export <- reactive({
