@@ -95,7 +95,7 @@ ifile_assn <- "data/gwascat_assn.tsv"
 ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
 ifile_trait <- "data/gwascat_trait.tsv"
 ifile_icite <- "data/gwascat_icite.tsv"
-ifile_tcrd <- "data/tcrd_targets.csv"
+ifile_tcrd <- "data/tcrd_targets.tsv"
 ifile_efo <- "data/efo.tsv"
 ifile_efo2do <- "data/ebi-oxo_efo2doid_mappings_maxd-2.tsv"
 ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
@@ -111,30 +111,26 @@ snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_charact
 setDT(snp2gene)
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
-tcrd <- read_csv(ifile_tcrd, col_types=cols(.default=col_character()))
+tcrd <- read_delim(ifile_tcrd, "\t", col_types=cols(.default=col_character()))
 setDT(tcrd)
 ```
 
 # Genome Wide Association Studies (GWAS)
 
-### Counts by year
+### Counts by year, platform
+
+Grouped by vendor (first in list if multiple), though technologies may have evolved for a given
+vendor.
 
 ```{r}
 sprintf("Studies total: %d ; accessions: %d ; traits: %d ; PMIDs: %d", nrow(gwas), uniqueN(gwas$STUDY_ACCESSION), uniqueN(gwas$DISEASE_TRAIT), uniqueN(gwas$PUBMEDID))
 gwas[, `:=`(YEAR = format(DATE,"%Y"), PLATFORM = sub("[, ].*$", "", `PLATFORM_[SNPS_PASSING_QC]`))]
 gwas_platforms <- gwas[, .(.N), by=c("YEAR", "PLATFORM")]
 setorder(gwas_platforms, YEAR, PLATFORM)
-plot_ly(type="bar", data=gwas_platforms[, .(N_gwas = sum(N)), by=YEAR], x=~YEAR, y=~N_gwas) %>%
-  layout(title="GWAS Catalog Counts", 
-         margin=list(t=120), font=list(family="monospace", size=18)) %>%
-  add_annotations(text=sprintf("N_study = %d", nrow(gwas)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
-```
-### Laboratory platforms
-
-Grouped by vendor (first in list if multiple), though technologies may have evolved for a given
-vendor.
-
-```{r}
+#plot_ly(type="bar", data=gwas_platforms[, .(N_study = sum(N)), by=YEAR], x=~YEAR, y=~N_study) %>%
+#  layout(title="GWAS Catalog Counts", 
+#         margin=list(t=120), font=list(family="monospace", size=18)) %>%
+#  add_annotations(text=sprintf("N_study = %d", nrow(gwas)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
 gwas_platforms_cast <- dcast(gwas_platforms, YEAR ~ PLATFORM, value.var="N", fill=0)
 plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="NR",
                 type="scatter", mode="markers", fill="tonexty") %>%
@@ -157,9 +153,9 @@ Statistical power and strength of evidence is dependent on size of the cohort.
 anns <- c(sprintf("median: %d", median(gwas$study_N)),
           sprintf("mean: %.1f", mean(gwas$study_N)),
           sprintf("range: [%d-%d]", min(gwas$study_N), max(gwas$study_N)))
-plot_ly(gwas, type="histogram", x=~study_N) %>%
+plot_ly(gwas, type="histogram", x=~study_N, marker=list(color="#CC2222")) %>%
   layout(title="GWAS sample sizes",
-         xaxis=list(title="Sample size"), yaxis=list(title="N_Studies"),
+         xaxis=list(title="Sample size", type="normal"), yaxis=list(title="N_Studies", type="log"),
          margin = list(t=100, l=100),
          font = list(family="monospace", size=18)) %>%
   add_annotations(text=paste0(anns, collapse="<br>"), showarrow=F, x=0.5, y=.9, xref="paper", yref="paper")
@@ -187,7 +183,7 @@ icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
 gwas_icite <- merge(gwas[, .(STUDY_ACCESSION, PUBMEDID)], icite, by.x="PUBMEDID", by.y="pmid", all.x=T, all.y=F)
 qtl <- quantile(gwas_icite$relative_citation_ratio, seq(0,1,.1), na.rm=T)
 anns <- c(sprintf("N_pmid = %d", nrow(gwas_icite)), sprintf("mean = %.1f ; median = %.1f ; max = %.1f", mean(gwas_icite$relative_citation_ratio, na.rm=T), median(gwas_icite$relative_citation_ratio, na.rm=T), max(gwas_icite$relative_citation_ratio, na.rm=T)), sprintf("90%%ile = %.1f", qtl["90%"]), ("(Plot truncated at 25.)"))
-plot_ly(gwas_icite, x=~relative_citation_ratio, type="histogram") %>%
+plot_ly(gwas_icite, x=~relative_citation_ratio, type="histogram", marker=list(color="#22AA22")) %>%
   layout(title = 'iCite Relative Citation Ratio (RCR)<br>Distribution for GWAS publications',
          xaxis = list(title="RCR", type="normal", range=c(0,25), showgrid=T),
          yaxis = list(title="", showgrid=T),
@@ -203,7 +199,7 @@ wordwrap <- function(v, len) sapply(sapply(v, strwrap, len), paste, collapse="<b
 plot_ly(gwas_icite, x=~year, y=~relative_citation_ratio, color = ~journal, type="box",
         text=sprintf("%s: %s, <i>%s</i> (%d)", gwas_icite$PUBMEDID, wordwrap(gwas_icite$title, 40), gwas_icite$journal, gwas_icite$year)) %>%
   layout(title = 'iCite Relative Citation Ratio<br>GWAS Publications',
-         xaxis = list(title="", showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
+         xaxis = list(title="", range=c(2012, 2016), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
          yaxis = list(title="RCR", range=c(0,25), showgrid=T),
          margin = list(t=100, l=100, r=100),
          font = list(family="monospace", size=18),
@@ -220,11 +216,12 @@ sprintf("Associations total: %d ; SNPs: %d ; traits: %d ; PMIDs: %d", nrow(assn)
 ## CONTEXT aka functionalClass
 
 ```{r}
-tbl <- table(assn$CONTEXT)
-tbl <- data.table(name = names(tbl), N = as.integer(tbl))
-tbl <- unique(tbl[grepl(";", name), `:=`(name = "Multiple", N = sum(N))])
-plot_ly(type="pie", values=tbl$N, labels=paste0(tbl$name, " (", tbl$N, ")"), textinfo="label+percent", textfont=list(size=12) ) %>%
-  layout(title="Association/SNP functional classes (aka CONTEXT)",
+funClass <- assn[, .N, by="CONTEXT"]
+funClass <- unique(funClass[grepl(";", CONTEXT), `:=`(CONTEXT = "Multiple", N = sum(N))])
+setorder(funClass, -N)
+knitr::kable(funClass[N>=10], caption="SNP functional classes (aka CONTEXT), N>=10")
+plot_ly(type="pie", values=funClass$N, labels=paste0(funClass$CONTEXT, " (", funClass$N, ")"), textinfo="label+percent", textfont=list(size=12) ) %>%
+  layout(title="SNP functional classes (aka CONTEXT)",
          margin = list(t=100, b=100),
          font=list(family="monospace", size=18), showlegend=F)
 ```
@@ -319,17 +316,23 @@ assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
 assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
 sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE))
 #
-gsyms_tcrd <- unique(tcrd$protein_sym)
-sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd))
+gsyms_tcrd <- unique(tcrd$tcrdGeneSymbol)
+ensgs_tcrd <- unique(tcrd$ensemblGeneId)
+sprintf("TCRD targets: %d ; ENSGs: %d; geneSymbols: %d", nrow(tcrd), length(ensgs_tcrd), length(gsyms_tcrd))
 gsyms_gwax <- unique(snp2gene$GSYMB)
+ensgs_gwax <- unique(ensbInfo$id)
 gsyms_common <- intersect(gsyms_gwax, gsyms_tcrd)
+ensgs_common <- intersect(ensgs_gwax, ensgs_tcrd)
 sprintf("GSYMBs mapped to TCRD: %d", length(gsyms_common))
-tcrd <- merge(tcrd, data.table(gsym=gsyms_gwax, in_gwascat=rep(T, length(gsyms_gwax))),
-	by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
+sprintf("ENSGs mapped to TCRD: %d", length(ensgs_common))
+#tcrd <- merge(tcrd, data.table(gsym=gsyms_gwax, in_gwascat=rep(T, length(gsyms_gwax))),
+#	by.x="tcrdGeneSymbol", by.y="gsym", all.x=T, all.y=F)
+tcrd <- merge(tcrd, data.table(ensg=ensgs_gwax, in_gwascat=rep(T, length(ensgs_gwax))),
+	by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
-tcrd$idg2 <- as.logical(tcrd$idg2)
-t2 <- table(tcrd$tdl[tcrd$in_gwascat])
-sprintf("%s: %d", names(t2), t2)
+tcrd$idgList <- as.logical(tcrd$idgList)
+tcrd$TDL <- factor(tcrd$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
+knitr::kable(tcrd[(in_gwascat), .N, by="TDL"], caption="Gene counts by TDL")
 ```
 
 # Gene-SNP-Study-Trait (G2T) associations
@@ -373,10 +376,10 @@ TSV from source OWL.
 efo <- read_delim(ifile_efo, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo_classes <- efo[node_or_edge=="node"][, `:=`(node_or_edge=NULL, source=NULL, target=NULL)]
-sprintf("EFO total classes: %d", uniqueN(efo_classes$uri))
 efo_classes[, in_gwascat := as.logical(uri %in% trait$TRAIT_URI)]
 efo_counts <- efo_classes[, Ontology := sub("_.*$", "", id)][, .(N_in_gwas = sum(in_gwascat), N_total = .N), by=Ontology][order(-N_in_gwas)]
-knitr::kable(efo_counts[1:5], caption="EFO sources, top 5")
+sprintf("EFO total classes: %d; in GWAS: %d", uniqueN(efo_classes$uri), sum(efo_counts$N_in_gwas))
+knitr::kable(efo_counts[N_in_gwas>0], caption="EFO sources (GWAS-relevant)")
 ```
 
 ## GWAS trait-subclass relationships 
@@ -404,7 +407,8 @@ knitr::kable(efo_sub[1:24], caption="Top EFO trait-subclass pairs")
 ```{r}
 efo_gwas <- read_delim(ifile_efo_gwas, "\t", col_types=cols(.default=col_character()))
 setDT(efo_gwas)
-sprintf("GWAS studies related by EFO-subclass: %d", uniqueN(union(efo_gwas$trait_uri, efo_gwas$subclass_uri)))
+sprintf("GWAS studies related by EFO-subclass: %d", 
+        uniqueN(union(efo_gwas[study_accession != study_accession_subclass, study_accession], efo_gwas[study_accession != study_accession_subclass, study_accession_subclass])))
 ```
 
 ## EFO to DOID (Disease Ontology ID)
@@ -466,7 +470,8 @@ be suitably specific for drug discovery?
 ```{r}
 trait_top <- trait[, .(TRAIT, N_study=uniqueN(STUDY_ACCESSION)), by="TRAIT_URI"]
 trait_top <- unique(merge(trait_top, gt[, .(N_genes=uniqueN(ensemblId)), by="trait_uri"], by.x="TRAIT_URI", by.y="trait_uri", all.x=T, all.y=F))
-knitr::kable(trait_top[order(-N_study), .(TRAIT, N_study, N_genes)][1:18], caption="Most-highly studied traits")
+knitr::kable(trait_top[order(-N_study), .(TRAIT, N_study, N_genes)][1:18], caption="Most-studied traits")
+knitr::kable(trait_top[order(-N_genes), .(TRAIT, N_study, N_genes)][1:18], caption="Most-polygenic traits")
 ```
 
 # Prototype GWAX web app.
@@ -541,8 +546,8 @@ plot_ly(type='scatter', mode='markers', data=t2g[(ok)],
   layout(xaxis=list(title="Evidence (muScore)", zeroline=F, showline=F), 
          yaxis=list(title="Effect (OddsRatio)"), 
         title=paste0("GWAX: ", query_trait, "<br>(Trait_ID: ", sub('^.*/', '', query_uri), ")"),
-        margin=list(t=100,r=50,b=60,l=60), legend=list(x=.75, y=.9), showlegend=T, font=list(family="monospace", size=18)) %>%
-  add_annotations(text=sprintf("N_gene = %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
+        margin=list(t=100,r=50,b=60,l=60), legend=list(orientation="h", x=1, y=1, xanchor="right"), showlegend=T, font=list(family="monospace", size=18)) %>%
+  add_annotations(text=sprintf("N: %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0, y=1.0, xref="paper", yref="paper")
 ```
 
 Top hits:

@@ -88,6 +88,11 @@ writeLines(sprintf("Studies with all values >1 (OR?): %d", n_all_or))
 writeLines(sprintf("Studies with all values<=1 (BETA?): %d", n_all_beta))
 writeLines(sprintf("Studies with both values <=1 and >1: %d", n_both))
 #
+
+###
+# Write file for GWAX:
+write_delim(assn, ofile, delim="\t")
+
 ###
 # Descriptive only, no more changes to assn.
 ###
@@ -124,6 +129,3 @@ tbl <- tbl[order(-tbl$Freq),]
 writeLines(sprintf("%5d: %s", tbl$Freq, tbl$GENOTYPING_TECHNOLOGY))
 
 
-###
-# Write file for GWAX:
-write_delim(assn, ofile, delim="\t")

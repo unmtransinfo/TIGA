@@ -55,7 +55,13 @@ message(sprintf("DEBUG: COUNT rcras: %d", sum(!is.na(gt$rcras))))
 db_htm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_load: %.1fs)",
 	uniqueN(gt$gsymb), uniqueN(gt$trait), length(trait_menu), t_elapsed)
 ###
-tdls <- c("Tclin", "Tchem", "Tbio", "Tdark")
+TDLS <- c("Tclin", "Tchem", "Tbio", "Tdark")
+TDLS_Names <- list(
+span("Tclin", icon("circle", lib="font-awesome", class="blue_class")),
+span("Tchem", icon("circle", lib="font-awesome", class="green_class")),
+span("Tbio", icon("circle", lib="font-awesome", class="red_class")),
+span("Tdark", icon("circle", lib="font-awesome", class="black_class")))
+
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
 axes <- c("Effect", "Evidence")
 #
@@ -142,14 +148,15 @@ Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and En
 
 ##########################################################################################
 ui <- fluidPage(
+  tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
   titlePanel(h2("IDG", tags$img(id="idg_logo", height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: GWAS Explorer", APPNAME),tags$img(id="gwas_catalog_logo", height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog-based drug target illumination (BETA)")),
       windowTitle=APPNAME),
   fluidRow(
     column(3, 
       wellPanel(
 	selectInput("traitQry", "Query trait", choices=trait_menu, selectize=T, selected=qryTraitRand),
-        sliderInput("maxHits", "Max_hits", 50, 300, 100, step=50),
-        checkboxGroupInput("tdl_filters", "TDL", choices=tdls, selected=tdls, inline=T),
+        sliderInput("maxHits", "Max_hits", 25, 200, 50, step=25),
+        checkboxGroupInput("tdl_filters", "TDL", choiceValues=TDLS, choiceNames=TDLS_Names, selected=TDLS, inline=T),
         checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
         radioButtons("sizeBy", "SizeMarkerBy", choiceNames=c("N_study", "1/N_trait", "RCRAS"), choiceValues=c("n_study", "n_traits_g", "rcras"), selected="n_study", inline=T),
@@ -185,11 +192,11 @@ ui <- fluidPage(
 
 id2uri <- function(id) {
   if (is.null(id)) { return(NA) }
-  if (grepl("^EFO", id)) {
+  if (grepl("^EFO_", id)) {
     return(sprintf("http://www.ebi.ac.uk/efo/%s", id))
-  } else if (grepl("^HP", id)) {
+  } else if (grepl("(^HP_|^GO_|^CHEBI_)", id)) {
     return(sprintf("http://purl.obolibrary.org/obo/%s", id))
-  } else if (grepl("^Orphanet", id)) {
+  } else if (grepl("^Orphanet_", id)) {
     return(sprintf("http://www.orpha.net/ORDO/%s", id))
   } else {
     return(NA)
@@ -261,9 +268,9 @@ server <- function(input, output, session) {
     if (nrow(gt_this)==0) { return(NULL) }
     gt_this <- gt_this[(geneFamily %in% input$fam_filters) | (("Other" %in% input$fam_filters) & (is.na(geneFamily) | !(geneFamily %in% idgfams)))]
     if (nrow(gt_this)==0) { return(NULL) }
-    gt_this <- gt_this[TDL %in% intersect(input$tdl_filters, tdls)]
+    gt_this <- gt_this[TDL %in% intersect(input$tdl_filters, TDLS)]
     if (nrow(gt_this)==0) { return(NULL) }   
-    gt_this$TDL <- factor(gt_this$TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
+    gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
     gt_this <- gt_this[, .(ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_wsnp, n_traits_g, pvalue_mlog_median, or_median, rcras, mu_score, nAbove, nBelow, mu_rank)]
     message(sprintf("DEBUG: hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
     gt_this[, ok := as.logical(mu_rank<=input$maxHits)]
@@ -290,6 +297,49 @@ server <- function(input, output, session) {
     message(sprintf("DEBUG: url = \"%s\"", urlText()))
     return(htm)
   })
+  
+  markersize <- reactive({
+    if (input$sizeBy=="n_traits_g") {
+      message(sprintf("DEBUG: sizeBy: %s", input$sizeBy))
+      size <- round(50/hits()[(ok), n_traits_g], 0)
+    } else if (input$sizeBy=="n_study") {
+      message(sprintf("DEBUG: sizeBy: %s", input$sizeBy))
+      size <- 10*hits()[(ok), n_study]
+    } else if (input$sizeBy=="rcras") {
+      message(sprintf("DEBUG: sizeBy: %s", input$sizeBy))
+      size <- 10*hits()[(ok), rcras]
+    } else {
+      message(sprintf("DEBUG: sizeBy: %s", input$sizeBy))
+      size <- rep(10, nrow(hits()[(ok)]))
+    }
+    message(sprintf("DEBUG: nrow(hits()): %d", nrow(hits()[(ok)])))
+    message(sprintf("DEBUG: length(size): %d", length(size)))
+    size <- pmax(size, rep(10, nrow(hits()[(ok)]))) #min
+    size <- pmin(size, rep(80, nrow(hits()[(ok)]))) #max
+    message(sprintf("DEBUG: length(size): %d", length(size)))
+    return(size)
+  })
+
+  markertext <- reactive({
+    text=paste0(
+    "<b>", hits()[(ok)]$gsymb, "</b> (", hits()[(ok)]$ensemblId, ")", 
+    "<br><b>", hits()[(ok)]$geneName, "</b>",
+    "<br>Fam:", hits()[(ok)]$geneFamily, ", TDL:", hits()[(ok)]$TDL,
+    ";<br>muScore = ", hits()[(ok)]$mu_score,
+    "; nAbove = ", hits()[(ok)]$nAbove,
+    "; nBelow = ", hits()[(ok)]$nBelow,
+    "; muRank = ", hits()[(ok)]$mu_rank,
+    ";<br>N_study = ", hits()[(ok)]$n_study,
+    "; study_N = ", hits()[(ok)]$study_N_mean, 
+    "; N_trait = ", hits()[(ok)]$n_traits_g,
+    "; N_snp = ", hits()[(ok)]$n_snp,
+    ";<br>N_wsnp = ", hits()[(ok)]$n_wsnp,
+    "; OR = ", round(hits()[(ok)]$or_median, digits=2), 
+    "; pVal = ", sprintf("%.2g", 10^(-hits()[(ok)]$pvalue_mlog_median)),
+    "; RCRAS = ", round(hits()[(ok)]$rcras, digits=2))
+    message(sprintf("DEBUG: length(text): %d", length(text)))
+    return(text)
+  })
 
   output$plot <- renderPlotly({
     if (is.null(hits())) { return(NULL) }
@@ -298,47 +348,22 @@ server <- function(input, output, session) {
     xaxis <- list(title="Evidence (muScore)", type="normal", zeroline=F, showline=F)
     yaxis <- list(title="Effect (OddsRatio)", type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
 
-    if (input$sizeBy=="n_traits_g") {
-      sizes <- round(50/hits()[(ok), n_traits_g], 0)
-    } else if (input$sizeBy=="n_study") {
-      sizes <- 10*hits()[(ok), n_study]
-    } else if (input$sizeBy=="rcras") {
-      sizes <- 10*hits()[(ok), rcras]
-    } else {
-      sizes <- rep(10, nrow(hits()))
-    }
-    
-    sizes <- pmax(sizes, rep(10, nrow(hits())))
+    message(sprintf("DEBUG: %s", paste(collapse=",", paste(hits()[(ok)]$gsymb, as.character(markersize()), sep=":"))))
     
     p <- plot_ly(type='scatter', mode='markers', data=hits()[(ok)],
-        x=~mu_score  + rnorm(nrow(hits()[(ok)]), sd=(.01*(max(hits()$mu_score)))), #Custom jitter
+        x=(~mu_score + rnorm(nrow(hits()[(ok)]), sd=(.01*(max(hits()$mu_score))))), #Custom jitter
         y=~or_median,
-        color=~TDL, colors=c("blue", "green", "red", "black", "gray"),
-        marker=list(symbol="circle", size=sizes),
-        text=paste0(
-        "<b>", hits()[(ok)]$gsymb, "</b> (", hits()[(ok)]$ensemblId, ")", 
-	"<br><b>", hits()[(ok)]$geneName, "</b>",
-        "<br>Fam:", hits()[(ok)]$geneFamily, ", TDL:", hits()[(ok)]$TDL,
-        ";<br>muScore = ", hits()[(ok)]$mu_score,
-        "; nAbove = ", hits()[(ok)]$nAbove,
-        "; nBelow = ", hits()[(ok)]$nBelow,
-        "; muRank = ", hits()[(ok)]$mu_rank,
-        ";<br>N_study = ", hits()[(ok)]$n_study,
-        "; study_N = ", hits()[(ok)]$study_N_mean, 
-	"; N_trait = ", hits()[(ok)]$n_traits_g,
-	"; N_snp = ", hits()[(ok)]$n_snp,
-	";<br>N_wsnp = ", hits()[(ok)]$n_wsnp,
-        "; OR = ", round(hits()[(ok)]$or_median, digits=2), 
-        "; pVal = ", sprintf("%.2g", 10^(-hits()[(ok)]$pvalue_mlog_median)),
-        "; RCRAS = ", round(hits()[(ok)]$rcras, digits=2)
-        )
+        color=~TDL, colors=c("gray", "black", "red", "green", "blue"),
+        marker=list(symbol="circle", size=markersize()),
+        text=markertext()
       ) %>%
       layout(xaxis=xaxis, yaxis=yaxis, 
         title=paste0(query_trait_name(), "<br>", "(", input$traitQry, ")"),
-        margin=list(t=100,r=50,b=60,l=60), legend=list(x=.95, y=.95, marker=list(size=20)), showlegend=T,
+        margin=list(t=100,r=50,b=60,l=60), showlegend=T,
+	legend=list(x=1, y=1, traceorder="normal", orientation="h", xanchor="right", yanchor="auto", itemsizing="constant", borderwidth=1, bordercolor="gray"),
         font=list(family="monospace", size=16)
       ) %>%
-      add_annotations(text=paste0("(N_gene = ", nrow(hits()), "; ", nrow(hits()[(ok)]), " shown)"), showarrow=F, x=.5, y=1, xref="paper", yref="paper")
+      add_annotations(text=paste0("(N: ", nrow(hits()), "; ", nrow(hits()[(ok)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
     return(p)
   })
   
