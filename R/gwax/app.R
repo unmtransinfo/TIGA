@@ -16,11 +16,8 @@ APPNAME <- "GWAX"
 MIN_ASSN <- 5
 #
 t0 <- proc.time()
-if (file.exists("gwax.Rdata")) {
-  message(sprintf("Loading gwax.Rdata..."))
-  load("gwax.Rdata")
-  setDT(gt)
-} else {
+DEBUG <- TRUE
+if (!file.exists("gwax.Rdata") | DEBUG) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
 	n_study=col_integer(), n_snp=col_integer(), n_wsnp=col_double(), n_traits_g=col_integer(),
@@ -29,17 +26,22 @@ if (file.exists("gwax.Rdata")) {
   setDT(gt)
   setnames(gt, old=c("tcrdGeneSymbol", "tcrdTargetFamily", "tcrdTargetName"), new=c("gsymb", "geneFamily", "geneName"))
   #
-  trait <- gt[, .(.N),  by=c("trait", "trait_uri")]
-  trait <- trait[N>=MIN_ASSN]
-  trait[['id']] <- as.factor(sub("^.*/","", trait$trait_uri))
-  trait[['ontology']] <- as.factor(sub("_.*$","", trait$id))
-  tbl <- trait[, .N, by="ontology"][order(-N)]
-  message(sprintf("traits (%10s): %4d / %4d (%4.1f%%)\n", tbl$ontology, tbl$N, sum(tbl$N), 100*tbl$N/sum(tbl$N)))
-  trait_menu <- sub("^.*/", "", trait$trait_uri) #named vector
-  names(trait_menu) <- trait$trait
+  trait_table <- gt[, .(N_gene = .N),  by=c("trait", "trait_uri")]
+  trait_table <- trait_table[N_gene>=MIN_ASSN]
+  trait_table[['id']] <- as.factor(sub("^.*/","", trait_table$trait_uri))
+  trait_table <- trait_table[, .(trait, trait_uri, id, N_gene)]
+  #trait_table[['ontology']] <- as.factor(sub("_.*$","", trait_table$id))
+  #trait_counts <- trait_table[, .N, by="ontology"][order(-N)]
+  #message(sprintf("traits (%10s): %4d / %4d (%4.1f%%)\n", trait_counts$ontology, trait_counts$N, sum(trait_counts$N), 100*trait_counts$N/sum(trait_counts$N)))
+  trait_menu <- sub("^.*/", "", trait_table$trait_uri) #named vector
+  names(trait_menu) <- trait_table$trait
   trait_menu <- trait_menu[order(names(trait_menu))]
   #
-  save(gt, trait_menu, file="gwax.Rdata")
+  save(gt, trait_table, trait_menu, file="gwax.Rdata")
+} else {
+  message(sprintf("Loading gwax.Rdata..."))
+  load("gwax.Rdata")
+  setDT(gt)
 }
 #
 t_elapsed <- (proc.time()-t0)[3]
@@ -156,8 +158,8 @@ ui <- fluidPage(
       wellPanel(
 	selectInput("traitQry", "Query trait", choices=trait_menu, selectize=T, selected=qryTraitRand),
         sliderInput("maxHits", "Max_hits", 25, 200, 50, step=25),
-        checkboxGroupInput("tdl_filters", "TDL", choiceValues=TDLS, choiceNames=TDLS_Names, selected=TDLS, inline=T),
-        checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
+        #checkboxGroupInput("tdl_filters", "TDL", choiceValues=TDLS, choiceNames=TDLS_Names, selected=TDLS, inline=T),
+        #checkboxGroupInput("fam_filters", "Gene family", choices=idgfams, selected=idgfams, inline=T),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
         radioButtons("sizeBy", "SizeMarkerBy", choiceNames=c("N_study", "1/N_trait", "RCRAS"), choiceValues=c("n_study", "n_traits_g", "rcras"), selected="n_study", inline=T),
         br(),
@@ -165,7 +167,11 @@ ui <- fluidPage(
 	actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold'),
 	actionButton("randQuery", "RandomQuery", style='padding:2px; background-color:#DDDDDD; font-weight:bold')
       )),
-    column(9, plotlyOutput("plot", height = "600px"))),
+    column(9,
+	tabsetPanel(type="tabs",
+		tabPanel("Plot", plotlyOutput("plot", height = "600px")),
+		tabPanel("Traits", DT::dataTableOutput("traits"))
+	))),
   fluidRow(column(12, DT::dataTableOutput("datarows"))),
   fluidRow(column(12, downloadButton("hits_file", label="Download"))),
   fluidRow(column(12, wellPanel(htmlOutput(outputId="result_htm", height="60px")))),
@@ -182,8 +188,8 @@ ui <- fluidPage(
         ))),
   bsTooltip("traitQry", "Select from most studied traits.", "top"),
   bsTooltip("maxHits", "Max hits cutoff, filtered by muScore.", "top"),
-  bsTooltip("tdl_filters", "Filters: IDG Target Development Levels (TDLs).", "top"),
-  bsTooltip("fam_filters", "Filters: IDG protein families.", "top"),
+  #bsTooltip("tdl_filters", "Filters: IDG Target Development Levels (TDLs).", "top"),
+  #bsTooltip("fam_filters", "Filters: IDG protein families.", "top"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
   bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),
@@ -266,9 +272,9 @@ server <- function(input, output, session) {
     if (is.null(query_trait_uri())) { return(NULL) }
     gt_this <- gt[trait_uri==query_trait_uri()]
     if (nrow(gt_this)==0) { return(NULL) }
-    gt_this <- gt_this[(geneFamily %in% input$fam_filters) | (("Other" %in% input$fam_filters) & (is.na(geneFamily) | !(geneFamily %in% idgfams)))]
+    #gt_this <- gt_this[(geneFamily %in% input$fam_filters) | (("Other" %in% input$fam_filters) & (is.na(geneFamily) | !(geneFamily %in% idgfams)))]
     if (nrow(gt_this)==0) { return(NULL) }
-    gt_this <- gt_this[TDL %in% intersect(input$tdl_filters, TDLS)]
+    #gt_this <- gt_this[TDL %in% intersect(input$tdl_filters, TDLS)]
     if (nrow(gt_this)==0) { return(NULL) }   
     gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
     gt_this <- gt_this[, .(ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_wsnp, n_traits_g, pvalue_mlog_median, or_median, rcras, mu_score, nAbove, nBelow, mu_rank)]
@@ -277,7 +283,13 @@ server <- function(input, output, session) {
     setorder(gt_this, mu_rank)
     return(gt_this)
   })
-
+  
+  hits_htm <- reactive({
+    hh <- hits()
+    hh <- hh[, gsymb := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)]
+    return(hh)
+  })
+  
   output$result_htm <- reactive({
     htm <- sprintf("<B>Results:</B>")
     htm <- paste0(htm, sprintf("\"%s\"", query_trait_name()))
@@ -368,9 +380,9 @@ server <- function(input, output, session) {
   })
   
   #"ensemblId","gsymb","geneName","geneFamily","TDL","n_study","study_N_mean","n_snp","n_wsnp","n_traits_g","pvalue_mlog_median","or_median","rcras","mu_score","nAbove","nBelow","mu_rank"
-  output$datarows <- renderDataTable({
+  output$datarows <- DT::renderDataTable({
     if (is.null(hits())) { return(NULL) }
-    DT::datatable(data=hits(), rownames=F,
+    DT::datatable(data=hits_htm(), escape=F, rownames=F,
 	selection=list(target="row", mode="multiple", selected=NULL),
 	class="cell-border stripe", style="bootstrap",
 	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
@@ -381,6 +393,18 @@ server <- function(input, output, session) {
 	           "muScore", "nAbove", "nBelow", "muRank", "ok")
   ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(7,9,11,12,13)) #Numbered from 1.
   }, server=T)
+
+  trait_table_htm <- reactive({
+    tt <- trait_table[, id_htm := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", trait_uri, id)][, .(trait, ID = id_htm, N_gene)][order(trait)]
+    return(tt)
+  })
+  
+  
+  output$traits <- DT::renderDataTable({
+    DT::datatable(data=trait_table_htm(), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+  }, server=T)
+
+  
 
   hits_export <- reactive({
     if (is.null(hits())) { return(NULL) }
