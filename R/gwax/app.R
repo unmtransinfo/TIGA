@@ -16,7 +16,7 @@ APPNAME <- "GWAX"
 MIN_ASSN <- 5
 #
 t0 <- proc.time()
-DEBUG <- TRUE
+DEBUG <- T
 if (!file.exists("gwax.Rdata") | DEBUG) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
@@ -26,18 +26,19 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
   setDT(gt)
   setnames(gt, old=c("tcrdGeneSymbol", "tcrdTargetFamily", "tcrdTargetName"), new=c("gsymb", "geneFamily", "geneName"))
   #
-  trait_table <- gt[, .(N_gene = .N),  by=c("trait", "trait_uri")]
+  trait_table <- gt[, .(N_gene = uniqueN(ensemblId)),  by=c("trait", "trait_uri")]
   trait_table <- trait_table[N_gene>=MIN_ASSN]
   trait_table[['id']] <- as.factor(sub("^.*/","", trait_table$trait_uri))
   trait_table <- trait_table[, .(trait, trait_uri, id, N_gene)]
-  #trait_table[['ontology']] <- as.factor(sub("_.*$","", trait_table$id))
-  #trait_counts <- trait_table[, .N, by="ontology"][order(-N)]
-  #message(sprintf("traits (%10s): %4d / %4d (%4.1f%%)\n", trait_counts$ontology, trait_counts$N, sum(trait_counts$N), 100*trait_counts$N/sum(trait_counts$N)))
+  
   trait_menu <- sub("^.*/", "", trait_table$trait_uri) #named vector
   names(trait_menu) <- trait_table$trait
   trait_menu <- trait_menu[order(names(trait_menu))]
   #
-  save(gt, trait_table, trait_menu, file="gwax.Rdata")
+  gene_table <- gt[, .(gsymb, geneName, N_trait = uniqueN(trait_uri)),  by=c("ensemblId")]
+  gene_table <- unique(gene_table)
+  #
+  save(gt, trait_table, trait_menu, gene_table, file="gwax.Rdata")
 } else {
   message(sprintf("Loading gwax.Rdata..."))
   load("gwax.Rdata")
@@ -48,6 +49,9 @@ t_elapsed <- (proc.time()-t0)[3]
 #
 message(sprintf("Gene count, IDs: %d; symbols: %d", uniqueN(gt$ensemblId), uniqueN(gt$gsymb)))
 message(sprintf("Trait count (total): %d", uniqueN(gt$trait)))
+#trait_table[['ontology']] <- as.factor(sub("_.*$","", trait_table$id))
+#trait_counts <- trait_table[, .N, by="ontology"][order(-N)]
+#message(sprintf("traits (%10s): %4d / %4d (%4.1f%%)\n", trait_counts$ontology, trait_counts$N, sum(trait_counts$N), 100*trait_counts$N/sum(trait_counts$N)))
 message(sprintf("Trait count (filtered; n_assn<%d): %d", MIN_ASSN, uniqueN(gt$trait)-length(trait_menu)))
 message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(trait_menu)))
 message(sprintf("DEBUG: COUNT or_median: %d", sum(!is.na(gt$or_median))))
@@ -170,7 +174,8 @@ ui <- fluidPage(
     column(9,
 	tabsetPanel(type="tabs",
 		tabPanel("Plot", plotlyOutput("plot", height = "600px")),
-		tabPanel("Traits", DT::dataTableOutput("traits"))
+		tabPanel("Traits", DT::dataTableOutput("traits")),
+		tabPanel("Genes", DT::dataTableOutput("genes"))
 	))),
   fluidRow(column(12, DT::dataTableOutput("datarows"))),
   fluidRow(column(12, downloadButton("hits_file", label="Download"))),
@@ -368,10 +373,10 @@ server <- function(input, output, session) {
         color=~TDL, colors=c("gray", "black", "red", "green", "blue"),
         marker=list(symbol="circle", size=markersize()),
         text=markertext()
-      ) %>%
+      ) %>% config(displayModeBar=F) %>%
       layout(xaxis=xaxis, yaxis=yaxis, 
         title=paste0(query_trait_name(), "<br>", "(", input$traitQry, ")"),
-        margin=list(t=100,r=50,b=60,l=60), showlegend=T,
+        margin=list(t=80,r=50,b=60,l=60), showlegend=T,
 	legend=list(x=1, y=1, traceorder="normal", orientation="h", xanchor="right", yanchor="auto", itemsizing="constant", borderwidth=1, bordercolor="gray"),
         font=list(family="monospace", size=16)
       ) %>%
@@ -399,11 +404,18 @@ server <- function(input, output, session) {
     return(tt)
   })
   
+  gene_table_htm <- reactive({
+    gg <- gene_table[, symb_htm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)][, .(Symbol = symb_htm, ensemblId, Name = geneName, N_trait)][order(Symbol)]
+    return(gg)
+  })
   
   output$traits <- DT::renderDataTable({
     DT::datatable(data=trait_table_htm(), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
 
+  output$genes <- DT::renderDataTable({
+    DT::datatable(data=gene_table_htm(), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+  }, server=T)
   
 
   hits_export <- reactive({

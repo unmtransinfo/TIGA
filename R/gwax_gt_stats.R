@@ -3,6 +3,26 @@
 ### gwax_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (GWAX) app.
 ### ~50min
 #############################################################################
+### To do: For the gene-to-trait mode/view, there should be new columns
+### for gene-specific statistics, and it should be very clear whether 
+### stats are about (1) traits, (2) genes, or (3) gene-trait pairs.
+### New:
+###   * traitNstudy (#studies for trait)
+###   * geneNstudy (#studies for gene)
+### Renamed:
+###   * n_traits_g to geneNtrait (#traits for gene)
+###   * n_genes_t to traitNgene (#genes for trait)
+###   * tcrdGeneSymbol to geneSymbol
+###   * tcrdTargetName to geneName
+###   * tcrdTargetFamily to geneFamily
+###   * TDL to geneIdgTdl
+###   * idgList to geneIdgList
+###   * trait_uri to traitUri
+###   * mu_score to muScore
+###   * mu_rank to muRank
+###   * nAbove to muNabove (or delete)
+###   * nBelow to muNbelow (or delete)
+#############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
 library(muStat)

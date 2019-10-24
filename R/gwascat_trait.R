@@ -2,7 +2,8 @@
 ##########################################################################################
 ### Analyze/describe assn file traits.
 ### Note that EFO includes entities and IDs from other ontologies.
-### Output gwascat_trait.tsv for use by gwax_gt_stats.R.
+### Output gwascat_trait.tsv for use by gwax_gt_stats.R, but only for mapping from
+### STUDY_ACCESSION to MAPPED_TRAIT_URI.
 ##########################################################################################
 library(readr)
 require(data.table, quietly=T)
@@ -63,8 +64,15 @@ trait <- unique(trait)
 #PATO: 1
 ###
 
-tbl <- trait[, .N, by="ontology"][order(-N)]
-message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", tbl$ontology, tbl$N, sum(tbl$N), 100*tbl$N/sum(tbl$N)))
+trait_ont <- trait[, .N, by="ontology"][order(-N)]
+message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", trait_ont$ontology, trait_ont$N, sum(trait_ont$N), 100*trait_ont$N/sum(trait_ont$N)))
+
+trait_study_counts <- trait[, .(N_study = uniqueN(STUDY_ACCESSION)), by="MAPPED_TRAIT_URI"][order(-N_study)]
+for (i in 1:max(trait_study_counts$N_study)) {
+  if (i %in% trait_study_counts$N_study) {
+    message(sprintf("N_study=%d: N_trait=%d", i, trait_study_counts[N_study==i, uniqueN(MAPPED_TRAIT_URI)]))
+  }
+}
 
 ###
 efo <- read_delim(ifile_efo, "\t")
@@ -74,8 +82,8 @@ efo[, `:=`(node_or_edge = NULL, source = NULL, target = NULL)]
 
 # EFO includes other ontologies.
 efo[['ontology']] <- as.factor(sub("_.*$","", efo$id))
-tbl <- efo[, .N, by="ontology"][order(-N)]
-message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", tbl$ontology, tbl$N, sum(tbl$N), 100*tbl$N/sum(tbl$N)))
+efo_counts <- efo[, .N, by="ontology"][order(-N)]
+message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", efo_counts$ontology, efo_counts$N, sum(efo_counts$N), 100*efo_counts$N/sum(efo_counts$N)))
 efo[, ontology := NULL]
 
 trait <- merge(trait, efo[, .(id, efo_label = label)], by="id", all.x=T, all.y=F)
