@@ -49,7 +49,8 @@ are combined in one field `OR_or_BETA`.
 * Evidence assessment based on confirmatory statistics.
 * __iCite__ annotations from __iCite API__, via PMIDs from __GWAS Catalog__.
 * Visualization of associations for a given disease by scatter plot of
-effect size versus specificity, sized by weight of evidence.
+effect size versus __&mu; score__, a rational, unbiased,
+non-parametric multivariate method.
 
 
 ## GWAX Workflow
@@ -57,6 +58,7 @@ effect size versus specificity, sized by weight of evidence.
 * Clean and tidy download files:
     * gwas_catalog_v1.0.2-studies_r2018-09-30.tsv
     * gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv
+    * efo.owl
 * Split comma separated fields, convert to UTF-8 characters.
 * Generate gene-trait association statistics for evidence weighting:
   * `n_study`: studies supporting trait-gene association
@@ -65,7 +67,6 @@ effect size versus specificity, sized by weight of evidence.
   * `n_genes_t`: total genes associated with trait
   * `pvalue_mlog_median`: -LOG<sub>10</sub>(p_value)
   * `or_median`: median(OR), where OR = `odds_ratio`, or `1/odds_ratio` if &lt;1
-* Perl and R used for processing.
 * MySql database intended for transition toward IDG TCRD integration (currently not required for GWAX app).
 
 ## GWAX Application
@@ -79,9 +80,3 @@ ontology (or others), and may be quantified by semantic similarity
 score based on MICA (Maximally Informative Common Ancestor). Thus
 aggregated, disease-gene associations may gain confidence and scientific
 relevance.
-* Simple (not "fine") mapping of SNPs to genes does not account for many effects.
-Fundamentally GWAS assocations are correlations, necessary but not sufficient to
-imply causation. Polygenicity and chromosomal linkage must be considered for
-a deeper understanding of genotype-phenotype mechanisms. Although we will
-not address this level of theory fully in this project, some estimation of
-related uncertainty may be possible.  

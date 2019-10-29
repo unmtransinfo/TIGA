@@ -316,7 +316,7 @@ knitr::kable(biotypes[, Percent := round(100 * N_gene / sum(N_gene), 1)][N_gene 
 
 
 ```{r}
-names(trait) <- c("STUDY_ACCESSION","TRAIT","TRAIT_URI", "id", "efo_label")
+setnames(trait, c("STUDY_ACCESSION", "TRAIT", "TRAIT_URI", "id", "efo_label"))
 trait <- trait[!is.na(trait$TRAIT_URI)]
 trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 trait[, trait_id := sub("^.*/", "", TRAIT_URI)]

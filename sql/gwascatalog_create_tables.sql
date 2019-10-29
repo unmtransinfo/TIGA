@@ -64,10 +64,12 @@ CREATE TABLE snp2gene (
 	snp VARCHAR(32),
 	reported_or_mapped VARCHAR(4)
 );
-CREATE TABLE trait (
+CREATE TABLE trait2study (
 	study_accession VARCHAR(16),
+	mapped_trait_uri VARCHAR(128),
 	mapped_trait VARCHAR(512),
-	mapped_trait_uri VARCHAR(128)
+	id VARCHAR(16),
+	efo_label VARCHAR(512)
 );
 CREATE TABLE icite (
 	authors MEDIUMTEXT,

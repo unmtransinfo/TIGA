@@ -32,7 +32,7 @@ ifile_efo <- "data/efo.tsv"
 trait <- read_delim(ifile, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
 setnames(trait, old="STUDY ACCESSION", new="STUDY_ACCESSION")
-trait <- trait[, .(STUDY_ACCESSION, MAPPED_TRAIT, MAPPED_TRAIT_URI)]
+trait <- trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT)]
 
 trait <- unique(trait[complete.cases(trait),])
 
@@ -47,7 +47,7 @@ for (i in 1:nrow(trait_multi)) {
     message(sprintf("ERROR: length(uris)!=length(traits) (%d!=%d) \"%s\"", length(uris), length(traits), trait_multi$MAPPED_TRAIT[i]))
     traits <- rep(trait_multi$MAPPED_TRAIT[i], length(uris)) #Commas in trait names, so must be curated manually.
   }
-  trait <- rbind(trait, data.frame(STUDY_ACCESSION=accs, MAPPED_TRAIT=traits, MAPPED_TRAIT_URI=uris))
+  trait <- rbind(trait, data.frame(STUDY_ACCESSION=accs, MAPPED_TRAIT_URI=uris, MAPPED_TRAIT=traits))
 }
 
 trait[['id']] <- as.factor(sub("^.*/","", trait$MAPPED_TRAIT_URI))
@@ -94,4 +94,5 @@ message(sprintf("EFO+ IDs mapped to efo.owl: %d / %d (%.1f%%)", n_trait_mapped,
                 n_trait_mapped + uniqueN(trait_unmapped$id),
                 100 * (n_trait_mapped / (n_trait_mapped + uniqueN(trait_unmapped$id)))))
 #
-write_delim(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT, MAPPED_TRAIT_URI, id, efo_label)], ofile, "\t")
+#
+write_delim(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT, id, efo_label)], ofile, "\t")

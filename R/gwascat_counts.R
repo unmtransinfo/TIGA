@@ -3,11 +3,10 @@
 ### gwascat has one row per study, identified by study_accession.
 ### gwascat_assn has one row per snp-association, linked to gwascat by study_accession.
 ### http://www.ebi.ac.uk/gwas/docs/fileheaders
-### 
-### Jeremy Yang
 #############################################################################
 #iCite annotations via iCite API
 #############################################################################
+library(readr)
 library(RMySQL, quietly = T)
 library(dplyr, quietly = T)
 library(plotly, quietly = T)
@@ -16,7 +15,6 @@ library(webshot, quietly=T)
 t0 <- proc.time()
 
 ###
-#library(readr) #Install problems!
 #gwascat <- read_delim("~/projects/idg/gwas/data/gwascat_gwas.tsv", "\t", col_types = cols(DATE = col_date(format = "%Y-%m-%d"), DATE_ADDED_TO_CATALOG = col_date(format = "%Y-%m-%d")))
 #gwascat_assn <- read_delim("~/projects/idg/gwas/data/gwascat_assn.tsv", "\t", col_types = cols(DATE = col_date(format = "%Y-%m-%d"), DATE_ADDED_TO_CATALOG = col_date(format = "%Y-%m-%d")))
 #gwascat_snp2gene <- read_delim("~/projects/idg/gwas/data/gwascat_snp2gene.tsv", "\t", col_types = cols(reported_or_mapped = col_factor(c("r","m","md","mu"))))

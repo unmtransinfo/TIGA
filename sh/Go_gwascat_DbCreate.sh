@@ -31,18 +31,18 @@ mysql -D $DBNAME <${cwd}/sql/gwascatalog_create_tables.sql
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_gwas.tsv' INTO TABLE gwas FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_assn.tsv' INTO TABLE assn FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_snp2gene.tsv' INTO TABLE snp2gene FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
-mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_trait.tsv' INTO TABLE trait FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_trait.tsv' INTO TABLE trait2study FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_icite.tsv' INTO TABLE icite FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gt_stats.tsv' INTO TABLE gt_stats FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 ###
-mysql -D $DBNAME -e "UPDATE trait SET mapped_trait = NULL WHERE mapped_trait IN ('', 'NA')"
-mysql -D $DBNAME -e "UPDATE trait SET mapped_trait_uri = NULL WHERE mapped_trait_uri IN ('', 'NA')"
+mysql -D $DBNAME -e "UPDATE trait2study SET mapped_trait = NULL WHERE mapped_trait IN ('', 'NA')"
+mysql -D $DBNAME -e "UPDATE trait2study SET mapped_trait_uri = NULL WHERE mapped_trait_uri IN ('', 'NA')"
 ###
 mysql -D $DBNAME -e "ALTER TABLE gwas COMMENT = 'GWAS Catalog studies (from raw file, all cols)'"
 mysql -D $DBNAME -e "ALTER TABLE assn COMMENT = 'GWAS Catalog associations (OR and beta separated)'"
 mysql -D $DBNAME -e "ALTER TABLE snp2gene COMMENT = 'GWAS Catalog  gene associations'"
 mysql -D $DBNAME -e "ALTER TABLE icite COMMENT = 'GWAS Catalog iCite pub annotations'"
-mysql -D $DBNAME -e "ALTER TABLE trait COMMENT = 'GWAS Catalog study traits (EFO, GO, HP)'"
+mysql -D $DBNAME -e "ALTER TABLE trait2study COMMENT = 'GWAS Catalog study traits (EFO, GO, HP)'"
 ###
 mysql -D $DBNAME -e "UPDATE assn SET upstream_gene_id = NULL WHERE upstream_gene_id = ''"
 mysql -D $DBNAME -e "UPDATE assn SET downstream_gene_id = NULL WHERE downstream_gene_id = ''"
@@ -86,8 +86,8 @@ SELECT
 	t2.mapped_trait AS subclass_trait,
 	efo_sub.subclass_uri
 FROM
-	trait t1,
-	trait t2,
+	trait2study t1,
+	trait2study t2,
 	efo_sub
 WHERE
 	t1.mapped_trait_uri = efo_sub.trait_uri
@@ -104,8 +104,13 @@ mysql -D $DBNAME -e "UPDATE gt_stats SET tdl = NULL WHERE tdl = 'NA'"
 printf "Creating gwas_counts table; saving to TSV.\n"
 #
 mysql -D $DBNAME <${cwd}/sql/create_gwas_counts_table.sql
-mysql -ABr --execute="SELECT * FROM gwas_counts" gwascatalog \
-	>${DATADIR}/gwascat_counts.tsv
+mysql -D $DBNAME -ABr --execute="SELECT * FROM gwas_counts" \
+	>${DATADIR}/gwas_counts.tsv
+###
+printf "Saving trait_counts TSV.\n"
+mysql -D $DBNAME <${cwd}/sql/gwascatalog_trait_counts.sql \
+	>${DATADIR}/trait_counts.tsv
+#
 ###
 # EFO-subclass-based GWAS study-study associations:
 runsql_my.sh -q 'SELECT * FROM efo_sub_gwas' -c >${DATADIR}/efo_sub_gwas.tsv
