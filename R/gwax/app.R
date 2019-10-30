@@ -20,7 +20,8 @@ DEBUG <- F
 if (!file.exists("gwax.Rdata") | DEBUG) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
-	n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(),
+	n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(),
+	geneNtrait=col_integer(), geneNstudy=col_integer(),
 	traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(),
 	muScore=col_double(), muRank=col_integer()))
   setDT(gt)
@@ -36,7 +37,7 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
   names(trait_menu) <- trait_table$trait
   trait_menu <- trait_menu[order(names(trait_menu))]
   #
-  gene_table <- gt[, .(gsymb, geneName, geneFamily, TDL, N_trait = uniqueN(trait_uri)),  by=c("ensemblId")]
+  gene_table <- gt[, .(gsymb, geneName, geneFamily, TDL, N_study = geneNstudy, N_trait = uniqueN(trait_uri)),  by=c("ensemblId")]
   gene_table <- unique(gene_table)
   #
   save(gt, trait_table, trait_menu, gene_table, file="gwax.Rdata")
@@ -90,32 +91,24 @@ Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">The NHGRI-EB
 <LI>Well studied traits only available via this app, with minimum associations
 (MIN_ASSN=%d, may be multiple for each gene). Traits are mapped to EFO, HPO,
 Orphanet, PATO or GO, with 91%% mapped to EFO.
+<LI>Mapped genes via Ensembl pipeline as per GWAS Catalog documentation. Reported genes ignored for consistency and accountable confidence assessment in this app and downstream.
 <LI>In this version, OR required and BETA ignored, due to problem of harmonizing varying BETA units.
 </UL>
 <B>Datatypes:</B>
 <UL>
-  <LI>GWAS Catalog:
-  <UL>
-  <LI><B>PVALUE_MLOG</B>: -Log(pValue)
-  <LI><B>OR</B>: odds ratio, inverted if &lt;1.
-  <LI><B>INITIAL_SAMPLE_SIZE</B>: N_subjects
-  <LI><B>REPORTED GENE(s)</B>: Gene(s) reported by author.
-  <LI><B>MAPPED GENE(s)</B>: Gene(s) mapped to the strongest SNP.
-  </UL>
-  <LI>GWAX:
-  <UL>
+  <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting trait-gene association.
+  <LI><B>OR<SUP>*</SUP></B>: median(odds ratio, inverted if &lt;1) supporting trait-gene association.
   <LI><B>N_snp<SUP>*</SUP></B>: SNPs involved with trait-gene association.
   <LI><B>N_snpw<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
   <LI><B>N_study<SUP>*</SUP></B>: studies supporting trait-gene association.
-  <LI><B>study_N<SUP>*</SUP></B>: mean(INITIAL_SAMPLE_SIZE) supporting trait-gene association.
+  <LI><B>study_N<SUP>*</SUP></B>: mean(SAMPLE_SIZE) supporting trait-gene association.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
   <LI><B>geneNtrait<SUP>**</SUP></B>: total traits associated with gene.
   <LI><B>traitNgene<SUP>**</SUP></B>: total genes associated with trait.
-  </UL>
-  <LI><SUP>*</SUP>Variable used in muScore.
-  <LI><SUP>**</SUP>Variable inverse used in muScore.
 </UL>
-
+<SUP>*</SUP>Variable used in <B>muScore</B>.
+<SUP>**</SUP>Variable inverse used in <B>muScore</B>.
+<BR/>
 Hits are filtered and ranked based on non-parametric multivariate &mu; scores
 (Wittkowski, 2008).
 <BR/>
@@ -151,7 +144,7 @@ Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and En
 ##########################################################################################
 ui <- fluidPage(
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
-  titlePanel(h2("IDG", tags$img(id="idg_logo", height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: GWAS Explorer", APPNAME),tags$img(id="gwas_catalog_logo", height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog-based drug target illumination (BETA)")),
+  titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: GWAS Explorer", APPNAME),tags$img(height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog-based drug target illumination (BETA)")),
       windowTitle=APPNAME),
   fluidRow(
     column(3, 
@@ -164,17 +157,18 @@ ui <- fluidPage(
 	actionButton("goRefresh", "Refresh", style='padding:2px;background-color:#DDDDDD;font-weight:bold'),
 	actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold'),
 	actionButton("randQuery", "RandomQuery", style='padding:2px; background-color:#DDDDDD; font-weight:bold')
-      )),
+      ),
+	wellPanel(htmlOutput(outputId="log_htm"))
+	),
     column(9,
 	tabsetPanel(type="tabs",
-		tabPanel("GenePlot", plotlyOutput("genePlot", height = "600px")),
+		tabPanel("Plot", plotlyOutput("traitGenesPlot", height = "600px")),
+		tabPanel("Hits", DT::dataTableOutput("generows"), br(), downloadButton("hits_file", label="Download Hits")),
 		tabPanel("Traits (All)", DT::dataTableOutput("traits")),
 		tabPanel("Genes (All)", DT::dataTableOutput("genes"))
 	))),
-  fluidRow(column(12, DT::dataTableOutput("generows"))),
-  fluidRow(column(12, downloadButton("hits_file", label="Download"))),
   fluidRow(column(12, wellPanel(htmlOutput(outputId="result_htm", height="60px")))),
-  fluidRow(column(12, wellPanel(htmlOutput(outputId="log_htm", height="60px")))),
+#  fluidRow(column(12, wellPanel(htmlOutput(outputId="log_htm", height="60px")))),
   fluidRow(
     column(12, tags$em(strong(sprintf("%s", APPNAME)), " web app from ", 
         tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
@@ -187,8 +181,6 @@ ui <- fluidPage(
         ))),
   bsTooltip("traitQry", "Select from most studied traits.", "top"),
   bsTooltip("maxHits", "Max hits cutoff, filtered by muScore.", "top"),
-  #bsTooltip("tdl_filters", "Filters: IDG Target Development Levels (TDLs).", "top"),
-  #bsTooltip("fam_filters", "Filters: IDG protein families.", "top"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
   bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),
@@ -271,10 +263,6 @@ server <- function(input, output, session) {
     if (is.null(query_trait_uri())) { return(NULL) }
     gt_this <- gt[trait_uri==query_trait_uri()]
     if (nrow(gt_this)==0) { return(NULL) }
-    #gt_this <- gt_this[(geneFamily %in% input$fam_filters) | (("Other" %in% input$fam_filters) & (is.na(geneFamily) | !(geneFamily %in% idgfams)))]
-    #if (nrow(gt_this)==0) { return(NULL) }
-    #gt_this <- gt_this[TDL %in% intersect(input$tdl_filters, TDLS)]
-    #if (nrow(gt_this)==0) { return(NULL) }   
     gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
     gt_this <- gt_this[, .(ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
     message(sprintf("DEBUG: gHits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
@@ -296,7 +284,6 @@ server <- function(input, output, session) {
     htm <- paste0(htm, sprintf("\"%s\"", query_trait_name()))
     htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", id2uri(query_trait_id()), query_trait_id()))
     message(sprintf("Query: \"%s\" (%s)", query_trait_name(), query_trait_id()))
-    htm <- paste0(htm, "; markerSizeBy = ", input$markerSizeBy)
     if (!is.null(gHits())) {
       htm <- paste0(htm, sprintf("; found N_genes: %d", nrow(gHits())))
     } else {
@@ -345,11 +332,11 @@ server <- function(input, output, session) {
     "; OR = ", round(gHits()[(ok)]$or_median, digits=2), 
     "; pVal = ", sprintf("%.2g", 10^(-gHits()[(ok)]$pvalue_mlog_median)),
     "; RCRAS = ", round(gHits()[(ok)]$rcras, digits=2))
-    message(sprintf("DEBUG: length(text): %d", length(text)))
+    #message(sprintf("DEBUG: length(text): %d", length(text)))
     return(text)
   })
 
-  output$genePlot <- renderPlotly({
+  output$traitGenesPlot <- renderPlotly({
     if (is.null(gHits())) { return(NULL) }
     #xrange <- NULL
     #xaxis <- list(title="Evidence (muScore)", range=xrange, type=ifelse("Evidence" %in% input$logaxes, "log", "normal"))
@@ -396,7 +383,7 @@ server <- function(input, output, session) {
   })
   
   gene_table_htm <- reactive({
-    gg <- gene_table[, symb_htm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)][, .(Symbol = symb_htm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_trait)][order(Symbol)]
+    gg <- gene_table[, symb_htm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)][, .(Symbol = symb_htm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
     return(gg)
   })
   

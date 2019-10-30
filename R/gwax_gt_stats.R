@@ -223,6 +223,7 @@ i_row <- 0 #gt_stats populated row count
 t0 <- proc.time()
 # gene-loop:
 for (ensg in unique(g2t$ensemblId)) {
+  geneNstudy <- g2t[ensemblId==ensg, uniqueN(STUDY_ACCESSION)]
   # trait-loop:
   for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
     if ((i_row%%10000)==0) {
@@ -232,6 +233,7 @@ for (ensg in unique(g2t$ensemblId)) {
     #
     gt_stats$ensemblId[i_row] <- ensg
     gt_stats$trait_uri[i_row] <- trait_uri
+    gt_stats$geneNstudy[i_row] <- geneNstudy
     gt_stats$trait[i_row] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri, TRAIT][1]
     gt_stats$traitNstudy[i_row] <- g2t[TRAIT_URI==trait_uri, traitNstudy][1]
     gt_stats$n_study[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])
@@ -261,7 +263,6 @@ for (ensg in unique(g2t$ensemblId)) {
 }
 gt_stats[, traitNgene := .N, by="trait_uri"]
 gt_stats[, geneNtrait := .N, by="ensemblId"]
-gt_stats[, geneNstudy := uniqueN(STUDY_ACCESSION), by="ensemblId"]
 #
 gt_stats$or_median <- round(as.double(gt_stats$or_median), 3)
 gt_stats$pvalue_mlog_median <- round(as.double(gt_stats$pvalue_mlog_median), 3)
