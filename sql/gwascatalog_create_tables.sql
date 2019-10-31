@@ -87,17 +87,24 @@ CREATE TABLE icite (
 	year INT
 );
 CREATE TABLE gt_stats (
-	gsymb VARCHAR(16),
-	trait_uri VARCHAR(128),
+	ensemblId VARCHAR(16),
+	efoId VARCHAR(16),
 	trait VARCHAR(512),
 	n_study INT,
 	n_snp INT,
-	n_traits_g INT,
-	n_genes_t INT,
+	n_snpw FLOAT,
+	geneNtrait INT,
+	traitNgene INT,
+	traitNstudy INT,
 	pvalue_mlog_median FLOAT,
 	or_median FLOAT,
-	tdl VARCHAR(8),
-	fam VARCHAR(16),
-	idg2 BOOLEAN,
-	name VARCHAR(128)
+	study_N_mean INT,
+	rcras FLOAT,
+	geneSymbol VARCHAR(16),
+	geneIdgTdl VARCHAR(8),
+	geneFamily VARCHAR(16),
+	geneIdgList BOOLEAN,
+	geneName VARCHAR(128),
+	muScore FLOAT,
+	muRank INT
 );

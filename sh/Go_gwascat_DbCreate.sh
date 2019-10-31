@@ -42,7 +42,7 @@ mysql -D $DBNAME -e "ALTER TABLE gwas COMMENT = 'GWAS Catalog studies (from raw 
 mysql -D $DBNAME -e "ALTER TABLE assn COMMENT = 'GWAS Catalog associations (OR and beta separated)'"
 mysql -D $DBNAME -e "ALTER TABLE snp2gene COMMENT = 'GWAS Catalog  gene associations'"
 mysql -D $DBNAME -e "ALTER TABLE icite COMMENT = 'GWAS Catalog iCite pub annotations'"
-mysql -D $DBNAME -e "ALTER TABLE trait2study COMMENT = 'GWAS Catalog study traits (EFO, GO, HP)'"
+mysql -D $DBNAME -e "ALTER TABLE trait2study COMMENT = 'GWAS Catalog study traits (EFO, GO, HP) mapped to study accession IDs'"
 ###
 mysql -D $DBNAME -e "UPDATE assn SET upstream_gene_id = NULL WHERE upstream_gene_id = ''"
 mysql -D $DBNAME -e "UPDATE assn SET downstream_gene_id = NULL WHERE downstream_gene_id = ''"
@@ -96,24 +96,22 @@ __EOF__
 ###
 #
 mysql -D $DBNAME -e "ALTER TABLE gt_stats COMMENT = 'GWAS gene-trait stats, used by GWAX web app'"
-mysql -D $DBNAME -e "UPDATE gt_stats SET name = NULL WHERE name = 'NA'"
-mysql -D $DBNAME -e "UPDATE gt_stats SET fam = NULL WHERE fam = 'NA'"
-mysql -D $DBNAME -e "UPDATE gt_stats SET tdl = NULL WHERE tdl = 'NA'"
+mysql -D $DBNAME -e "UPDATE gt_stats SET geneName = NULL WHERE geneName = 'NA'"
+mysql -D $DBNAME -e "UPDATE gt_stats SET geneFamily = NULL WHERE geneFamily = 'NA'"
+mysql -D $DBNAME -e "UPDATE gt_stats SET geneIdgTdl = NULL WHERE geneIdgTdl = 'NA'"
 #
 ###
 printf "Creating gwas_counts table; saving to TSV.\n"
 #
 mysql -D $DBNAME <${cwd}/sql/create_gwas_counts_table.sql
-mysql -D $DBNAME -ABr --execute="SELECT * FROM gwas_counts" \
-	>${DATADIR}/gwas_counts.tsv
+mysql -D $DBNAME -ABr --execute="SELECT * FROM gwas_counts" >${DATADIR}/gwas_counts.tsv
 ###
 printf "Saving trait_counts TSV.\n"
-mysql -D $DBNAME <${cwd}/sql/gwascatalog_trait_counts.sql \
-	>${DATADIR}/trait_counts.tsv
+mysql -D $DBNAME <${cwd}/sql/gwascatalog_trait_counts.sql >${DATADIR}/trait_counts.tsv
 #
 ###
 # EFO-subclass-based GWAS study-study associations:
-runsql_my.sh -q 'SELECT * FROM efo_sub_gwas' -c >${DATADIR}/efo_sub_gwas.tsv
+mysql -D $DBNAME -ABr --execute="SELECT * FROM efo_sub_gwas" >${DATADIR}/efo_sub_gwas.tsv
 #
 printf "Done: %s\n" "$(date)"
 #

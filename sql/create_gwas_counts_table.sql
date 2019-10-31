@@ -26,7 +26,7 @@ LEFT OUTER JOIN
 		COUNT(DISTINCT mapped_trait_uri) AS "trait_count",
 		study_accession
 	FROM
-		trait
+		trait2study
 	GROUP BY
 		study_accession
 	) t2 ON t2.study_accession = gwas.study_accession

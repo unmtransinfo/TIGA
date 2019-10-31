@@ -4,7 +4,7 @@
 -- 	COUNT(DISTINCT mapped_trait),
 -- 	COUNT(DISTINCT study_accession)
 -- FROM
--- 	trait
+-- 	trait2study
 -- GROUP BY
 -- 	trait_ontology
 -- 	;
@@ -14,7 +14,7 @@ SELECT
 	mapped_trait,
 	COUNT(DISTINCT study_accession) AS "n_study"
 FROM
-	trait
+	trait2study
 GROUP BY
 	mapped_trait
 ORDER BY

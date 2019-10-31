@@ -24,6 +24,8 @@
 ###   * nAbove
 ###   * nBelow
 #############################################################################
+### To do: replace trait_uri with efoId, equivalent and more compact.
+#############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
 library(muStat)
@@ -204,7 +206,7 @@ for (ensg in unique(g2t$ensemblId)) {
 }
 message(sprintf("Building gt_stats with NROW: %s", NROW))
 gt_stats <- data.table(ensemblId=rep(NA, NROW), 
-	trait_uri=rep(NA, NROW), trait=rep(NA, NROW), 
+	efoId=rep(NA, NROW), trait=rep(NA, NROW), 
 	n_study=as.integer(rep(NA, NROW)), 
 	n_snp=as.integer(rep(NA, NROW)),
 	n_snpw=as.numeric(rep(NA, NROW)),
@@ -232,7 +234,7 @@ for (ensg in unique(g2t$ensemblId)) {
     i_row <- i_row + 1
     #
     gt_stats$ensemblId[i_row] <- ensg
-    gt_stats$trait_uri[i_row] <- trait_uri
+    gt_stats$efoId[i_row] <- sub("^.*/", "", trait_uri)
     gt_stats$geneNstudy[i_row] <- geneNstudy
     gt_stats$trait[i_row] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri, TRAIT][1]
     gt_stats$traitNstudy[i_row] <- g2t[TRAIT_URI==trait_uri, traitNstudy][1]
@@ -261,7 +263,7 @@ for (ensg in unique(g2t$ensemblId)) {
     gt_stats$rcras[i_row] <- rcras
   }
 }
-gt_stats[, traitNgene := .N, by="trait_uri"]
+gt_stats[, traitNgene := .N, by="efoId"]
 gt_stats[, geneNtrait := .N, by="ensemblId"]
 #
 gt_stats$or_median <- round(as.double(gt_stats$or_median), 3)
@@ -272,7 +274,7 @@ gt_stats$n_snpw <- round(as.double(gt_stats$n_snpw), 3)
 message(sprintf("%s, elapsed: %.1fs", Sys.time(), (proc.time()-t0)[3]))
 message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
 message(sprintf("gene (ensemblId) count: %d", uniqueN(gt_stats$ensemblId)))
-message(sprintf("trait (trait_uri) count: %d", uniqueN(gt_stats$trait_uri)))
+message(sprintf("trait (efoId) count: %d", uniqueN(gt_stats$efoId)))
 message(sprintf("DEBUG: traitNgene: [%d,%d]", min(gt_stats$traitNgene), max(gt_stats$traitNgene)))
 message(sprintf("DEBUG: traitNstudy: [%d,%d]", min(gt_stats$traitNstudy), max(gt_stats$traitNstudy)))
 message(sprintf("DEBUG: geneNtrait: [%d,%d]", min(gt_stats$geneNtrait), max(gt_stats$geneNtrait)))
@@ -310,7 +312,7 @@ gt_stats <- gt_stats[!is.na(or_median)] #OR required until beta -able.
 #
 message(sprintf("Genes (ensemblIDs): %d", uniqueN(gt_stats$ensemblId)))
 message(sprintf("Genes (symbols): %d", uniqueN(gt_stats$geneSymbol)))
-message(sprintf("Traits in dataset: %d", uniqueN(gt_stats$trait_uri)))
+message(sprintf("Traits in dataset: %d", uniqueN(gt_stats$efoId)))
 message(sprintf("G-T associations in dataset: %d", nrow(gt_stats)))
 
 # Use inverse of n\_traits\_g and n\_genes\_t so bigger is better as needed for muStat.
@@ -324,17 +326,18 @@ gt_stats[, traitNgene_inv := 1 / traitNgene]
 gt_stats[, `:=`(muScore=as.integer(NA), muRank=as.integer(NA))]
 
 ii <- 0
-for (trait_this in unique(gt_stats$trait)) {
-  gtmat <- as.matrix(gt_stats[trait==trait_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, rcras)])
+for (efoId_this in unique(gt_stats$efoId)) {
+  gtmat <- as.matrix(gt_stats[efoId==efoId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, rcras)])
   ii <- ii + 1
-  message(sprintf("[%d / %d] (N_gene: %3d) \"%s\"", ii, uniqueN(gt_stats$trait), dim(gtmat)[1], trait_this))
+  trait_this <- gt_stats[efoId==efoId_this, trait][1]
+  message(sprintf("[%d / %d] (N_gene: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$efoId), dim(gtmat)[1], efoId_this, trait_this))
   if (dim(gtmat)[1]<2) { #No ranking for singleton.
     next;
   }
   ge <- mu.GE(gtmat)
   sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
   setDT(sums)
-  sums$name <- gt_stats[trait==trait_this, .(geneName)]
+  sums$name <- gt_stats[efoId==efoId_this, .(geneName)]
   # Bug in muStat?
   if (sum(is.na(sums$score))>0) {
     message(sprintf("DEBUG: missing score count: %d", sum(is.na(sums$score))))
@@ -346,10 +349,10 @@ for (trait_this in unique(gt_stats$trait)) {
   }
   sums <- setorder(sums, -score, na.last=T)
   sums[, rank := 1:nrow(sums)]
-  gt_stats[trait==trait_this]$muScore <- sums$score
-  gt_stats[trait==trait_this]$muRank <- sums$rank
-  #gt_stats[trait==trait_this]$nAbove <- sums$nAbove #unneeded
-  #gt_stats[trait==trait_this]$nBelow <- sums$nBelow #unneeded
+  gt_stats[efoId==efoId_this]$muScore <- sums$score
+  gt_stats[efoId==efoId_this]$muRank <- sums$rank
+  #gt_stats[efoId==efoId_this]$nAbove <- sums$nAbove #unneeded
+  #gt_stats[efoId==efoId_this]$nBelow <- sums$nBelow #unneeded
 }
 #
 gt_stats[, `:=`(geneNtrait_inv = NULL, traitNgene_inv = NULL)]
