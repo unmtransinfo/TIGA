@@ -1,7 +1,18 @@
 #!/usr/bin/env Rscript
 #############################################################################
+### GENE-TRAIT stats
 ### gwax_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (GWAX) app.
 ### ~50min
+#############################################################################
+# Multivariable non-parametric ranking via &mu; scores.
+###
+# Non-dominated solutions are not inferior to any other case at any variable.
+# A &mu; score is defined as the number of lower cases minus the number of higher.
+# The resulting ranking is the useful result, not so much the score itself.
+# Using muStat package.
+###
+# Issue: cases globally superior in one variable and inferior in one variable
+# have nAbove=0 and nBelow=0 and muScore=0. What should be the rank?
 #############################################################################
 ### To do: For the gene-to-trait mode/view, there should be new columns
 ### for gene-specific statistics, and it should be very clear whether 
@@ -9,6 +20,7 @@
 ### New:
 ###   * traitNstudy (#studies for trait; computed from gwascat_trait.tsv.)
 ###   * geneNstudy (#studies for gene; computed from gwascat_assn.tsv.)
+###   * efoId (Replace trait_uri, equivalent and more compact.)
 ### Renamed:
 ###   * n_traits_g to geneNtrait (#traits for gene)
 ###   * n_genes_t to traitNgene (#genes for trait)
@@ -18,13 +30,14 @@
 ###   * TDL to geneIdgTdl
 ###   * idgList to geneIdgList
 ###   * trait_uri to traitUri
-###   * mu_score to muScore
-###   * mu_rank to muRank
+###   * mu_score to geneMuScore
+###   * mu_rank to geneMuRank
 ### Delete:
 ###   * nAbove
 ###   * nBelow
-#############################################################################
-### To do: replace trait_uri with efoId, equivalent and more compact.
+### Todo:
+###   * traitMuScore
+###   * traitMuRank
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
@@ -148,9 +161,11 @@ writeLines(sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION)))
 # MAPPED_GENE field may include chromosomal locations
 writeLines(sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE)))
 #
-assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
-assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
-writeLines(sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE)))
+###
+# Reported genes ignored by GWAX.
+#assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
+#assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
+#writeLines(sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE)))
 ###
 #gsyms_tcrd <- unique(tcrd$tcrdGeneSymbol)
 #writeLines(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
@@ -199,7 +214,7 @@ message(sprintf("DEBUG: with OR, g2t: %d ; genes: %d ; traits: %d",
 ###
 ### GENE-TRAIT stats
 ### From g2t, create gt_stats table for TSV export.
-### Too slow. Vectorize/optimize!
+### Slow. Vectorize/optimize!
 NROW <- 0
 for (ensg in unique(g2t$ensemblId)) {
   NROW <- NROW + uniqueN(g2t[ensemblId==ensg, TRAIT_URI])
@@ -289,22 +304,6 @@ setnames(gt_stats,
 	old=c("tcrdGeneSymbol", "tcrdTargetName", "tcrdTargetFamily", "TDL", "idgList"),
 	new=c("geneSymbol", "geneName", "geneFamily", "geneIdgTdl", "geneIdgList"))
 #
-#############################################################################
-# Beginning of former gwax_gt_stats_mu.R
-
-###
-# Multivariable non-parametric ranking via &mu; scores.
-# &mu; scores
-###
-# Non-dominated solutions are not inferior to any other case at any variable.
-# A &mu; score is defined as the number of lower cases minus the number of higher.
-# The resulting ranking is the useful result, not so much the score itself.
-# Using muStat package.
-###
-# Issue: cases globally superior in one variable and inferior in one variable
-# have nAbove=0 and nBelow=0 and muScore=0. What should be the rank?
-###
-#
 gt_stats <- gt_stats[!is.na(ensemblId)] #Should be no-op.
 gt_stats <- gt_stats[!is.na(geneIdgTdl)] #Removes non-protein-coding.
 gt_stats <- gt_stats[!is.na(or_median)] #OR required until beta -able.
@@ -315,16 +314,22 @@ message(sprintf("Genes (symbols): %d", uniqueN(gt_stats$geneSymbol)))
 message(sprintf("Traits in dataset: %d", uniqueN(gt_stats$efoId)))
 message(sprintf("G-T associations in dataset: %d", nrow(gt_stats)))
 
+###
+# &mu; scores/rankings
+#   * __for a given trait__
+#   * __for a given gene__
+###
+#
 # Use inverse of n\_traits\_g and n\_genes\_t so bigger is better as needed for muStat.
 gt_stats[, geneNtrait_inv := 1 / geneNtrait]
 gt_stats[, traitNgene_inv := 1 / traitNgene]
 
-# We are interested in rankings __for a given trait__. So for each trait,
-# convert to matrix for muStat::mu.GE().
-# The (i,j) entry of GE matrix is 1 if \code{x_i >= x_j}, 0 otherwise. The square matrix GE is stored by column in a vector. Thus nrow(GE_matrix) = nrow(x)^2.
-
-gt_stats[, `:=`(muScore=as.integer(NA), muRank=as.integer(NA))]
-
+# For each (trait|gene), convert to matrix for muStat::mu.GE().
+# The (i,j) entry of GE matrix is 1 if \code{x_i >= x_j}, 0 otherwise.
+# The square matrix GE is stored by column in a vector. Thus nrow(GE_matrix) = nrow(x)^2.
+###
+# Gene &mu; scores:
+gt_stats[, `:=`(geneMuScore=as.integer(NA), geneMuRank=as.integer(NA))]
 ii <- 0
 for (efoId_this in unique(gt_stats$efoId)) {
   gtmat <- as.matrix(gt_stats[efoId==efoId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, rcras)])
@@ -338,23 +343,50 @@ for (efoId_this in unique(gt_stats$efoId)) {
   sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
   setDT(sums)
   sums$name <- gt_stats[efoId==efoId_this, .(geneName)]
-  # Bug in muStat?
   if (sum(is.na(sums$score))>0) {
-    message(sprintf("DEBUG: missing score count: %d", sum(is.na(sums$score))))
-    badrows <- is.na(sums$score)
-    print(sums[badrows]) #DEBUG
+    #badrows <- is.na(sums$score) # Bug in muStat?
+    #message(sprintf("DEBUG: missing score count: %d", sum(badrows)))
+    #print(sums[badrows]) #DEBUG
     sums[is.na(score), score := nAbove - nBelow]
-    message(sprintf("DEBUG: missing score count: %d (FIXED?)", sum(is.na(sums$score))))
-    print(sums[badrows]) #DEBUG
+    message(sprintf("DEBUG: missing score count: %d (%s)", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "ALL FIXED", "NOT FIXED")))
+    #print(sums[badrows]) #DEBUG
   }
   sums <- setorder(sums, -score, na.last=T)
   sums[, rank := 1:nrow(sums)]
-  gt_stats[efoId==efoId_this]$muScore <- sums$score
-  gt_stats[efoId==efoId_this]$muRank <- sums$rank
-  #gt_stats[efoId==efoId_this]$nAbove <- sums$nAbove #unneeded
-  #gt_stats[efoId==efoId_this]$nBelow <- sums$nBelow #unneeded
+  gt_stats[efoId==efoId_this]$geneMuScore <- sums$score
+  gt_stats[efoId==efoId_this]$geneMuRank <- sums$rank
 }
 #
+###
+# Trait &mu; scores:
+gt_stats[, `:=`(traitMuScore=as.integer(NA), traitMuRank=as.integer(NA))]
+ii <- 0
+for (ensemblId_this in unique(gt_stats$ensemblId)) {
+  gtmat <- as.matrix(gt_stats[ensemblId==ensemblId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, rcras)])
+  ii <- ii + 1
+  geneSymbol_this <- gt_stats[ensemblId==ensemblId_this, geneSymbol][1]
+  message(sprintf("[%d / %d] (N_trait: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$ensemblId), dim(gtmat)[1], ensemblId_this, geneSymbol_this))
+  if (dim(gtmat)[1]<2) { #No ranking for singleton.
+    next;
+  }
+  ge <- mu.GE(gtmat)
+  sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
+  setDT(sums)
+  sums$name <- gt_stats[efoId==efoId_this, .(geneName)]
+  if (sum(is.na(sums$score))>0) {
+    #badrows <- is.na(sums$score) # Bug in muStat?
+    #message(sprintf("DEBUG: missing score count: %d", sum(badrows)))
+    #print(sums[badrows]) #DEBUG
+    sums[is.na(score), score := nAbove - nBelow]
+    message(sprintf("DEBUG: missing score count: %d (%s)", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "(ALL FIXED)", "NOT FIXED")))
+    #print(sums[badrows]) #DEBUG
+  }
+  sums <- setorder(sums, -score, na.last=T)
+  sums[, rank := 1:nrow(sums)]
+  gt_stats[ensemblId==ensemblId_this]$traitMuScore <- sums$score
+  gt_stats[ensemblId==ensemblId_this]$traitMuRank <- sums$rank
+}
+###
 gt_stats[, `:=`(geneNtrait_inv = NULL, traitNgene_inv = NULL)]
 #
 write_delim(gt_stats, ofile, delim="\t")

@@ -13,8 +13,7 @@ library(DT, quietly=T)
 library(plotly, quietly=T)
 
 ###
-# Non-vector:
-efoId2Uri <- function(efoId) {
+efoId2Uri <- function(efoId) { #(non-vector)
   if (is.null(efoId)) { return(NA) }
   if (grepl("^EFO_", efoId)) {
     return(sprintf("http://www.ebi.ac.uk/efo/%s", efoId))
@@ -26,20 +25,20 @@ efoId2Uri <- function(efoId) {
     return(NA)
   }
 }
-
 ##########################################################################################
 APPNAME <- "GWAX"
-MIN_ASSN <- 5
+MIN_ASSN <- 1
 #
 t0 <- proc.time()
-DEBUG <- T
+DEBUG <- F
 if (!file.exists("gwax.Rdata") | DEBUG) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
 	n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(),
 	geneNtrait=col_integer(), geneNstudy=col_integer(),
 	traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(),
-	muScore=col_double(), muRank=col_integer()))
+	geneMuScore=col_double(), geneMuRank=col_integer(),
+	traitMuScore=col_double(), traitMuRank=col_integer()))
   setDT(gt)
   setnames(gt, old=c("geneSymbol", "geneIdgTdl"), new=c("gsymb", "TDL"))
   #
@@ -60,14 +59,14 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
   gene_menu <- paste0("gene:", gene_table$ensemblId) #named vector
   names(gene_menu) <- sprintf("%s:%s", gene_table$gsymb, gene_table$geneName)
   #
-  qry_menu <- c(trait_menu, gene_menu)
   #
-  save(gt, trait_table, gene_table, qry_menu, file="gwax.Rdata")
+  save(gt, trait_table, gene_table, trait_menu, gene_menu, file="gwax.Rdata")
 } else {
   message(sprintf("Loading gwax.Rdata..."))
   load("gwax.Rdata")
   setDT(gt)
 }
+qry_menu <- c(trait_menu, gene_menu)
 #
 t_elapsed <- (proc.time()-t0)[3]
 #
@@ -84,6 +83,9 @@ message(sprintf("DEBUG: COUNT rcras: %d", sum(!is.na(gt$rcras))))
 #
 dbHtm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_load: %.1fs)",
 	uniqueN(gt$gsymb), uniqueN(gt$trait), length(trait_menu), t_elapsed)
+trait_tableHtm <- trait_table[, idHtm := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", trait_uri, efoId)][, .(ID = idHtm, trait, N_study, N_gene)][order(trait)]
+gene_tableHtm <- gene_table[, symbHtm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)][, .(Symbol = symbHtm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
+  
 ###
 TDLS <- c("Tclin", "Tchem", "Tbio", "Tdark")
 TDLS_Names <- list(
@@ -95,17 +97,19 @@ span("Tdark", icon("circle", lib="font-awesome", class="black_class")))
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
 axes <- c("Effect", "Evidence")
 #
-qryTraitRand <- sample(trait_menu, 1)
-message(sprintf("DEBUG: qryTraitRand: %s", qryTraitRand))
+qryRand <- function() {
+  sample(c(sample(names(trait_menu), 1), sample(names(gene_menu), 1)), 1)
+}
 #
 #############################################################################
 HelpHtm <- function() {(
   sprintf("<P><B>GWAX</B>, GWAS Explorer, is designed to facilitate drug target illumination by 
 scoring and ranking of protein-coding genes associated with traits from genome-wide association studies
-(GWAS). Rather than a comprehensive analysis of GWAS for all biological implications and insights, this
+(GWAS). Similarly, <B>GWAX</B> can score and rank traits with the same gene-trait association metrics. 
+Rather than a comprehensive analysis of GWAS for all biological implications and insights, this
 more focused application provides a rational method by which GWAS findings can be 
 aggregated and filtered for applicable, actionable intelligence, 
-evidence usable by drug discovery scientists to enrich prioritization of target hypotheses.
+evidence usable by drug discovery scientists to enrich prioritization of target hypotheses. 
 <P>
 <B>Dataset:</B>
 Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">The NHGRI-EBI GWAS Catalog</A>.
@@ -127,6 +131,7 @@ Orphanet, PATO or GO, with 91%% mapped to EFO.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
   <LI><B>geneNtrait<SUP>**</SUP></B>: total traits associated with gene.
   <LI><B>traitNgene<SUP>**</SUP></B>: total genes associated with trait.
+  <LI><B>muScore</B>: For a given query trait, genes are scored and ranked, or for a given gene, traits are scored and ranked. 
 </UL>
 <SUP>*</SUP>Variable used in <B>muScore</B>.
 <SUP>**</SUP>Variable inverse used in <B>muScore</B>.
@@ -137,6 +142,8 @@ Hits are filtered and ranked based on non-parametric multivariate &mu; scores
 <B>UI:</B>
 Scatterplot axes are Effect (OR) vs. Evidence as measured by <B>muScore</B>.
 <UL>
+<LI>Genes markers colored by TDL, and may be be hidden via legend.
+<LI>Trait markers colored by EFO top-level class, and may be hidden via legend (TO DO).
 <LI>Plot markers may be sized by <B>N_study</B> or <B>RCRAS</B>.
 <LI>Note that this app will accept query parameter <B>trait</B> via URL, e.g.
 <B><TT>?trait=EFO_0000341</TT></B>.
@@ -171,7 +178,7 @@ ui <- fluidPage(
   fluidRow(
     column(3, 
       wellPanel(
-	#selectInput("usrQry", "Query", choices=trait_menu, selectize=T, selected=qryTraitRand),
+	#selectInput("usrQry", "Query", choices=trait_menu, selectize=T, selected=qryRand()),
 	#selectizeInput("usrQry", "Query", choices=trait_menu, options=list(placeholder="Query trait or gene...", maxOptions=8, maxItems=1, minLength=3)),
 	dqshiny::autocomplete_input("usrQry", "Query", options=qry_menu, max_options=1000, placeholder="Query trait or gene..."),
         sliderInput("maxHits", "Max_hits", 25, 200, 50, step=25),
@@ -182,17 +189,16 @@ ui <- fluidPage(
 	actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold'),
 	actionButton("randQuery", "RandomQuery", style='padding:2px; background-color:#DDDDDD; font-weight:bold')
       ),
-	wellPanel(htmlOutput(outputId="logHtm"))
+	wellPanel(htmlOutput(outputId="logHtm")),
+	wellPanel(htmlOutput(outputId="resultHtm"))
 	),
     column(9,
 	tabsetPanel(type="tabs",
 		tabPanel("Plot", plotlyOutput("gwaxPlot", height = "600px")),
-		tabPanel("Hits", DT::dataTableOutput("generows"), br(), downloadButton("hits_file", label="Download Hits")),
+		tabPanel("Hits", DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
 		tabPanel("Traits (All)", DT::dataTableOutput("traits")),
 		tabPanel("Genes (All)", DT::dataTableOutput("genes"))
 	))),
-  fluidRow(column(12, wellPanel(htmlOutput(outputId="resultHtm", height="60px")))),
-#  fluidRow(column(12, wellPanel(htmlOutput(outputId="logHtm", height="60px")))),
   fluidRow(
     column(12, tags$em(strong(sprintf("%s", APPNAME)), " web app from ", 
         tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
@@ -209,7 +215,6 @@ ui <- fluidPage(
   bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "right")
 )
 
-
 ##########################################################################################
 server <- function(input, output, session) {
   observeEvent(input$showHelp, {
@@ -219,7 +224,7 @@ server <- function(input, output, session) {
   })
 
   Sys.sleep(1)
-  qryTraitRand_previous <- 0 # initialize once per session
+  qryRand_previous <- 0 # initialize once per session
   i_query <- 0 # initialize once per session
   
   # ?trait=EFO_0000341
@@ -248,14 +253,19 @@ server <- function(input, output, session) {
     else if (grepl("trait:", input$usrQry)) { return("trait") }
     else { return(NA) }
   })
+  hitType <- reactive({
+    ifelse(is.na(qryType()), NA,
+    ifelse(qryType()=="trait", "gene",
+    ifelse(qryType()=="gene", "trait", NA)))
+  })
 
   qryId <- reactive({
     input$goRefresh # Re-run this and downstream on action button.
-    if (input$randQuery>qryTraitRand_previous) {
-      qryTraitRand_previous <<- input$randQuery # Must assign to up-scoped variable.
-      qryTraitRand <- sample(trait_menu, 1)
-      message(sprintf("DEBUG: qryTraitRand_previous=%d; qryTraitRand=%s", qryTraitRand_previous, qryTraitRand))
-      updateTextInput(session, "usrQry", value=sprintf("trait:%s", qryTraitRand))
+    if (input$randQuery>qryRand_previous) {
+      qryRand_previous <<- input$randQuery # Must assign to up-scoped variable.
+      qryRand_new <- qryRand()
+      message(sprintf("DEBUG: qryRand_previous=%d; qryRand_new=%s", qryRand_previous, qryRand_new))
+      updateTextInput(session, "usrQry", value=sprintf("%s", qryRand_new)) #Not triggering submit?
     }
     qStr <- httpQstr()
     if (i_query==0) {
@@ -286,41 +296,50 @@ server <- function(input, output, session) {
   Hits <- reactive({
     message(sprintf("DEBUG: qryType(): %s", qryType()))
     if (is.null(qryId())) { return(NULL) }
-    if (qryType()=="gene") {
+    if (hitType()=="trait") {
       gt_this <- gt[ensemblId==qryId()]
       if (nrow(gt_this)==0) { return(NULL) }
-      gt_this <- gt_this[, .(efoId, trait, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
-    } else {
+      gt_this <- gt_this[, .(efoId, trait, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, rcras, traitMuScore, traitMuRank)]
+      setnames(gt_this, old=c("traitMuScore", "traitMuRank"), new=c("muScore", "muRank"))
+    } else { #hitType=="gene"
       gt_this <- gt[efoId==qryId()]
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
-      gt_this <- gt_this[, .(ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
+      gt_this <- gt_this[, .(ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, geneMuScore, geneMuRank)]
+      setnames(gt_this, old=c("geneMuScore", "geneMuRank"), new=c("muScore", "muRank"))
     }
-    message(sprintf("DEBUG: Hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
-    message(sprintf("DEBUG: maxHits: %d", input$maxHits))
     gt_this[, ok := as.logical(muRank<=input$maxHits)]
     setorder(gt_this, muRank)
-    message(sprintf("DEBUG: nrow(gt_this): %d; n_ok: %d", nrow(gt_this), sum(gt_this$ok)))
+    #message(sprintf("DEBUG: Hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
+    #message(sprintf("DEBUG: maxHits: %d", input$maxHits))
+    #message(sprintf("DEBUG: nrow(gt_this): %d; n_ok: %d", nrow(gt_this), sum(gt_this$ok)))
     return(gt_this)
   })
 
   HitsHtm <- reactive({
     hh <- Hits()
-    hh <- hh[, gsymb := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)]
+    if (hitType()=="gene") {
+      hh <- hh[, gsymb := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)]
+    } else {
+      hh <- hh[, efoId := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", sapply(efoId, efoId2Uri), efoId)]
+    }
     return(hh)
   })
 
   output$resultHtm <- reactive({
+    message(sprintf("Query: \"%s\" (%s)", qryName(), qryId()))
+    if (is.null(qryId())) { return("No query.") }
     htm <- sprintf("<B>Results:</B>")
     htm <- paste0(htm, sprintf("\"%s\"", qryName()))
     if (qryType()=="trait") {
       htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", efoId2Uri(qryId()), qryId()))
-    }
-    message(sprintf("Query: \"%s\" (%s)", qryName(), qryId()))
-    if (!is.null(Hits())) {
-      htm <- paste0(htm, sprintf("; found N_%s: %d", nrow(Hits()), qryType()))
     } else {
-      htm <- paste0(htm, sprintf("; No %ss found.", qryType()))
+      htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"https://pharos.nih.gov/targets/%s\">%s</a>)", qryId(), qryId()))
+    }
+    if (!is.null(Hits())) {
+      htm <- paste0(htm, sprintf("; N_%s: %d", hitType(), nrow(Hits())))
+    } else {
+      htm <- paste0(htm, sprintf("; No %ss found.", hitType()))
     }
     return(htm)
   })
@@ -370,9 +389,9 @@ server <- function(input, output, session) {
   })
   markerTextTraits <- reactive({
     text=paste0(
-    paste0("<b>", Hits()[(ok)]$efoId, "</b>")), 
-    paste0("<br><b>", Hits()[(ok)]$trait, "</b>")),
-    paste0("; N_gene = ", Hits()[(ok)]$traitNgene)),
+    paste0("<b>", Hits()[(ok)]$efoId, "</b>"), 
+    paste0("<br><b>", Hits()[(ok)]$trait, "</b>"),
+    paste0("; N_gene = ", Hits()[(ok)]$traitNgene),
     ";<br>muScore = ", Hits()[(ok)]$muScore,
     "; muRank = ", Hits()[(ok)]$muRank,
     ";<br>N_study = ", Hits()[(ok)]$n_study,
@@ -398,7 +417,7 @@ server <- function(input, output, session) {
       message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok)]$efoId, as.character(markerSize()), sep=":"))))
     }
     
-    if (qryType()=="trait") {
+    if (hitType()=="gene") {
       p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)],
         x=(~muScore + rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore))))), #Custom jitter
         y=~or_median,
@@ -413,16 +432,16 @@ server <- function(input, output, session) {
         font=list(family="monospace", size=16)
       ) %>%
       add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits()[(ok)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
-    } else {
+    } else { #Color traits by? EFO top level class?
       p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)],
-        x=(~muScore + rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore))))), #Custom jitter
+        x=~muScore,
         y=~or_median,
         marker=list(symbol="circle", size=markerSize()),
         text=markerTextTraits()
       ) %>% config(displayModeBar=F) %>%
       layout(xaxis=xaxis, yaxis=yaxis, 
         title=paste0(qryName(), "<br>", "(", qryType(), ":", qryId(), ")"),
-        margin=list(t=80,r=50,b=60,l=60), showlegend=T,
+        margin=list(t=80,r=50,b=60,l=60), showlegend=F,
 	legend=list(x=1, y=1, traceorder="normal", orientation="h", xanchor="right", yanchor="auto", itemsizing="constant", borderwidth=1, bordercolor="gray"),
         font=list(family="monospace", size=16)
       ) %>%
@@ -432,45 +451,51 @@ server <- function(input, output, session) {
   })
   
   #"ensemblId","gsymb","geneName","geneFamily","TDL","n_study","study_N_mean","n_snp","n_snpw","geneNtrait","pvalue_mlog_median","or_median","rcras","muScore","muRank"
-  output$generows <- DT::renderDataTable({
-    if (is.null(Hits())) { return(NULL) }
-    DT::datatable(data=HitsHtm(), escape=F, rownames=F,
+  output$hitrows <- DT::renderDataTable({
+    if (is.null(Hits())) {
+      return(NULL)
+    } else if (hitType()=="gene") {
+      return(DT::datatable(data=HitsHtm(), escape=F, rownames=F,
 	selection=list(target="row", mode="multiple", selected=NULL),
 	class="cell-border stripe", style="bootstrap",
 	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
 		columnDefs = list(
 			list(className='dt-center', targets=c(0, 3:(ncol(Hits())-2))), #Numbered from 0.
 			list(visible=F, targets=c(0, ncol(Hits())-1)))), #Numbered from 0.
-	colnames=c("ENSG","GSYMB","GeneName","idgFam","idgTDL","N_study","study_N","N_snp","N_snpw","N_trait","pVal_mlog","OR","RCRAS",
-	           "muScore", "muRank", "ok")
-  ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(7,9,11,12,13)) #Numbered from 1.
-  }, server=T)
+	colnames=c("ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "study_N", "N_snp", "N_snpw", "N_trait", "pVal_mlog", "OR", "RCRAS", "muScore", "muRank", "ok")
+  ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(7,9,11,12,13))) #Numbered from 1.
+  } else if (hitType()=="trait") {
+      return(DT::datatable(data=HitsHtm(), escape=F, rownames=F,
+	selection=list(target="row", mode="multiple", selected=NULL),
+	class="cell-border stripe", style="bootstrap",
+	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
+		columnDefs = list(
+			list(className='dt-center', targets=c(0, 2:(ncol(Hits())-2))), #Numbered from 0.
+			list(visible=F, targets=c(0, ncol(Hits())-1)))), #Numbered from 0.
+	colnames=c("efoId", "trait", "N_study", "study_N", "N_snp", "N_snpw", "N_gene", "pVal_mlog", "OR", "RCRAS", "muScore", "muRank", "ok")
+  ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(6,8,9,10,11))) #Numbered from 1.
+  }}, server=T)
 
-  trait_tableHtm <- reactive({
-    tt <- trait_table[, idHtm := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", trait_uri, efoId)][, .(ID = idHtm, trait, N_study, N_gene)][order(trait)]
-    return(tt)
-  })
-  
-  gene_tableHtm <- reactive({
-    gg <- gene_table[, symbHtm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)][, .(Symbol = symbHtm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
-    return(gg)
-  })
-  
   output$traits <- DT::renderDataTable({
-    DT::datatable(data=trait_tableHtm(), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=trait_tableHtm, rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
 
   output$genes <- DT::renderDataTable({
-    DT::datatable(data=gene_tableHtm(), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=gene_tableHtm, rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
   
-
   Hits_export <- reactive({
     if (is.null(Hits())) { return(NULL) }
     hits_out <- Hits()
-    hits_out[["Trait"]] <- qryName()
-    hits_out[["TraitId"]] <- qryId()
-    hits_out <- hits_out[, .(Trait, TraitId, ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
+    if (hitType()=="gene") {
+      hits_out[["efoId"]] <- qryId()
+      hits_out[["trait"]] <- qryName()
+      hits_out <- hits_out[, .(efoId, trait, ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
+    } else if (hitType()=="trait") {
+      hits_out[["ensemblId"]] <- qryId()
+      hits_out[["geneName"]] <- qryName()
+      hits_out <- hits_out[, .(ensemblId, geneName, efoId, trait, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
+    }
     return(hits_out)
   })
 
