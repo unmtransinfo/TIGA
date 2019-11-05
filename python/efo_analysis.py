@@ -53,6 +53,9 @@ if __name__=="__main__":
   G.graph['name'] = "EFO: Experimental Factor Ontology"
   logging.info(nx.info(G))
   logging.info("nodes: {0}; edges: {1}; directed: {2}".format(G.number_of_nodes(), G.number_of_edges(), G.is_directed()))
+  logging.info("connected: {0}".format(nx.is_weakly_connected(G)))
+  logging.info("connected components: {0}".format(nx.number_weakly_connected_components(G)))
+  logging.info("DAG (mono-hierarchy): {0}".format(nx.is_directed_acyclic_graph(G)))
   #
   ###
   ifile = "data/efo_nodelist.tsv"
