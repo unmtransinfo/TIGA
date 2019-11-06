@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-	Load efo.owl as NetworkX graph.
+	Load efo.owl as NetworkX (NX) graph, for NX analytics.
 	For each class, associate (cluster) with an ancestral group of defined
 	size or other criteria.
 """
 ###
-import sys,os,json,logging
+import sys,os,json,logging,argparse
 import pandas as pd
 import networkx as nx
 from networkx.convert_matrix import from_pandas_edgelist
@@ -18,93 +18,142 @@ def SubclassCount(G, n):
      N_sub += 1
      N_sub += SubclassCount(G, nn)
    return N_sub
-
+###
 def SubclassCount_InSet(G, n, nodeset):
    """Recursive all-subclass-in-set count."""
    N_sub = 0
    for nn in G.successors(n):
-     #in_gwc = nx.get_node_attributes(G, 'in_gwc')[nn] if nn in nx.get_node_attributes(G, 'in_gwc') else False
-     in_gwc = bool(n in nodeset) #faster?
-     if in_gwc:
+     in_set = bool(n in nodeset)
+     if in_set:
        N_sub += 1
      N_sub += SubclassCount_InSet(G, nn, nodeset)
    return N_sub
-
+###
+def Level(G, n):
+  """Level relative to ancestral root[s] at level 0"""
+  roots = [n for n,d in G.in_degree() if d==0] 
+  min_pathlen = min([nx.shortest_path_length(G, root, n) if nx.has_path(G, root, n) else sys.maxsize for root in roots])
+  return min_pathlen
 ###
 def Graph2CYJS(G, ofile):
   cyjs = nx.cytoscape_data(G)
-  fout = open(ofile, "w")
   fout.write(json.dumps(cyjs, indent=2))
-  fout.close()
-
 ###
-def Groups2TSV(groups, ofile):
-  fout = open(ofile, "w")
+def Groups2TSV(groups, fout):
   groups.to_csv(fout, '\t', index=False)
-  fout.close()
-
-#############################################################################
-if __name__=="__main__":
-  logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
-  ifile = "data/efo_edgelist.tsv"
-  logging.info("Reading {0}".format(ifile))
-  efo_edges = pd.read_csv(ifile, "\t", dtype=str)
-  G = from_pandas_edgelist(efo_edges, source="source", target="target", edge_attr="edge_attr", create_using=nx.DiGraph)
-  G.graph['name'] = "EFO: Experimental Factor Ontology"
+###
+def GraphSummary(G):
   logging.info(nx.info(G))
   logging.info("nodes: {0}; edges: {1}; directed: {2}".format(G.number_of_nodes(), G.number_of_edges(), G.is_directed()))
   logging.info("connected: {0}".format(nx.is_weakly_connected(G)))
   logging.info("connected components: {0}".format(nx.number_weakly_connected_components(G)))
   logging.info("DAG (mono-hierarchy): {0}".format(nx.is_directed_acyclic_graph(G)))
+  logging.info("Tree: {0}".format(nx.is_tree(G)))
+  logging.info("Forest: {0}".format(nx.is_forest(G)))
   #
-  ###
-  ifile = "data/efo_nodelist.tsv"
-  logging.info("Reading {0}".format(ifile))
-  efo_nodes = pd.read_csv(ifile, "\t", index_col="id")
-  node_attr = efo_nodes.to_dict(orient='index')
-  nx.set_node_attributes(G, node_attr)
+  roots = [n for n,d in G.in_degree() if d==0] 
+  logging.info("Roots: {0}".format(len(roots)))
+  for root in roots:
+    logging.info("root: {0}: {1}".format(root, nx.get_node_attributes(G, 'label')[root] if root in nx.get_node_attributes(G, 'label') else ''))
   #
-  ###
-  efoIds=set()
-  ofile = "data/gwascatalog.efoid"
-  logging.info("Writing {0}".format(ofile))
-  with open(ofile) as fin:
-    for line in fin:
-      efoIds.add(line.strip())
-  logging.info("efoIds in GWAS Catalog: {0}".format(len(efoIds)))
+  leafs = [n for n,d in G.out_degree() if d==0] 
+  logging.info("Leafs: {0}".format(len(leafs)))
   #
-  nx.set_node_attributes(G, {efoId:{'in_gwc':True} for efoId in efoIds})
-  ###
-  ofile = "data/efo_nxgraph.cyjs"
-  logging.info("Writing {0}".format(ofile))
-  Graph2CYJS(G, ofile)
-  #
-  ###
-  # Find classes with N_subclasses >= MIN_SIZE.
-  grouplist=[];
-  i_node=0;
-  for n in G.nodes:
-    i_node += 1
-    N_sub = SubclassCount(G, n)
-    label = nx.get_node_attributes(G, 'label')[n]
-    #in_gwc = nx.get_node_attributes(G, 'in_gwc')[n] if n in nx.get_node_attributes(G, 'in_gwc') else False
-    in_gwc = bool(n in efoIds) #faster?
-    if N_sub >= 100:
-      #N_sub_gwc = SubclassCount_InSet(G, n)
-      N_sub_gwc = SubclassCount_InSet(G, n, efoIds)
-      logging.debug("{0}/{1}. {2}: {3}; N_sub={4}; N_sub_gwc={5}".format(i_node, G.number_of_nodes(), n, label, N_sub, N_sub_gwc))
-      grouplist.append((n, label, in_gwc, N_sub, N_sub_gwc))
-  groups = pd.DataFrame({
-	'efoId': [efoId for efoId,label,in_gwc,N_sub,N_sub_gwc in grouplist],
-	'label': [label for efoId,label,in_gwc,N_sub,N_sub_gwc in grouplist],
-	'in_gwc': [in_gwc for efoId,label,in_gwc,N_sub,N_sub_gwc in grouplist],
-	'N_sub': [N_sub for efoId,label,in_gwc,N_sub,N_sub_gwc in grouplist],
-	'N_sub_gwc': [N_sub_gwc for efoId,label,in_gwc,N_sub,N_sub_gwc in grouplist]})
-  	.sort_values(by=['N_sub_gwc', 'N_sub'], ascending=False)
+  singles = set(roots) & set(leafs)
+  logging.info("Singles: {0}".format(len(singles)))
 
-  print(groups.head(10))
-  ofile = "data/efo_groups.tsv"
-  logging.info("Writing {0}".format(ofile))
-  Groups2TSV(groups, ofile)
+#############################################################################
+if __name__=="__main__":
+  logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
-  print(groups[(groups.in_gwc.bool())].head(10))
+  parser = argparse.ArgumentParser(
+	description="NetworkX analytics, designed for EFO",
+	epilog="clustering by common ancestor")
+  ops = ['summary', 'graph2cyjs', 'cluster']
+  parser.add_argument("op", choices=ops, help='operation')
+  parser.add_argument("--i_edge", dest="ifile_edge", help="input edgelist (TSV)")
+  parser.add_argument("--i_node_attr", dest="ifile_node_attr", help="input node attributes (TSV)")
+  parser.add_argument("--i_node_set", dest="ifile_node_set", help="input node set (IDs)")
+  parser.add_argument("--setname", default="myset", help="node set name")
+  parser.add_argument("--o", dest="ofile", help="output (TSV|CYJS|etc.)")
+  parser.add_argument("--graphname", help="assign this name to graph")
+  parser.add_argument("--min_cluster_size", type=int, default=100)
+  parser.add_argument("-v", "--verbose", action="count")
+  args = parser.parse_args()
+
+  if args.ifile_edge:
+    #args.ifile_edge = "data/efo_edgelist.tsv"
+    logging.info("Reading {0}".format(args.ifile_edge))
+    efo_edges = pd.read_csv(args.ifile_edge, "\t", dtype=str)
+    G = from_pandas_edgelist(efo_edges, source="source", target="target", edge_attr="edge_attr", create_using=nx.DiGraph)
+    #G.graph['name'] = "EFO: Experimental Factor Ontology"
+    G.graph['name'] = args.graphname
+  else:
+    parser.error('--i_edge required.')
+
+  if args.ofile:
+    fout = open(args.ofile, "w")
+  else:
+    fout = sys.stdout
+
+  ###
+  if args.ifile_node_attr:
+    #args.ifile_node_attr = "data/efo_nodelist.tsv"
+    logging.info("Reading {0}".format(args.ifile_node_attr))
+    efo_nodes = pd.read_csv(args.ifile_node_attr, "\t", index_col="id")
+    node_attr = efo_nodes.to_dict(orient='index')
+    nx.set_node_attributes(G, node_attr)
+  #
+  ###
+  if args.ifile_node_set:
+    nodeSetIds=set()
+    #args.ifile_node_set = "data/gwascatalog.efoid"
+    logging.info("Writing {0}".format(args.ifile_node_set))
+    with open(args.ifile_node_set) as fin:
+      for line in fin:
+        nodeSetIds.add(line.strip())
+    logging.info("nodeSetIds in {0}: {1}".format(args.setname, len(nodeSetIds)))
+    nx.set_node_attributes(G, {nodeId:{'in_%s'%args.setname:True} for nodeId in nodeSetIds})
+
+  ###
+  if args.op == 'summary':
+    GraphSummary(G)
+  #
+  elif args.op == 'graph2cyjs':
+    #args.ofile = "data/efo_nxgraph.cyjs"
+    logging.info("Writing {0}".format(args.ofile))
+    Graph2CYJS(G, fout)
+  #
+  ###
+  # Find ancestors with N_subclasses >= MIN_CLUSTER_SIZE.
+  elif args.op == 'cluster':
+    if not args.ifile_node_set:
+      parser.error('--i_node_set required for cluster operation.')
+    roots = [n for n,d in G.in_degree() if d==0] 
+    grouplist=[];
+    i_node=0;
+    for n in G.nodes:
+      i_node += 1
+      N_sub = SubclassCount(G, n)
+      label = nx.get_node_attributes(G, 'label')[n]
+      in_set = bool(n in nodeSetIds)
+      #is_root = bool(n in roots)
+      level = Level(G, n)
+      if N_sub >= args.min_cluster_size:
+        N_sub_set = SubclassCount_InSet(G, n, nodeSetIds)
+        logging.debug("{0}/{1}. {2}: {3}; level={4}; N_sub={5}; N_sub_{6}={7}".format(i_node, G.number_of_nodes(), n, label, level, N_sub, args.setname, N_sub_set))
+        grouplist.append((n,label,level,in_set,N_sub,N_sub_set))
+    groups = pd.DataFrame({
+	'Id': [Id for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'label': [label for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'level': [level for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'in_%s'%args.setname: [in_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'N_sub': [N_sub for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'N_sub_%s'%args.setname: [N_sub_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist]
+	}).sort_values(by=['N_sub_%s'%args.setname, 'N_sub'], ascending=False)
+
+    print(groups.head(10))
+    #args.ofile = "data/efo_groups.tsv"
+    logging.info("Writing {0}".format(args.ofile))
+    Groups2TSV(groups, fout)
+    print(groups[groups['in_%s'%args.setname]].head(10))
