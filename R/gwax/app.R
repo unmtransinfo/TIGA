@@ -42,11 +42,9 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
   setDT(gt)
   setnames(gt, old=c("geneSymbol", "geneIdgTdl"), new=c("gsymb", "TDL"))
   #
-  trait_table <- gt[, .(N_gene = uniqueN(ensemblId)),  by=c("efoId", "trait", "traitNstudy")]
-  setnames(trait_table, old=c("traitNstudy"), new=c("N_study"))
+  trait_table <- gt[, .(trait=first(trait), N_study=first(traitNstudy), N_gene=uniqueN(ensemblId)),  by="efoId"]
   message(sprintf("Traits with N_assn<%d: %d", MIN_ASSN, trait_table[N_gene<MIN_ASSN, uniqueN(efoId)]))
   trait_table <- trait_table[N_gene>=MIN_ASSN]
-  trait_table[, efoId := as.factor(efoId)]
   trait_table[, trait_uri := sapply(efoId, efoId2Uri)]
   trait_table <- trait_table[, .(trait_uri, efoId, trait, N_study, N_gene)]
   trait_table <- trait_table[order(trait)]
@@ -318,7 +316,7 @@ server <- function(input, output, session) {
       gt_this <- gt_this[, .(ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, geneMuScore, geneMuRank)]
       setnames(gt_this, old=c("geneMuScore", "geneMuRank"), new=c("muScore", "muRank"))
     }
-    gt_this[, ok := as.logical(muRank<=input$maxHits)]
+    gt_this[, ok := (is.na(muRank) | as.logical(muRank<=input$maxHits))] #1-hit situation problematic.
     setorder(gt_this, muRank)
     return(gt_this)
   })
@@ -340,7 +338,7 @@ server <- function(input, output, session) {
 
   output$resultHtm <- reactive({
     message(sprintf("Query: \"%s\" (%s)", qryName(), qryId()))
-    if (is.null(qryId())) { return("No query.") }
+    if (is.null(qryId())) { return("No query. Search? Browse? Or roll dice?") }
     htm <- sprintf("<B>Results:</B>")
     htm <- paste0(htm, sprintf("\"%s\"", qryName()))
     if (qryType()=="trait") {
