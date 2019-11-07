@@ -75,22 +75,17 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
 t_elapsed <- (proc.time()-t0)[3]
 #
 message(sprintf("Gene count, IDs: %d; symbols: %d", uniqueN(gt$ensemblId), uniqueN(gt$gsymb)))
-message(sprintf("Trait count (total): %d", uniqueN(gt$trait)))
+message(sprintf("Trait count (total): %d", uniqueN(gt$efoId)))
 #trait_table[['ontology']] <- as.factor(sub("_.*$","", trait_table$efoId))
 #trait_counts <- trait_table[, .N, by="ontology"][order(-N)]
 #message(sprintf("traits (%10s): %4d / %4d (%4.1f%%)\n", trait_counts$ontology, trait_counts$N, sum(trait_counts$N), 100*trait_counts$N/sum(trait_counts$N)))
-message(sprintf("Trait count (filtered; n_assn<%d): %d", MIN_ASSN, uniqueN(gt$trait)-length(trait_menu)))
+message(sprintf("Trait count (filtered; n_assn<%d): %d", MIN_ASSN, uniqueN(gt$efoId)-length(trait_menu)))
 message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(trait_menu)))
-message(sprintf("DEBUG: COUNT or_median: %d", sum(!is.na(gt$or_median))))
-message(sprintf("DEBUG: COUNT pvalue_mlog_median: %d", sum(!is.na(gt$pvalue_mlog_median))))
-message(sprintf("DEBUG: COUNT rcras: %d", sum(!is.na(gt$rcras))))
+#message(sprintf("DEBUG: COUNT or_median: %d", sum(!is.na(gt$or_median))))
+#message(sprintf("DEBUG: COUNT pvalue_mlog_median: %d", sum(!is.na(gt$pvalue_mlog_median))))
+#message(sprintf("DEBUG: COUNT rcras: %d", sum(!is.na(gt$rcras))))
 #
-dbHtm <- sprintf("<B>Dataset:</B> genes: %d ; traits: %d; top_traits: %d (t_load: %.1fs)",
-	uniqueN(gt$gsymb), uniqueN(gt$trait), length(trait_menu), t_elapsed)
-trait_tableHtm <- data.table(trait_table) #copy
-trait_tableHtm[, idHtm := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", trait_uri, efoId)][, .(ID = idHtm, trait, N_study, N_gene)][order(trait)]
-gene_tableHtm <- data.table(gene_table)
-gene_tableHtm[, symbHtm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)][, .(Symbol = symbHtm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
+dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d (t_load: %.1fs)", uniqueN(gt$ensemblId), uniqueN(gt$efoId), t_elapsed)
 #
 ###
 TDLS <- c("Tclin", "Tchem", "Tbio", "Tdark")
@@ -109,21 +104,17 @@ qryRand <- function() {
 }
 #
 #############################################################################
-HelpHtm <- function() {(
-  sprintf("<P><B>GWAX</B>, GWAS Explorer, is designed to facilitate drug target illumination by 
+HelpHtm <- function() {
+  htm <- ("<P><B>GWAX</B>, GWAS Explorer, is designed to facilitate drug target illumination by 
 scoring and ranking of protein-coding genes associated with traits from genome-wide association studies
 (GWAS). Similarly, <B>GWAX</B> can score and rank traits with the same gene-trait association metrics. 
 Rather than a comprehensive analysis of GWAS for all biological implications and insights, this
 more focused application provides a rational method by which GWAS findings can be 
 aggregated and filtered for applicable, actionable intelligence, 
 evidence usable by drug discovery scientists to enrich prioritization of target hypotheses. 
-<P>
-<B>Dataset:</B>
-Data from <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">The NHGRI-EBI GWAS Catalog</A>.
+Data from the <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">NHGRI-EBI GWAS Catalog</A>.
 <UL>
-<LI>Well studied traits only available via this app, with minimum associations
-(MIN_ASSN=%d, may be multiple for each gene). Traits are mapped to EFO, HPO,
-Orphanet, PATO or GO, with 91%% mapped to EFO.
+<LI>Traits are mapped to EFO, HPO, Orphanet, PATO or GO, with ~90%% mapped to EFO.
 <LI>Mapped genes via Ensembl pipeline as per GWAS Catalog documentation. Reported genes ignored for consistency and accountable confidence assessment in this app and downstream.
 <LI>In this version, OR required and BETA ignored, due to problem of harmonizing varying BETA units.
 </UL>
@@ -173,9 +164,14 @@ Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and En
 <B>Correspondence</B> from users of this app is welcome, and should be directed to 
 <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
   Built with R-Shiny &amp; Plotly.<BR/>
-  This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>",
-	MIN_ASSN)
-)}
+  This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
+  pkgVerHtm <- ""
+  for (pkg in names(sessionInfo()$otherPkgs)) {
+    pkgVerHtm <- paste0(pkgVerHtm, sprintf("; %s %s", pkg, packageVersion(pkg)))
+  }
+  htm <- paste(htm, sprintf("<hr>\n<pre>%s %s</pre>", R.version.string, pkgVerHtm), sep="\n")
+  return(htm)
+}
 
 ##########################################################################################
 ui <- fluidPage(
@@ -185,26 +181,27 @@ ui <- fluidPage(
   fluidRow(
     column(3, 
       wellPanel(
-	#selectInput("usrQry", "Query", choices=trait_menu, selectize=T, selected=qryRand()),
-	#selectizeInput("usrQry", "Query", choices=trait_menu, options=list(placeholder="Query trait or gene...", maxOptions=8, maxItems=1, minLength=3)),
-	dqshiny::autocomplete_input("usrQry", div("Query", 	actionButton("randQuery", div(icon("dice", "fa"), style='color:#CC4444; align:right'), style='padding:2px; background-color:#DDDDDD; font-weight:bold')), options=qry_menu, max_options=10000, placeholder="Query trait or gene..."),
-        sliderInput("maxHits", "Max_hits", 25, 200, 50, step=25),
+	dqshiny::autocomplete_input("usrQry", div("Query", 	actionButton("randQuery", 
+	       tags$img(height="20", valign="bottom", src="dice.png"),
+	       style='padding:2px; background-color:#DDDDDD')),
+            options=qry_menu, max_options=10000, placeholder="Query trait or gene..."),
+        sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
         radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS"), choiceValues=c("n_study", "rcras"), selected="n_study", inline=T),
-        br(),
-	actionButton("goRefresh", "Refresh", style='padding:2px;background-color:#DDDDDD;font-weight:bold'),
-	actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold')
-
+	checkboxInput("jitter", "Jitter"),
+	actionButton("goRefresh", tags$img(height="20", valign="bottom", src="refresh_icon.png"), style='padding:2px;background-color:#DDDDDD')
+	#actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold')
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
 	wellPanel(htmlOutput(outputId="resultHtm"))
 	),
     column(9,
-	tabsetPanel(type="tabs",
-		tabPanel("Plot", plotlyOutput("gwaxPlot", height = "600px")),
-		tabPanel(textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
-		tabPanel("Traits (All)", DT::dataTableOutput("traits"), br(), downloadButton("traits_file", label="Download Traits (All)")),
-		tabPanel("Genes (All)", DT::dataTableOutput("genes"), br(), downloadButton("genes_file", label="Download Genes (All)"))
+	tabsetPanel(id="tabset", type="tabs",
+		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("gwaxPlot", height = "600px")),
+		tabPanel(id="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
+		tabPanel(value="traits", title="Traits (All)", DT::dataTableOutput("traits"), br(), downloadButton("traits_file", label="Download Traits (All)")),
+		tabPanel(value="genes", title="Genes (All)", DT::dataTableOutput("genes"), br(), downloadButton("genes_file", label="Download Genes (All)")),
+		tabPanel(value="help", title="Help", htmlOutput("helpHtm"))
 	))),
   hr(),
   fluidRow(
@@ -218,6 +215,8 @@ ui <- fluidPage(
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
   bsTooltip("randQuery", "Random query trait or gene", "right"),
+  bsTooltip("jitter", "Jitter can un-hide plot markers.", "right"),
+  bsTooltip("goRefresh", "Refresh UI.", "right"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
   bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),
@@ -231,8 +230,10 @@ server <- function(input, output, session) {
 	title=HTML(sprintf("<H2>%s Help</H2>", APPNAME)),
 	HTML(HelpHtm())))
   })
+  
+  output$helpHtm <- reactive({ paste(sprintf("<H2>%s Help</H2>", APPNAME), HelpHtm()) })
 
-  Sys.sleep(1)
+  Sys.sleep(1) #Needed?
   qryRand_count <- 0 # initialize once per session
   i_query <- 0 # initialize once per session
   
@@ -240,21 +241,20 @@ server <- function(input, output, session) {
   httpQstr <- reactive({
     qStr <- getQueryString(session) #named list
     if (length(qStr)>0) {
-      message(sprintf("DEBUG: QueryString: \"%s\"", paste(names(qStr), qStr, sep="=", collapse="&")))
       for (key in names(qStr)) {
-        message(sprintf("DEBUG: qStr[[\"%s\"]] = \"%s\"", key, qStr[[key]]))
+        message(sprintf("DEBUG: qStr[[\"%s\"]]=\"%s\"", key, qStr[[key]]))
       }
     }
     return(qStr)
   })
 
-  urlText <- reactive({
-    url <- sprintf("%s//%s:%s%s%s",
+  urlBase <- reactive({
+    sprintf("%s//%s:%s%s",
       session$clientData$url_protocol, session$clientData$url_hostname,
-      session$clientData$url_port, session$clientData$url_pathname,
-      session$clientData$url_search
-    )
-    return(url)
+      session$clientData$url_port, session$clientData$url_pathname)
+  })
+  urlText <- reactive({
+    sprintf("%s%s", urlBase(), session$clientData$url_search)
   })
  
   qryType <- reactive({
@@ -275,20 +275,19 @@ server <- function(input, output, session) {
       message(sprintf("DEBUG: url: \"%s\"", urlText()))
       qStr <- httpQstr()
       if ("trait" %in% names(qStr)) {
-        message(sprintf("DEBUG: qStr[[\"trait\"]]=%s", qStr[["trait"]]))
-        updateTextInput(session, "usrQry", value=sprintf("trait:%s", qStr[["trait"]]))
+        dqshiny::update_autocomplete_input(session, "usrQry", value=sprintf("trait:%s", qStr[["trait"]]))
       } else if ("gene" %in% names(qStr)) {
-        message(sprintf("DEBUG: qStr[[\"gene\"]]=%s", qStr[["gene"]]))
-        updateTextInput(session, "usrQry", value=sprintf("gene:%s", qStr[["gene"]]))
+        dqshiny::update_autocomplete_input(session, "usrQry", value=sprintf("gene:%s", qStr[["gene"]]))
       }
     }
     if (input$randQuery>qryRand_count) {
       qryRand_count <<- input$randQuery # Must assign to up-scoped variable.
       qryRand_new <- qryRand()
       message(sprintf("DEBUG: qryRand_count: %d; qryRand(): \"%s\"", qryRand_count, qryRand_new))
-      dqshiny::update_autocomplete_input(session, "usrQry", value=as.character(names(qryRand_new))) #Not triggering submit?
+      dqshiny::update_autocomplete_input(session, "usrQry", value=as.character(names(qryRand_new))) #Not triggering submit? Fixed by update.
     }
     i_query <<- i_query + 1  # Must assign to up-scoped variable.
+    updateTabsetPanel(session, "tabset", selected="plot")
     if (input$usrQry=="") { return(NULL) }
     return(sub("^.*:", "", input$usrQry))
   })
@@ -321,14 +320,12 @@ server <- function(input, output, session) {
     }
     gt_this[, ok := as.logical(muRank<=input$maxHits)]
     setorder(gt_this, muRank)
-    #message(sprintf("DEBUG: Hits() COUNT pvalue_mlog_median: %d", sum(!is.na(gt_this$pvalue_mlog_median))))
-    #message(sprintf("DEBUG: maxHits: %d", input$maxHits))
-    #message(sprintf("DEBUG: nrow(gt_this): %d; n_ok: %d", nrow(gt_this), sum(gt_this$ok)))
     return(gt_this)
   })
 
   output$hitCount <- renderText({ as.character(nrow(Hits())) })
   
+  output$plotTabTxt <- renderText({ ifelse(is.null(Hits()), "Plot", sprintf("Plot (%ss)", hitType())) })
   output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d)", nrow(Hits())), "Hits (0)") })
 
   HitsHtm <- reactive({
@@ -364,6 +361,7 @@ server <- function(input, output, session) {
     return(htm)
   })
   
+  #ERRORS here to be fixed.
   markerSize <- reactive({
     if (input$markerSizeBy=="n_study") {
       message(sprintf("DEBUG: markerSizeBy: %s", input$markerSizeBy))
@@ -433,7 +431,7 @@ server <- function(input, output, session) {
     
     if (hitType()=="gene") {
       p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)],
-        x=(~muScore + rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore))))), #Custom jitter
+        x=(~muScore + ifelse(input$jitter, rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore)))), 0)), #Custom jitter
         y=~or_median,
         color=~TDL, colors=c("gray", "black", "red", "green", "blue"),
         marker=list(symbol="circle", size=markerSize()),
@@ -448,7 +446,7 @@ server <- function(input, output, session) {
       add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits()[(ok)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
     } else { #Color traits by? EFO top level class?
       p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)],
-        x=~muScore,
+        x=(~muScore + ifelse(input$jitter, rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore)))), 0)), #Custom jitter
         y=~or_median,
         marker=list(symbol="circle", size=markerSize()),
         text=markerTextTraits()
@@ -490,12 +488,26 @@ server <- function(input, output, session) {
   ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(6,8,9,10,11))) #Numbered from 1.
   }}, server=T)
 
+  trait_tableHtm <- reactive({
+    dt <- data.table(trait_table) #copy
+    #dt[, idHtm := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", trait_uri, efoId)][, .(ID = idHtm, trait, N_study, N_gene)][order(trait)]
+    dt[, idHtm := sprintf("<a href=\"%s?trait=%s\">%s</a>", urlBase(), efoId, efoId)]
+    dt[, .(efoId = idHtm, trait, N_study, N_gene)][order(trait)]
+  })
+
   output$traits <- DT::renderDataTable({
-    DT::datatable(data=trait_tableHtm, rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=trait_tableHtm()[, .(efoId, trait, N_study, N_gene)], rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
 
+  gene_tableHtm <- reactive({
+    dt <- data.table(gene_table)
+    #dt[, symbHtm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)][, .(Symbol = symbHtm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
+    dt[, symbHtm := sprintf("<a href=\"%s?gene=%s\">%s</a>", urlBase(), ensemblId, gsymb)]
+    dt[, .(geneSymbol = symbHtm, ensemblId, geneName, geneFamily, TDL, N_study, N_trait)][order(geneSymbol)]
+  })
+
   output$genes <- DT::renderDataTable({
-    DT::datatable(data=gene_tableHtm, rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=gene_tableHtm()[, .(geneSymbol, geneName, geneFamily, TDL, N_study, N_trait)], rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
   
   Hits_export <- reactive({

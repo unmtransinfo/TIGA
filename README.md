@@ -72,6 +72,10 @@ non-parametric multivariate method.
 ## GWAX Application
 
 * Currently at <http://unmtid-shinyapps.net/gwax/>
+* Dependencies
+   * R 3.6+
+   * readr, data.table, shiny, DT, shinyBS, plotly
+   * [dqshiny](https://github.com/daqana/dqshiny) dev version (late 2019) via `remotes::install_github("daqana/dqshiny")` to resolve update\_autocomplete\_input bug.
 
 ## To do:
 
