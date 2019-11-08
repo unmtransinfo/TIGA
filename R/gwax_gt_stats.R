@@ -336,7 +336,9 @@ for (efoId_this in unique(gt_stats$efoId)) {
   ii <- ii + 1
   trait_this <- gt_stats[efoId==efoId_this, trait][1]
   message(sprintf("[%d / %d] (N_gene: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$efoId), dim(gtmat)[1], efoId_this, trait_this))
-  if (dim(gtmat)[1]<2) { #No ranking for singleton.
+  if (dim(gtmat)[1]<2) { #Singletons
+    gt_stats[efoId==efoId_this]$geneMuScore <- 0
+    gt_stats[efoId==efoId_this]$geneMuRank <- 1
     next;
   }
   ge <- mu.GE(gtmat)
@@ -366,7 +368,9 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
   ii <- ii + 1
   geneSymbol_this <- gt_stats[ensemblId==ensemblId_this, geneSymbol][1]
   message(sprintf("[%d / %d] (N_trait: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$ensemblId), dim(gtmat)[1], ensemblId_this, geneSymbol_this))
-  if (dim(gtmat)[1]<2) { #No ranking for singleton.
+  if (dim(gtmat)[1]<2) { #Singletons
+    gt_stats[ensemblId==ensemblId_this]$traitMuScore <- 0
+    gt_stats[ensemblId==ensemblId_this]$traitMuRank <- 1
     next;
   }
   ge <- mu.GE(gtmat)

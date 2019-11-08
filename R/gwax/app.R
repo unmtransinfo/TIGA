@@ -40,7 +40,12 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
 	geneMuScore=col_double(), geneMuRank=col_integer(),
 	traitMuScore=col_double(), traitMuRank=col_integer()))
   setDT(gt)
-  setnames(gt, old=c("geneSymbol", "geneIdgTdl"), new=c("gsymb", "TDL"))
+  setnames(gt, old=c("geneIdgTdl"), new=c("TDL"))
+  #
+  #gt[is.na(geneMuScore), geneMuScore := 0] #Kludge
+  #gt[is.na(geneMuRank), geneMuRank := 1] #Kludge
+  #gt[is.na(traitMuScore), traitMuScore := 0] #Kludge
+  #gt[is.na(traitMuRank), traitMuRank := 1] #Kludge
   #
   trait_table <- gt[, .(trait=first(trait), N_study=first(traitNstudy), N_gene=uniqueN(ensemblId)),  by="efoId"]
   message(sprintf("Traits with N_assn<%d: %d", MIN_ASSN, trait_table[N_gene<MIN_ASSN, uniqueN(efoId)]))
@@ -51,12 +56,12 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
   trait_menu <- paste0("trait:", trait_table$efoId) #named vector
   names(trait_menu) <- trait_table$trait
   #
-  gene_table <- gt[, .(gsymb, geneName, geneFamily, TDL, N_study = geneNstudy, N_trait = uniqueN(efoId)),  by=c("ensemblId")]
+  gene_table <- gt[, .(geneSymbol, geneName, geneFamily, TDL, N_study = geneNstudy, N_trait = uniqueN(efoId)),  by=c("ensemblId")]
   gene_table <- unique(gene_table)
-  gene_table <- gene_table[order(gsymb)]
+  gene_table <- gene_table[order(geneSymbol)]
   #
   gene_menu <- paste0("gene:", gene_table$ensemblId) #named vector
-  names(gene_menu) <- sprintf("%s:%s", gene_table$gsymb, gene_table$geneName)
+  names(gene_menu) <- sprintf("%s:%s", gene_table$geneSymbol, gene_table$geneName)
   #
   qry_menu <- c(trait_menu, gene_menu)
   trait_menu <- as.list(trait_menu)
@@ -72,7 +77,7 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
 #
 t_elapsed <- (proc.time()-t0)[3]
 #
-message(sprintf("Gene count, IDs: %d; symbols: %d", uniqueN(gt$ensemblId), uniqueN(gt$gsymb)))
+message(sprintf("Gene count, IDs: %d; symbols: %d", uniqueN(gt$ensemblId), uniqueN(gt$geneSymbol)))
 message(sprintf("Trait count (total): %d", uniqueN(gt$efoId)))
 #trait_table[['ontology']] <- as.factor(sub("_.*$","", trait_table$efoId))
 #trait_counts <- trait_table[, .N, by="ontology"][order(-N)]
@@ -86,18 +91,18 @@ message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(trait_men
 dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d (t_load: %.1fs)", uniqueN(gt$ensemblId), uniqueN(gt$efoId), t_elapsed)
 #
 ###
-TDLS <- c("Tclin", "Tchem", "Tbio", "Tdark")
-TDLS_Names <- list(
-span("Tclin", icon("circle", lib="font-awesome", class="blue_class")),
-span("Tchem", icon("circle", lib="font-awesome", class="green_class")),
-span("Tbio", icon("circle", lib="font-awesome", class="red_class")),
-span("Tdark", icon("circle", lib="font-awesome", class="black_class")))
+#TDLS <- c("Tclin", "Tchem", "Tbio", "Tdark")
+#TDLS_Names <- list(
+#span("Tclin", icon("circle", lib="font-awesome", class="blue_class")),
+#span("Tchem", icon("circle", lib="font-awesome", class="green_class")),
+#span("Tbio", icon("circle", lib="font-awesome", class="red_class")),
+#span("Tdark", icon("circle", lib="font-awesome", class="black_class")))
+###
 
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
 axes <- c("Effect", "Evidence")
 #
 qryRand <- function() {
-  #sample(c(sample(names(trait_menu), 1), sample(names(gene_menu), 1)), 1)
   sample(c(sample(trait_menu, 1), sample(gene_menu, 1)), 1)
 }
 #
@@ -144,14 +149,16 @@ Scatterplot axes are Effect (OR) vs. Evidence as measured by <B>muScore</B>.
 <LI>Note that this app will accept query parameter <B>trait</B> via URL, e.g.
 <B><TT>?trait=EFO_0000341</TT></B>.
 </UL>
-<BR/>
 <B>More documentation:</B>
 <UL>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/docs/fileheaders\">GWAS Catalog data dictionary</a>
 <LI><a href=\"https://www.ebi.ac.uk/efo/\">Experimental Factor Ontology (EFO)</a>
 </UL>
-<BR/>
+<B>Known Bugs:</B>
+<UL>
+<LI>Query traits with apostrophes must be typed in full. Autocomplete autosuggests but does not complete.
+</UL>
 <B>Authors:</B> Jeremy Yang<SUP>1</SUP>, Stephen Mathias<SUP>1</SUP>, Cristian
 Bologa<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP>, Christophe Lambert<SUP>1</SUP>, David Wild<SUP>3</SUP> and Tudor
 Oprea<SUP>1</SUP>.<BR/>
@@ -159,15 +166,14 @@ Oprea<SUP>1</SUP>.<BR/>
 Internal Medicine; <SUP>2</SUP>Novo Nordisk Center for Protein Research, Copenhagen,
 Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and Engineering, Integrative Data Science Lab.</I>
 <BR/>
-<B>Correspondence</B> from users of this app is welcome, and should be directed to 
+<B>Feedback welcome</B> to corresponding author  
 <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
-  Built with R-Shiny &amp; Plotly.<BR/>
-  This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
+This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
   pkgVerHtm <- ""
   for (pkg in names(sessionInfo()$otherPkgs)) {
     pkgVerHtm <- paste0(pkgVerHtm, sprintf("; %s %s", pkg, packageVersion(pkg)))
   }
-  htm <- paste(htm, sprintf("<hr>\n<pre>%s %s</pre>", R.version.string, pkgVerHtm), sep="\n")
+  htm <- paste(htm, sprintf("<hr>\nBuilt with:\n<pre>%s %s</pre>", R.version.string, pkgVerHtm), sep="\n")
   return(htm)
 }
 
@@ -180,14 +186,16 @@ ui <- fluidPage(
     column(3, 
       wellPanel(
 	dqshiny::autocomplete_input("usrQry", div("Query", 	actionButton("randQuery", 
-	       tags$img(height="20", valign="bottom", src="dice.png"),
-	       style='padding:2px; background-color:#DDDDDD')),
+	       tags$img(height="28", valign="bottom", src="dice.png"),
+	       style='padding:0px; background-color:#DDDDDD'),
+	       actionButton("goRefresh", 
+	       tags$img(height="28", valign="bottom", src="refresh_icon.png"), 
+	       style='padding:0px;background-color:#DDDDDD')),
             options=qry_menu, max_options=10000, placeholder="Query trait or gene..."),
         sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
         radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS"), choiceValues=c("n_study", "rcras"), selected="n_study", inline=T),
-	checkboxInput("jitter", "Jitter"),
-	actionButton("goRefresh", tags$img(height="20", valign="bottom", src="refresh_icon.png"), style='padding:2px;background-color:#DDDDDD')
+	checkboxInput("jitter", "Jitter")
 	#actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold')
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
@@ -197,8 +205,8 @@ ui <- fluidPage(
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("gwaxPlot", height = "600px")),
 		tabPanel(id="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
-		tabPanel(value="traits", title="Traits (All)", DT::dataTableOutput("traits"), br(), downloadButton("traits_file", label="Download Traits (All)")),
-		tabPanel(value="genes", title="Genes (All)", DT::dataTableOutput("genes"), br(), downloadButton("genes_file", label="Download Genes (All)")),
+		tabPanel(value="traits", title="Traits (all)", DT::dataTableOutput("traits"), br(), downloadButton("traits_file", label="Download Traits (all)")),
+		tabPanel(value="genes", title="Genes (all)", DT::dataTableOutput("genes"), br(), downloadButton("genes_file", label="Download Genes (all)")),
 		tabPanel(value="help", title="Help", htmlOutput("helpHtm"))
 	))),
   hr(),
@@ -313,7 +321,7 @@ server <- function(input, output, session) {
       gt_this <- gt[efoId==qryId()]
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
-      gt_this <- gt_this[, .(ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, geneMuScore, geneMuRank)]
+      gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, geneMuScore, geneMuRank)]
       setnames(gt_this, old=c("geneMuScore", "geneMuRank"), new=c("muScore", "muRank"))
     }
     gt_this[, ok := (is.na(muRank) | as.logical(muRank<=input$maxHits))] #1-hit situation problematic.
@@ -324,12 +332,12 @@ server <- function(input, output, session) {
   output$hitCount <- renderText({ as.character(nrow(Hits())) })
   
   output$plotTabTxt <- renderText({ ifelse(is.null(Hits()), "Plot", sprintf("Plot (%ss)", hitType())) })
-  output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d)", nrow(Hits())), "Hits (0)") })
+  output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d %ss)", nrow(Hits()), hitType()), "Hits (0)") })
 
   HitsHtm <- reactive({
     hh <- data.table(Hits()) #copy
     if (hitType()=="gene") {
-      hh <- hh[, gsymb := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)]
+      hh <- hh[, geneSymbol := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", geneSymbol, geneSymbol)]
     } else {
       hh <- hh[, efoId := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", sapply(efoId, efoId2Uri), efoId)]
     }
@@ -381,7 +389,7 @@ server <- function(input, output, session) {
 
   markerTextGenes <- reactive({
     text=paste0(
-    paste0("<b>", Hits()[(ok)]$gsymb, "</b> (", Hits()[(ok)]$ensemblId, ")"), 
+    paste0("<b>", Hits()[(ok)]$geneSymbol, "</b> (", Hits()[(ok)]$ensemblId, ")"), 
     paste0("<br><b>", Hits()[(ok)]$geneName, "</b>"),
     paste0("<br>Fam:", Hits()[(ok)]$geneFamily),
     paste0(", TDL:", Hits()[(ok)]$TDL),
@@ -422,7 +430,7 @@ server <- function(input, output, session) {
     yaxis <- list(title="Effect (OddsRatio)", type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
 
     if (qryType()=="trait") {
-      message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok)]$gsymb, as.character(markerSize()), sep=":"))))
+      message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok)]$geneSymbol, as.character(markerSize()), sep=":"))))
     } else {
       message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok)]$efoId, as.character(markerSize()), sep=":"))))
     }
@@ -460,7 +468,7 @@ server <- function(input, output, session) {
     return(p)
   })
   
-  #"ensemblId","gsymb","geneName","geneFamily","TDL","n_study","study_N_mean","n_snp","n_snpw","geneNtrait","pvalue_mlog_median","or_median","rcras","muScore","muRank"
+  #"ensemblId","geneSymbol","geneName","geneFamily","TDL","n_study","study_N_mean","n_snp","n_snpw","geneNtrait","pvalue_mlog_median","or_median","rcras","muScore","muRank"
   output$hitrows <- DT::renderDataTable({
     if (is.null(Hits())) {
       return(NULL)
@@ -499,8 +507,8 @@ server <- function(input, output, session) {
 
   gene_tableHtm <- reactive({
     dt <- data.table(gene_table)
-    #dt[, symbHtm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", gsymb, gsymb)][, .(Symbol = symbHtm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
-    dt[, symbHtm := sprintf("<a href=\"%s?gene=%s\">%s</a>", urlBase(), ensemblId, gsymb)]
+    #dt[, symbHtm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", geneSymbol, geneSymbol)][, .(Symbol = symbHtm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
+    dt[, symbHtm := sprintf("<a href=\"%s?gene=%s\">%s</a>", urlBase(), ensemblId, geneSymbol)]
     dt[, .(geneSymbol = symbHtm, ensemblId, geneName, geneFamily, TDL, N_study, N_trait)][order(geneSymbol)]
   })
 
@@ -514,7 +522,7 @@ server <- function(input, output, session) {
     if (hitType()=="gene") {
       hits_out[["efoId"]] <- qryId()
       hits_out[["trait"]] <- qryName()
-      hits_out <- hits_out[, .(efoId, trait, ensemblId, gsymb, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
+      hits_out <- hits_out[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
     } else if (hitType()=="trait") {
       hits_out[["ensemblId"]] <- qryId()
       hits_out[["geneName"]] <- qryName()
