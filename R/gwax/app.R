@@ -42,11 +42,6 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
   setDT(gt)
   setnames(gt, old=c("geneIdgTdl"), new=c("TDL"))
   #
-  #gt[is.na(geneMuScore), geneMuScore := 0] #Kludge
-  #gt[is.na(geneMuRank), geneMuRank := 1] #Kludge
-  #gt[is.na(traitMuScore), traitMuScore := 0] #Kludge
-  #gt[is.na(traitMuRank), traitMuRank := 1] #Kludge
-  #
   trait_table <- gt[, .(trait=first(trait), N_study=first(traitNstudy), N_gene=uniqueN(ensemblId)),  by="efoId"]
   message(sprintf("Traits with N_assn<%d: %d", MIN_ASSN, trait_table[N_gene<MIN_ASSN, uniqueN(efoId)]))
   trait_table <- trait_table[N_gene>=MIN_ASSN]
@@ -91,14 +86,6 @@ message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(trait_men
 dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d (t_load: %.1fs)", uniqueN(gt$ensemblId), uniqueN(gt$efoId), t_elapsed)
 #
 ###
-#TDLS <- c("Tclin", "Tchem", "Tbio", "Tdark")
-#TDLS_Names <- list(
-#span("Tclin", icon("circle", lib="font-awesome", class="blue_class")),
-#span("Tchem", icon("circle", lib="font-awesome", class="green_class")),
-#span("Tbio", icon("circle", lib="font-awesome", class="red_class")),
-#span("Tdark", icon("circle", lib="font-awesome", class="black_class")))
-###
-
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
 axes <- c("Effect", "Evidence")
 #
@@ -194,8 +181,8 @@ ui <- fluidPage(
             options=qry_menu, max_options=10000, placeholder="Query trait or gene..."),
         sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
-        radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS"), choiceValues=c("n_study", "rcras"), selected="n_study", inline=T),
-	checkboxInput("jitter", "Jitter")
+        radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS"), choiceValues=c("n_study", "rcras"), selected="n_study", inline=T)
+	#checkboxInput("jitter", "Jitter")
 	#actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold')
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
@@ -203,7 +190,7 @@ ui <- fluidPage(
 	),
     column(9,
 	tabsetPanel(id="tabset", type="tabs",
-		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("gwaxPlot", height = "600px")),
+		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("gwaxPlot", height = "500px")),
 		tabPanel(id="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
 		tabPanel(value="traits", title="Traits (all)", DT::dataTableOutput("traits"), br(), downloadButton("traits_file", label="Download Traits (all)")),
 		tabPanel(value="genes", title="Genes (all)", DT::dataTableOutput("genes"), br(), downloadButton("genes_file", label="Download Genes (all)")),
@@ -437,7 +424,8 @@ server <- function(input, output, session) {
     
     if (hitType()=="gene") {
       p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)],
-        x=(~muScore + ifelse(input$jitter, rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore)))), 0)), #Custom jitter
+        #x=(~muScore + ifelse(input$jitter, rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore)))), 0)), #Custom jitter
+        x=~muScore,
         y=~or_median,
         color=~TDL, colors=c("gray", "black", "red", "green", "blue"),
         marker=list(symbol="circle", size=markerSize()),
@@ -452,7 +440,8 @@ server <- function(input, output, session) {
       add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits()[(ok)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
     } else { #Color traits by? EFO top level class?
       p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)],
-        x=(~muScore + ifelse(input$jitter, rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore)))), 0)), #Custom jitter
+        #x=(~muScore + ifelse(input$jitter, rnorm(nrow(Hits()[(ok)]), sd=(.01*(max(Hits()$muScore)))), 0)), #Custom jitter
+        x=~muScore,
         y=~or_median,
         marker=list(symbol="circle", size=markerSize()),
         text=markerTextTraits()
