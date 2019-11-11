@@ -175,7 +175,7 @@ ui <- fluidPage(
 	dqshiny::autocomplete_input("usrQry", div("Query", 	actionButton("randQuery", 
 	       tags$img(height="28", valign="bottom", src="dice.png"),
 	       style='padding:0px; background-color:#DDDDDD'),
-	       actionButton("goRefresh", 
+	       actionButton("goReset", 
 	       tags$img(height="28", valign="bottom", src="refresh_icon.png"), 
 	       style='padding:0px;background-color:#DDDDDD')),
             options=qry_menu, max_options=10000, placeholder="Query trait or gene..."),
@@ -209,7 +209,7 @@ ui <- fluidPage(
         ))),
   bsTooltip("randQuery", "Random query trait or gene", "right"),
   bsTooltip("jitter", "Jitter can un-hide plot markers.", "right"),
-  bsTooltip("goRefresh", "Refresh UI.", "right"),
+  bsTooltip("goReset", "Reset.", "right"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
   bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),
@@ -261,9 +261,12 @@ server <- function(input, output, session) {
     ifelse(qryType()=="trait", "gene",
     ifelse(qryType()=="gene", "trait", NA)))
   })
-
+  
+  observeEvent(input$goReset, {
+    session$reload()
+  })
+  
   qryId <- reactive({
-    input$goRefresh # Re-run this and downstream on action button.
     if (i_query==0) { #1st query may be via URL http param.
       message(sprintf("DEBUG: url: \"%s\"", urlText()))
       qStr <- httpQstr()
@@ -276,8 +279,8 @@ server <- function(input, output, session) {
     if (input$randQuery>qryRand_count) {
       qryRand_count <<- input$randQuery # Must assign to up-scoped variable.
       qryRand_new <- qryRand()
-      message(sprintf("DEBUG: qryRand_count: %d; qryRand(): \"%s\"", qryRand_count, qryRand_new))
-      dqshiny::update_autocomplete_input(session, "usrQry", value=as.character(names(qryRand_new))) #Not triggering submit? Fixed by update.
+      #message(sprintf("DEBUG: qryRand_count: %d; qryRand(): \"%s\"", qryRand_count, qryRand_new))
+      dqshiny::update_autocomplete_input(session, "usrQry", value=as.character(names(qryRand_new)))
     }
     i_query <<- i_query + 1  # Must assign to up-scoped variable.
     updateTabsetPanel(session, "tabset", selected="plot")
@@ -410,12 +413,16 @@ server <- function(input, output, session) {
   })
 
   output$gwaxPlot <- renderPlotly({
-    if (is.null(Hits())) { return(NULL) }
-    #xrange <- NULL
-    #xaxis <- list(title="Evidence (muScore)", range=xrange, type=ifelse("Evidence" %in% input$logaxes, "log", "normal"))
     xaxis <- list(title="Evidence (muScore)", type="normal", zeroline=F, showline=F)
     yaxis <- list(title="Effect (OddsRatio)", type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
 
+    #if (is.null(Hits())) { return(NULL) }
+    if (is.null(Hits())) {
+      return(plot_ly()%>% config(displayModeBar=F) %>%
+               layout(title="<I>(No query.)</I>", xaxis=xaxis, yaxis=yaxis,
+                      margin=list(t=80,r=50,b=60,l=60), font=list(size=16)))
+    }
+    
     if (qryType()=="trait") {
       message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok)]$geneSymbol, as.character(markerSize()), sep=":"))))
     } else {
