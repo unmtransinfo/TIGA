@@ -266,20 +266,36 @@ server <- function(input, output, session) {
     session$reload()
   })
   
+  efoId2Name <- function(efoId_this) {
+    name <- trait_table[efoId==efoId_this, trait][1]
+    #message(sprintf("DEBUG: efoId: \"%s\"; trait name: \"%s\"", efoId_this, name))
+    return(name)
+  }
+  ensemblId2Symbol <- function(ensemblId_this) {
+    gsymb <- gene_table[ensemblId==ensemblId_this, geneSymbol][1]
+    #message(sprintf("DEBUG: ensemblId: \"%s\"; gene symbol: %s", ensemblId_this, gsymb))
+    return(gsymb)
+  }
+  ensemblId2Name <- function(ensemblId_this) {
+    name <- gene_table[ensemblId==ensemblId_this, geneName][1]
+    #message(sprintf("DEBUG: ensemblId: \"%s\"; gene name: %s", ensemblId_this, name))
+    return(name)
+  }
+  
   qryId <- reactive({
     if (i_query==0) { #1st query may be via URL http param.
       message(sprintf("DEBUG: url: \"%s\"", urlText()))
       qStr <- httpQstr()
       if ("trait" %in% names(qStr)) {
-        dqshiny::update_autocomplete_input(session, "usrQry", value=sprintf("trait:%s", qStr[["trait"]]))
+        dqshiny::update_autocomplete_input(session, "usrQry", value=efoId2Name(qStr[["trait"]]))
       } else if ("gene" %in% names(qStr)) {
-        dqshiny::update_autocomplete_input(session, "usrQry", value=sprintf("gene:%s", qStr[["gene"]]))
+        dqshiny::update_autocomplete_input(session, "usrQry", 
+                    value=sprintf("%s:%s", ensemblId2Symbol(qStr[["gene"]]), ensemblId2Name(qStr[["gene"]])))
       }
     }
     if (input$randQuery>qryRand_count) {
       qryRand_count <<- input$randQuery # Must assign to up-scoped variable.
       qryRand_new <- qryRand()
-      #message(sprintf("DEBUG: qryRand_count: %d; qryRand(): \"%s\"", qryRand_count, qryRand_new))
       dqshiny::update_autocomplete_input(session, "usrQry", value=as.character(names(qryRand_new)))
     }
     i_query <<- i_query + 1  # Must assign to up-scoped variable.
@@ -418,7 +434,7 @@ server <- function(input, output, session) {
 
     #if (is.null(Hits())) { return(NULL) }
     if (is.null(Hits())) {
-      return(plot_ly()%>% config(displayModeBar=F) %>%
+      return(plot_ly(type="scatter", mode="markers") %>% config(displayModeBar=F) %>%
                layout(title="<I>(No query.)</I>", xaxis=xaxis, yaxis=yaxis,
                       margin=list(t=80,r=50,b=60,l=60), font=list(size=16)))
     }
