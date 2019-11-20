@@ -14,9 +14,11 @@ mvn exec:java \
 	-Dexec.mainClass="edu.indiana.sice.idsl.jena.jena_utils" \
 	-Dexec.args="-ontfile ${OWLFILE} -vv -ont2tsv -o ${DATADIR}/efo.tsv"
 #
-#mvn exec:java \
-#	-Dexec.mainClass="edu.indiana.sice.idsl.jena.jena_utils" \
-#	-Dexec.args="-ontfile ${OWLFILE} -vv -ont2cyjs -o ${DATADIR}/efo.cyjs"
+###
+# CYJS: Not needed now but maybe later?
+mvn exec:java \
+	-Dexec.mainClass="edu.indiana.sice.idsl.jena.jena_utils" \
+	-Dexec.args="-ontfile ${OWLFILE} -vv -ont2cyjs -o ${DATADIR}/efo.cyjs"
 #
 mvn exec:java \
 	-Dexec.mainClass="edu.indiana.sice.idsl.jena.jena_utils" \

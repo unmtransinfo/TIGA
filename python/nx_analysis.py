@@ -5,7 +5,7 @@
 	size or other criteria.
 """
 ###
-import sys,os,json,logging,argparse
+import sys,os,json,logging,argparse,time
 import pandas as pd
 import networkx as nx
 from networkx.convert_matrix import from_pandas_edgelist
@@ -20,7 +20,7 @@ def SubclassCount(G, n):
    return N_sub
 ###
 def SubclassCount_InSet(G, n, nodeset):
-   """Recursive all-subclass-in-set count."""
+   """Recursive all-subclass-in-set count. Slow."""
    N_sub = 0
    for nn in G.successors(n):
      in_set = bool(n in nodeset)
@@ -61,14 +61,40 @@ def GraphSummary(G):
   #
   singles = set(roots) & set(leafs)
   logging.info("Singles: {0}".format(len(singles)))
+###
+def Cluster(G, nodeSet, min_groupsize, setname):
+  roots = [n for n,d in G.in_degree() if d==0] 
+  grouplist=[];
+  i_node=0;
+  for n in G.nodes:
+    i_node += 1
+    N_sub = SubclassCount(G, n)
+    label = nx.get_node_attributes(G, 'label')[n]
+    in_set = bool(n in nodeSet)
+    #is_root = bool(n in roots)
+    level = Level(G, n)
+    N_sub_set = SubclassCount_InSet(G, n, nodeSet)
+    if N_sub_set >= min_groupsize:
+      logging.debug("{0}/{1}. {2}: {3}; level={4}; N_sub={5}; N_sub_{6}={7}".format(i_node, G.number_of_nodes(), n, label, level, N_sub, setname, N_sub_set))
+      grouplist.append((n,label,level,in_set,N_sub,N_sub_set))
+  groups = pd.DataFrame({
+	'Id': [Id for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'label': [label for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'level': [level for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'in_%s'%setname: [in_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'N_sub': [N_sub for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'N_sub_%s'%setname: [N_sub_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist]
+	}).sort_values(by=['N_sub_%s'%setname, 'N_sub'], ascending=False)
+  return(groups)
 
 #############################################################################
 if __name__=="__main__":
+  PROG=os.path.basename(sys.argv[0])
+  t0 = time.time()
   logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
-
   parser = argparse.ArgumentParser(
 	description="NetworkX analytics, designed for EFO",
-	epilog="clustering by common ancestor")
+	epilog="clustering into groups by common ancestor")
   ops = ['summary', 'graph2cyjs', 'cluster']
   parser.add_argument("op", choices=ops, help='operation')
   parser.add_argument("--i_edge", dest="ifile_edge", help="input edgelist (TSV)")
@@ -77,16 +103,19 @@ if __name__=="__main__":
   parser.add_argument("--setname", default="myset", help="node set name")
   parser.add_argument("--o", dest="ofile", help="output (TSV|CYJS|etc.)")
   parser.add_argument("--graphname", help="assign this name to graph")
-  parser.add_argument("--min_cluster_size", type=int, default=100)
+  parser.add_argument("--min_groupsize", type=int, default=100)
   parser.add_argument("-v", "--verbose", action="count")
   args = parser.parse_args()
 
+  #args.ifile_edge = "data/efo_edgelist.tsv"
+  #args.ifile_node_attr = "data/efo_nodelist.tsv"
+  #args.ifile_node_set = "data/gwascatalog.efoid"
+  #args.ofile = "data/efo_groups.tsv"
+
   if args.ifile_edge:
-    #args.ifile_edge = "data/efo_edgelist.tsv"
     logging.info("Reading {0}".format(args.ifile_edge))
     efo_edges = pd.read_csv(args.ifile_edge, "\t", dtype=str)
     G = from_pandas_edgelist(efo_edges, source="source", target="target", edge_attr="edge_attr", create_using=nx.DiGraph)
-    #G.graph['name'] = "EFO: Experimental Factor Ontology"
     G.graph['name'] = args.graphname
   else:
     parser.error('--i_edge required.')
@@ -98,7 +127,6 @@ if __name__=="__main__":
 
   ###
   if args.ifile_node_attr:
-    #args.ifile_node_attr = "data/efo_nodelist.tsv"
     logging.info("Reading {0}".format(args.ifile_node_attr))
     efo_nodes = pd.read_csv(args.ifile_node_attr, "\t", index_col="id")
     node_attr = efo_nodes.to_dict(orient='index')
@@ -107,8 +135,7 @@ if __name__=="__main__":
   ###
   if args.ifile_node_set:
     nodeSetIds=set()
-    #args.ifile_node_set = "data/gwascatalog.efoid"
-    logging.info("Writing {0}".format(args.ifile_node_set))
+    logging.info("Reading {0}".format(args.ifile_node_set))
     with open(args.ifile_node_set) as fin:
       for line in fin:
         nodeSetIds.add(line.strip())
@@ -129,31 +156,10 @@ if __name__=="__main__":
   elif args.op == 'cluster':
     if not args.ifile_node_set:
       parser.error('--i_node_set required for cluster operation.')
-    roots = [n for n,d in G.in_degree() if d==0] 
-    grouplist=[];
-    i_node=0;
-    for n in G.nodes:
-      i_node += 1
-      N_sub = SubclassCount(G, n)
-      label = nx.get_node_attributes(G, 'label')[n]
-      in_set = bool(n in nodeSetIds)
-      #is_root = bool(n in roots)
-      level = Level(G, n)
-      if N_sub >= args.min_cluster_size:
-        N_sub_set = SubclassCount_InSet(G, n, nodeSetIds)
-        logging.debug("{0}/{1}. {2}: {3}; level={4}; N_sub={5}; N_sub_{6}={7}".format(i_node, G.number_of_nodes(), n, label, level, N_sub, args.setname, N_sub_set))
-        grouplist.append((n,label,level,in_set,N_sub,N_sub_set))
-    groups = pd.DataFrame({
-	'Id': [Id for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'label': [label for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'level': [level for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'in_%s'%args.setname: [in_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'N_sub': [N_sub for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'N_sub_%s'%args.setname: [N_sub_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist]
-	}).sort_values(by=['N_sub_%s'%args.setname, 'N_sub'], ascending=False)
-
-    print(groups.head(10))
-    #args.ofile = "data/efo_groups.tsv"
-    logging.info("Writing {0}".format(args.ofile))
+    groups = Cluster(G, nodeSetIds, args.min_groupsize, args.setname)
     Groups2TSV(groups, fout)
-    print(groups[groups['in_%s'%args.setname]].head(10))
+    #print(groups.head(10))
+    print(groups[groups['in_%s'%setname]].head(18)) #DEBUG
+
+  logging.info(('%s: elapsed time: %s'%(PROG, time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0)))))
+
