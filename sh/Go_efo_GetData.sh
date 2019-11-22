@@ -36,4 +36,6 @@ ${cwd}/python/nx_analysis.py cluster \
 	--o $DATADIR/efo_groups.tsv
 #
 ###
-# To do: groups file usable by GWAX app for marker color and selection.
+# To do:
+#   * Groups file usable by GWAX app for marker color and selection.
+#   * Associate nodes with selected ancestor nodes, defining groups.

@@ -15,6 +15,8 @@ builds upon the __GWAS Catalog__ with more specific applications and use cases,
 focused on protein-coding genes and well defined traits semantically related to disease
 states relevant to discovery of drugs and druggable targets.
 
+See also: [GWAX Poster](https://www.slideshare.net/jeremyjyang/gwas-explorer-drug-target-illumination-by-evidence-aggregation-and-multivariate-mu-scoring) presented at Open Targets - IDG meeting, Wellcome Genome Campus, Hinxton UK, Nov 15, 2019.
+
 ## GWAS Catalog features
 
 * __GWAS Catalog__ studies each have a `study_accession`.
@@ -52,7 +54,6 @@ are combined in one field `OR_or_BETA`.
 effect size versus __&mu; score__, a rational, unbiased,
 non-parametric multivariate method.
 
-
 ## GWAX Workflow
 
 * Clean and tidy download files:
@@ -61,12 +62,14 @@ non-parametric multivariate method.
     * efo.owl
 * Split comma separated fields, convert to UTF-8 characters.
 * Generate gene-trait association statistics for evidence weighting:
-  * `n_study`: studies supporting trait-gene association
-  * `n_snp`: SNPs involved with trait-gene association
-  * `n_traits_g`: total traits associated with gene
-  * `n_genes_t`: total genes associated with trait
-  * `pvalue_mlog_median`: -LOG<sub>10</sub>(p_value)
-  * `or_median`: median(OR), where OR = `odds_ratio`, or `1/odds_ratio` if &lt;1
+  * `N_study`: studies supporting trait-gene association
+  * `N_snp`: SNPs involved with trait-gene association
+  * `N_snpw`: SNPs involved with trait-gene association weighted by genomic distance
+  * `N_trait`: total traits associated with gene
+  * `N_gene`: total genes associated with trait
+  * `RCRAS`: RCR Aggregated Score
+  * `pValue`: median of SNP pValues
+  * `OR`: median(OR), where OR = `odds_ratio`, or `1/odds_ratio` if &lt;1
 * MySql database intended for transition toward IDG TCRD integration (currently not required for GWAX app).
 
 ## GWAX Application

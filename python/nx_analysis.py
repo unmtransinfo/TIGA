@@ -85,6 +85,8 @@ def Cluster(G, nodeSet, min_groupsize, setname):
 	'N_sub': [N_sub for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
 	'N_sub_%s'%setname: [N_sub_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist]
 	}).sort_values(by=['N_sub_%s'%setname, 'N_sub'], ascending=False)
+  #print(groups.head(10)) #DEBUG
+  print(groups[groups['in_%s'%setname]].head(18)) #DEBUG
   return(groups)
 
 #############################################################################
@@ -158,8 +160,6 @@ if __name__=="__main__":
       parser.error('--i_node_set required for cluster operation.')
     groups = Cluster(G, nodeSetIds, args.min_groupsize, args.setname)
     Groups2TSV(groups, fout)
-    #print(groups.head(10))
-    print(groups[groups['in_%s'%setname]].head(18)) #DEBUG
 
   logging.info(('%s: elapsed time: %s'%(PROG, time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0)))))
 
