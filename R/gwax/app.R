@@ -4,6 +4,9 @@
 ### Dataset gt_stats.tsv from gwax_gt_stats.R.
 ### Jeremy Yang
 ##########################################################################################
+### To do:
+###  * Links out to Pharos genes, EFO traits
+##########################################################################################
 library(readr)
 library(data.table)
 library(shiny, quietly=T)
@@ -142,9 +145,10 @@ Scatterplot axes are Effect (OR) vs. Evidence as measured by <B>muScore</B>.
 <LI><a href=\"https://www.ebi.ac.uk/gwas/docs/fileheaders\">GWAS Catalog data dictionary</a>
 <LI><a href=\"https://www.ebi.ac.uk/efo/\">Experimental Factor Ontology (EFO)</a>
 </UL>
-<B>Known Bugs:</B>
+<B>Issues:</B>
 <UL>
 <LI>Query traits with apostrophes must be typed in full. Autocomplete autosuggests but does not complete.
+<LI>Plot markers may obscure others.
 </UL>
 <B>Authors:</B> Jeremy Yang<SUP>1</SUP>, Stephen Mathias<SUP>1</SUP>, Cristian
 Bologa<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP>, Christophe Lambert<SUP>1</SUP>, David Wild<SUP>3</SUP> and Tudor
@@ -181,7 +185,7 @@ ui <- fluidPage(
             options=qry_menu, max_options=10000, placeholder="Query trait or gene..."),
         sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
-        radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS"), choiceValues=c("n_study", "rcras"), selected="n_study", inline=T)
+        radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS", "None"), choiceValues=c("n_study", "rcras", NA), selected="n_study", inline=T)
 	#checkboxInput("jitter", "Jitter")
 	#actionButton("showHelp", "Help", style='padding:2px;background-color:#DDDDDD; font-weight:bold')
       ),
@@ -202,9 +206,9 @@ ui <- fluidPage(
         tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
         " and ",
         tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png"))),
-        " data from ",
+        " built upon ",
         tags$a(href="https://www.ebi.ac.uk/gwas/", target="_blank", span("GWAS Catalog", tags$img(id="gwas_catalog_logo", height="50", valign="bottom", src="GWAS_Catalog_logo.png"))),
-        " with ",
+        " and ",
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
   bsTooltip("randQuery", "Random query trait or gene", "right"),
@@ -381,8 +385,8 @@ server <- function(input, output, session) {
     } else if (input$markerSizeBy=="rcras") {
       message(sprintf("DEBUG: markerSizeBy: %s", input$markerSizeBy))
       size <- 10*Hits()[(ok), rcras]
-    } else {
-      message(sprintf("DEBUG: markerSizeBy: %s", input$markerSizeBy))
+    } else { #NA
+      message(sprintf("DEBUG: markerSizeBy: %s", as.character(input$markerSizeBy)))
       size <- rep(10, nrow(Hits()[(ok)]))
     }
     message(sprintf("DEBUG: nrow(Hits()): %d", nrow(Hits()[(ok)])))
