@@ -14,7 +14,7 @@
 ### confidence scoring. Also get CONTEXT, functionalClass in API. 
 ### INTERGENIC? "RISK ALLELE FREQUENCY"?  MERGED?
 #############################################################################
-### Output file next processed by gwax_gt_stats.R
+### Output file next processed by tiga_gt_stats.R
 #############################################################################
 library(readr)
 library(data.table)

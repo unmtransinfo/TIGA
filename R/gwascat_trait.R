@@ -2,7 +2,7 @@
 ##########################################################################################
 ### Analyze/describe assn file traits.
 ### Note that EFO includes entities and IDs from other ontologies.
-### Output gwascat_trait.tsv for use by gwax_gt_stats.R, but only for mapping from
+### Output gwascat_trait.tsv for use by tiga_gt_stats.R, but only for mapping from
 ### STUDY_ACCESSION to MAPPED_TRAIT_URI.
 ##########################################################################################
 library(readr)

@@ -1,6 +1,6 @@
 #############################################################################
 ### Plot a single gene with associated traits.
-### Prototype GWA-X in gene-mode.
+### Prototype TIGA in gene-mode.
 ### Note that gt_stats.csv must exist, produced by gwascat_trait_stats.R.
 #############################################################################
 library(dplyr, quietly = T)
@@ -76,7 +76,7 @@ p1 <- plot_ly() %>%
   add_annotations(text=format(Sys.time(), "%Y-%m-%d"), showarrow=F, x=1.0, y=1.0, xref="paper", yref="paper")
 #
 p1
-export(p=p1, file="data/gwax_gene_p1.png")
+export(p=p1, file="data/tiga_gene_p1.png")
 #
 #4 genes via subplot()
 gsymbs <- c("APOE", "GCKR", "FTO", "CELSR2")
@@ -111,5 +111,5 @@ p2 <- subplot(plots, nrows=2, shareX=T, shareY=T, titleX=T, titleY=T, margin=0.0
   add_annotations(text=format(Sys.time(), "%Y-%m-%d"), showarrow=F, x=1.0, y=1.0, xref="paper", yref="paper")
 #
 p2
-export(p=p2, file="data/gwax_gene_p2.png")
+export(p=p2, file="data/tiga_gene_p2.png")
 

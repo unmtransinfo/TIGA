@@ -4,9 +4,9 @@
 ###
 require(shiny, quietly = T)
 #
-# /srv/shiny-server/gwax/
+# /srv/shiny-server/tiga/
 #
 #	port = getOption("shiny.port"),
-runApp(appDir = paste0(Sys.getenv()["HOME"],'/projects/idg/gwas/R/gwax'),
+runApp(appDir = paste0(Sys.getenv()["HOME"],'/projects/idg/gwas/R/tiga'),
 	port = 9999,
 	display.mode = "auto", launch.browser = T)

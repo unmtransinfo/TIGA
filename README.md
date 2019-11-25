@@ -1,4 +1,6 @@
-# GWAS Explorer (GWAX)
+# TIGA: Target Illumination by GWAS Analytics
+
+_(Formerly named GWAX: GWAS Explorer)_
 
 Genome-wide association studies (GWAS) generate large volumes of associations between
 genomic variations and phenotypic traits. However, assessing strength, specificity
@@ -15,7 +17,7 @@ builds upon the __GWAS Catalog__ with more specific applications and use cases,
 focused on protein-coding genes and well defined traits semantically related to disease
 states relevant to discovery of drugs and druggable targets.
 
-See also: [GWAX Poster](https://www.slideshare.net/jeremyjyang/gwas-explorer-drug-target-illumination-by-evidence-aggregation-and-multivariate-mu-scoring) presented at Open Targets - IDG meeting, Wellcome Genome Campus, Hinxton UK, Nov 15, 2019.
+See related [poster](https://www.slideshare.net/jeremyjyang/gwas-explorer-drug-target-illumination-by-evidence-aggregation-and-multivariate-mu-scoring) presented at Open Targets - IDG meeting, Wellcome Genome Campus, Hinxton UK, Nov 15, 2019.
 
 ## GWAS Catalog features
 
@@ -45,7 +47,7 @@ non-convertible units (e.g. mg vs mm). Nor are beta
 coefficients comparable with OR, so it is questionable that these values
 are combined in one field `OR_or_BETA`.
 
-## Features of GWAX
+## Features of TIGA
 
 * Protein-coding gene to disease association focus.
 * Evidence assessment based on confirmatory statistics.
@@ -54,7 +56,7 @@ are combined in one field `OR_or_BETA`.
 effect size versus __&mu; score__, a rational, unbiased,
 non-parametric multivariate method.
 
-## GWAX Workflow
+## TIGA Workflow
 
 * Clean and tidy download files:
     * gwas_catalog_v1.0.2-studies_r2018-09-30.tsv
@@ -70,11 +72,11 @@ non-parametric multivariate method.
   * `RCRAS`: RCR Aggregated Score
   * `pValue`: median of SNP pValues
   * `OR`: median(OR), where OR = `odds_ratio`, or `1/odds_ratio` if &lt;1
-* MySql database intended for transition toward IDG TCRD integration (currently not required for GWAX app).
+* MySql database intended for transition toward IDG TCRD integration (currently not required for TIGA app).
 
-## GWAX Application
+## TIGA Application
 
-* Currently at <http://unmtid-shinyapps.net/gwax/>
+* Currently at <http://unmtid-shinyapps.net/tiga/>
 * Dependencies
    * R 3.6+
    * readr, data.table, shiny, DT, shinyBS, plotly

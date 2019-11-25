@@ -37,5 +37,5 @@ ${cwd}/python/nx_analysis.py cluster \
 #
 ###
 # To do:
-#   * Groups file usable by GWAX app for marker color and selection.
+#   * Groups file usable by TIGA app for marker color and selection.
 #   * Associate nodes with selected ancestor nodes, defining groups.

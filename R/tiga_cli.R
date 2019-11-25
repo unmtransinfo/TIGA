@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### CLI for GWAX
-### gt_stats.tsv.gz produced by gwax_gt_stats.R.
+### CLI for TIGA
+### gt_stats.tsv.gz produced by tiga_gt_stats.R.
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
@@ -16,7 +16,7 @@ if (length(args)==1) {
   (efoId   <- args[1])
   (ofile   <- args[2])
 } else {
-  message("ERROR: Syntax: gwax_cli.R EFOID [OFILE]")
+  message("ERROR: Syntax: tiga_cli.R EFOID [OFILE]")
   quit()
 }
 #

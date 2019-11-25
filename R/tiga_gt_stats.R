@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 #############################################################################
 ### GENE-TRAIT stats
-### gwax_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (GWAX) app.
+### tiga_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (TIGA) app.
 ### ~50min
 #############################################################################
 # Multivariable non-parametric ranking via &mu; scores.
@@ -70,7 +70,7 @@ if (length(args)==5) {
   ifile_tcrd <- "data/tcrd_targets.tsv"
   ofile <- "data/gt_stats.tsv"
 } else {
-  message("ERROR: Syntax: gwax_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE\n...or... no args for defaults")
+  message("ERROR: Syntax: tiga_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE\n...or... no args for defaults")
   quit()
 }
 writeLines(sprintf("Input gwas file: %s", ifile_gwas))
@@ -162,7 +162,7 @@ writeLines(sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION)))
 writeLines(sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE)))
 #
 ###
-# Reported genes ignored by GWAX.
+# Reported genes ignored by TIGA.
 #assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
 #assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
 #writeLines(sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE)))
@@ -172,11 +172,11 @@ writeLines(sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE)))
 ensgs_tcrd <- unique(tcrd$ensemblGeneId)
 writeLines(sprintf("TCRD targets: %d ; ensemblGeneIds: %d", nrow(tcrd), length(ensgs_tcrd)))
 #
-ensgs_gwax <- unique(snp2gene$ensemblId)
-ensgs_common <- intersect(ensgs_gwax, ensgs_tcrd)
+ensgs_tiga <- unique(snp2gene$ensemblId)
+ensgs_common <- intersect(ensgs_tiga, ensgs_tcrd)
 writeLines(sprintf("EnsemblIds mapped to TCRD: %d", length(ensgs_common)))
 #
-tcrd <- merge(tcrd, data.table(ensg=ensgs_gwax, in_gwascat=rep(T, length(ensgs_gwax))),
+tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=rep(T, length(ensgs_tiga))),
 	by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd[, in_gwascat := !is.na(in_gwascat)]
 writeLines(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwascat), .N]))

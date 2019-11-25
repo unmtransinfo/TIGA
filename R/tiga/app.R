@@ -1,7 +1,7 @@
 ##########################################################################################
-### GWAX: GWAS Explorer
+### TIGA: Target Illumination by GWAS Analytics
 ### gt = gene-trait data
-### Dataset gt_stats.tsv from gwax_gt_stats.R.
+### Dataset gt_stats.tsv from tiga_gt_stats.R.
 ### Jeremy Yang
 ##########################################################################################
 ### To do:
@@ -29,12 +29,12 @@ efoId2Uri <- function(efoId) { #(non-vector)
   }
 }
 ##########################################################################################
-APPNAME <- "GWAX"
+APPNAME <- "TIGA"
 MIN_ASSN <- 1
 #
 t0 <- proc.time()
 DEBUG <- F
-if (!file.exists("gwax.Rdata") | DEBUG) {
+if (!file.exists("tiga.Rdata") | DEBUG) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
 	n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(),
@@ -66,10 +66,10 @@ if (!file.exists("gwax.Rdata") | DEBUG) {
   gene_menu <- as.list(gene_menu)
   qry_menu <- as.list(qry_menu)
   #
-  save(gt, trait_table, gene_table, trait_menu, gene_menu, qry_menu, file="gwax.Rdata")
+  save(gt, trait_table, gene_table, trait_menu, gene_menu, qry_menu, file="tiga.Rdata")
 } else {
-  message(sprintf("Loading gwax.Rdata..."))
-  load("gwax.Rdata")
+  message(sprintf("Loading tiga.Rdata..."))
+  load("tiga.Rdata")
   setDT(gt)
 }
 #
@@ -98,9 +98,9 @@ qryRand <- function() {
 #
 #############################################################################
 HelpHtm <- function() {
-  htm <- ("<P><B>GWAX</B>, GWAS Explorer, is designed to facilitate drug target illumination by 
+  htm <- ("<P><B>TIGA</B>, Target Illumination by GWAS Analytics, is designed to facilitate drug target illumination by 
 scoring and ranking of protein-coding genes associated with traits from genome-wide association studies
-(GWAS). Similarly, <B>GWAX</B> can score and rank traits with the same gene-trait association metrics. 
+(GWAS). Similarly, <B>TIGA</B> can score and rank traits with the same gene-trait association metrics. 
 Rather than a comprehensive analysis of GWAS for all biological implications and insights, this
 more focused application provides a rational method by which GWAS findings can be 
 aggregated and filtered for applicable, actionable intelligence, 
@@ -171,12 +171,11 @@ This work was supported by the National Institutes of Health grant U24-CA224370.
 ##########################################################################################
 ui <- fluidPage(
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
-  titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: GWAS Explorer", APPNAME),tags$img(height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog-based drug target illumination (BETA)")),
-      windowTitle=APPNAME),
+  titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: Target Illumination by GWAS Analytics", APPNAME),tags$img(height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog based app (BETA)")), windowTitle=APPNAME),
   fluidRow(
     column(3, 
       wellPanel(
-	dqshiny::autocomplete_input("usrQry", div("Query", 	actionButton("randQuery", 
+	dqshiny::autocomplete_input("usrQry", div("Query", actionButton("randQuery", 
 	       tags$img(height="28", valign="bottom", src="dice.png"),
 	       style='padding:0px; background-color:#DDDDDD'),
 	       actionButton("goReset", 
@@ -194,7 +193,7 @@ ui <- fluidPage(
 	),
     column(9,
 	tabsetPanel(id="tabset", type="tabs",
-		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("gwaxPlot", height = "500px")),
+		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("tigaPlot", height = "500px")),
 		tabPanel(id="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
 		tabPanel(value="traits", title="Traits (all)", DT::dataTableOutput("traits"), br(), downloadButton("traits_file", label="Download Traits (all)")),
 		tabPanel(value="genes", title="Genes (all)", DT::dataTableOutput("genes"), br(), downloadButton("genes_file", label="Download Genes (all)")),
@@ -432,7 +431,7 @@ server <- function(input, output, session) {
     return(text)
   })
 
-  output$gwaxPlot <- renderPlotly({
+  output$tigaPlot <- renderPlotly({
     xaxis <- list(title="Evidence (muScore)", type="normal", zeroline=F, showline=F)
     yaxis <- list(title="Effect (OddsRatio)", type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
 
@@ -548,20 +547,20 @@ server <- function(input, output, session) {
   })
 
   output$hits_file <- downloadHandler(
-    filename = function() { sprintf("gwax_hits_%s.tsv", qryId()) },
+    filename = function() { sprintf("tiga_hits_%s.tsv", qryId()) },
     content = function(file) {
       if (is.null(Hits_export())) { return(NULL) }
       write_delim(Hits_export(), file, delim="\t")
     }
   )
   output$traits_file <- downloadHandler(
-    filename = function() { sprintf("gwax_traits_%s.tsv", qryId()) },
+    filename = function() { sprintf("tiga_traits_%s.tsv", qryId()) },
     content = function(file) {
       write_delim(trait_table, file, delim="\t")
     }
   )
   output$genes_file <- downloadHandler(
-    filename = function() { sprintf("gwax_genes_%s.tsv", qryId()) },
+    filename = function() { sprintf("tiga_genes_%s.tsv", qryId()) },
     content = function(file) {
       write_delim(gene_table, file, delim="\t")
     }
