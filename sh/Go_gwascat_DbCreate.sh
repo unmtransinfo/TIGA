@@ -33,7 +33,10 @@ mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_assn.tsv' INTO T
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_snp2gene.tsv' INTO TABLE snp2gene FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_trait.tsv' INTO TABLE trait2study FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_icite.tsv' INTO TABLE icite FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+#
+gunzip ${DATADIR}/gt_stats.tsv.gz
 mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gt_stats.tsv' INTO TABLE gt_stats FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+gzip ${DATADIR}/gt_stats.tsv
 ###
 mysql -D $DBNAME -e "UPDATE trait2study SET mapped_trait = NULL WHERE mapped_trait IN ('', 'NA')"
 mysql -D $DBNAME -e "UPDATE trait2study SET mapped_trait_uri = NULL WHERE mapped_trait_uri IN ('', 'NA')"
