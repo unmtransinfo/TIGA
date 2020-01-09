@@ -4,6 +4,9 @@
 ### Dataset gt_stats.tsv from tiga_gt_stats.R.
 ### Jeremy Yang
 ##########################################################################################
+### NOTE: requires dqshiny dev version late 2019, via https://github.com/daqana/dqshiny
+### remotes::install_github("daqana/dqshiny")
+##########################################################################################
 ### To do:
 ###  * Links out to Pharos genes, EFO traits
 ##########################################################################################
@@ -287,7 +290,7 @@ server <- function(input, output, session) {
   
   qryId <- reactive({
     if (i_query==0) { #1st query may be via URL http param.
-      message(sprintf("DEBUG: url: \"%s\"", urlText()))
+      #message(sprintf("DEBUG: url: \"%s\"", urlText()))
       qStr <- httpQstr()
       if ("trait" %in% names(qStr)) {
         dqshiny::update_autocomplete_input(session, "usrQry", value=efoId2Name(qStr[["trait"]]))

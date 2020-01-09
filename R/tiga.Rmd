@@ -5,6 +5,8 @@ output:
   html_document:
     number_sections: yes
     toc: yes
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Introduction
@@ -90,16 +92,16 @@ library(plotly, quietly=T)
 From GWAS Catalog, TCRD, and EFO.
 
 ```{r}
-ifile_gwas <- "../data/gwascat_gwas.tsv"
-ifile_assn <- "../data/gwascat_assn.tsv"
-ifile_snp2gene <- "../data/gwascat_snp2gene.tsv"
-ifile_trait <- "../data/gwascat_trait.tsv"
-ifile_icite <- "../data/gwascat_icite.tsv"
-ifile_tcrd <- "../data/tcrd_targets.tsv"
-ifile_efo <- "../data/efo.tsv"
-ifile_efo2do <- "../data/ebi-oxo_efo2doid_mappings_maxd-2.tsv"
-ifile_efo_gwas <- "../data/efo_sub_gwas.tsv"
-gt_statsfile <- "../data/gt_stats.tsv.gz"
+ifile_gwas <- "data/gwascat_gwas.tsv"
+ifile_assn <- "data/gwascat_assn.tsv"
+ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
+ifile_trait <- "data/gwascat_trait.tsv"
+ifile_icite <- "data/gwascat_icite.tsv"
+ifile_tcrd <- "data/tcrd_targets.tsv"
+ifile_efo <- "data/efo.tsv"
+ifile_efo2do <- "data/ebi-oxo_efo2doid_mappings_maxd-2.tsv"
+ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
+gt_statsfile <- "data/gt_stats.tsv.gz"
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
     ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
@@ -306,7 +308,7 @@ The API provides additional data including Ensembl IDs for ___mapped genes___, f
 for additional annotations including gene ___biotype___, thereby filtering for __protein_coding__.
 
 ```{r}
-ensbInfo <- read_delim("../data/gwascat_Snps_EnsemblInfo.tsv.gz", "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
+ensbInfo <- read_delim("data/gwascat_Snps_EnsemblInfo.tsv.gz", "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
 setDT(ensbInfo)
 biotypes <- ensbInfo[, .(N_gene = .N), by="biotype"][order(-N_gene)]
 knitr::kable(biotypes[, Percent := round(100 * N_gene / sum(N_gene), 1)][N_gene >= 100])
@@ -489,7 +491,9 @@ knitr::kable(trait_top[order(-N_study), .(TRAIT, N_study, N_genes)][1:18], capti
 knitr::kable(trait_top[order(-N_genes), .(TRAIT, N_study, N_genes)][1:18], caption="Most-polygenic traits")
 ```
 
-# Prototype GWAX web app.
+# Prototype TIGA web app.
+
+TIGA = Target Illumination by GWAS Analytics
 
 ## Plot single trait with all associated genes.
 
@@ -528,7 +532,7 @@ trait_id <- "EFO_0002508" #Parkinsons disease
 #trait_id <- "EFO_0004574" #total cholesterol measurement
 
 query_uri <- paste0("http://www.ebi.ac.uk/efo/", trait_id)
-query_trait <- gt$trait[gt$trait_uri==query_uri][1]
+query_trait <- gt[efoId==trait_id, first(trait)]
 sprintf("%s: (%s) %s", trait_id, query_uri, query_trait)
 ```
 
@@ -560,7 +564,7 @@ plot_ly(type='scatter', mode='markers', data=t2g[(ok)],
 	y=~or_median, marker=list(symbol="circle", size=~markersize), text=~text) %>%
   layout(xaxis=list(title="Evidence (muScore)", zeroline=F, showline=F), 
          yaxis=list(title="Effect (OddsRatio)"), 
-        title=paste0("GWAX: ", query_trait, "<br>(Trait_ID: ", sub('^.*/', '', query_uri), ")"),
+        title=paste0("TIGA: ", query_trait, "<br>(", trait_id, ")"),
         margin=list(t=100,r=50,b=60,l=60), legend=list(orientation="h", x=1, y=1, xanchor="right"), showlegend=T, font=list(family="monospace", size=18)) %>%
   add_annotations(text=sprintf("N: %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0, y=1.0, xref="paper", yref="paper")
 ```
