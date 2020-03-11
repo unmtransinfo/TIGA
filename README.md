@@ -82,6 +82,10 @@ non-parametric multivariate method.
    * readr, data.table, shiny, DT, shinyBS, plotly
    * [dqshiny](https://github.com/daqana/dqshiny) dev version (late 2019) via `remotes::install_github("daqana/dqshiny")` to resolve update\_autocomplete\_input bug.
 
+## Dependencies
+
+* <https://github.com/jeremyjyang/BioClients>
+
 ## To do:
 
 * Traits may be closely related as defined by the EFO
