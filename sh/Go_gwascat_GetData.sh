@@ -157,7 +157,8 @@ ${cwd}/python/pandas_utils.py \
 	>$DATADIR/gwascat_Snps.ensg
 printf "Ensembl ID count: %d\n" "$(cat $DATADIR/gwascat_Snps.ensg |wc -l)"
 #
-${cwd}/python/ensembl_utils.py \
+#${cwd}/python/ensembl_utils.py \
+python3 -m BioClients.ensembl.Client \
 	--i $DATADIR/gwascat_Snps.ensg \
 	--o $DATADIR/gwascat_Snps_EnsemblInfo.tsv \
 	getInfo
