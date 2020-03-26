@@ -83,7 +83,8 @@ cat $tsvfile_gwas \
 	|awk -F '\t' '{print $2}' \
 	|sort -nu >$DATADIR/gwascat.pmid
 #
-${cwd}/python/pubmed_icite.py get \
+#${cwd}/python/pubmed_icite.py get \
+python3 -m BioClients.icite.Client get \
 	--i $DATADIR/gwascat.pmid \
 	--o $DATADIR/gwascat_icite.tsv
 #
@@ -125,7 +126,8 @@ cat $DATADIR/gwascat_gwas.tsv \
 ###
 # INFO:INPUT RCSTs: 5774; OUTPUT RCSTs: 4879 ; assns: 72366 ; loci: 72529 ; alleles: 73269 ; snps: 73269
 # ~3hr
-${cwd}/python/gwascat_query.py \
+#${cwd}/python/gwascat_query.py \
+python3 -m BioClients.gwascatalog.Client \
 	--i $DATADIR/gwascat_gwas.gcst \
 	--o $DATADIR/gwascat_StudyAssociations.tsv \
 	getStudyAssociations
@@ -142,7 +144,8 @@ cat $DATADIR/gwascat_snp2gene.snpId |grep '^rs' \
 #
 ###
 # ~15hr
-${cwd}/python/gwascat_query.py \
+#${cwd}/python/gwascat_query.py \
+python3 -m BioClients.gwascatalog.Client \
 	--i $DATADIR/gwascat_snp2gene.rs \
 	--o $DATADIR/gwascat_Snps.tsv \
 	getSnps
@@ -157,7 +160,8 @@ ${cwd}/python/pandas_utils.py \
 	>$DATADIR/gwascat_Snps.ensg
 printf "Ensembl ID count: %d\n" "$(cat $DATADIR/gwascat_Snps.ensg |wc -l)"
 #
-${cwd}/python/ensembl_utils.py \
+#${cwd}/python/ensembl_utils.py \
+python3 -m BioClients.ensembl.Client \
 	--i $DATADIR/gwascat_Snps.ensg \
 	--o $DATADIR/gwascat_Snps_EnsemblInfo.tsv \
 	getInfo

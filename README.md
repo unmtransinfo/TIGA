@@ -19,6 +19,10 @@ states relevant to discovery of drugs and druggable targets.
 
 See related [poster](https://www.slideshare.net/jeremyjyang/gwas-explorer-drug-target-illumination-by-evidence-aggregation-and-multivariate-mu-scoring) presented at Open Targets - IDG meeting, Wellcome Genome Campus, Hinxton UK, Nov 15, 2019.
 
+## Dependencies
+
+* [BioClients](https://github.com/jeremyjyang/BioClients) 
+
 ## GWAS Catalog features
 
 * __GWAS Catalog__ studies each have a `study_accession`.
