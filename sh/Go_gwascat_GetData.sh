@@ -130,7 +130,7 @@ cat $DATADIR/gwascat_gwas.tsv \
 python3 -m BioClients.gwascatalog.Client get_studyAssociations \
 	--i $DATADIR/gwascat_gwas.gcst \
 	--o $DATADIR/gwascat_StudyAssociations.tsv
-gzip $DATADIR/gwascat_StudyAssociations.tsv
+gzip -f $DATADIR/gwascat_StudyAssociations.tsv
 #
 # re.match(r'(rs|SNP|snp|chr)', val)
 cat $DATADIR/gwascat_snp2gene.tsv \
@@ -146,7 +146,7 @@ cat $DATADIR/gwascat_snp2gene.snpId |grep '^rs' \
 python3 -m BioClients.gwascatalog.Client get_snps \
 	--i $DATADIR/gwascat_snp2gene.rs \
 	--o $DATADIR/gwascat_Snps.tsv
-gzip $DATADIR/gwascat_Snps.tsv
+gzip -f $DATADIR/gwascat_Snps.tsv
 #
 ##
 # (Split semicolon-separated multi-ENSG's.)
@@ -163,6 +163,7 @@ printf "Ensembl ID count: %d\n" "$(cat $DATADIR/gwascat_Snps.ensg |wc -l)"
 python3 -m BioClients.ensembl.Client get_info \
 	--i $DATADIR/gwascat_Snps.ensg \
 	--o $DATADIR/gwascat_Snps_EnsemblInfo.tsv
+gzip -f $DATADIR/gwascat_Snps_EnsemblInfo.tsv
 #
 #############################################################################
 # Gene-trait statistics:
