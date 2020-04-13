@@ -37,8 +37,8 @@ for (tag in colnames(gwas)) {
   }
 }
 
-# Parse study_N from INITIAL_SAMPLE_SIZE
-gwas[, study_N := INITIAL_SAMPLE_SIZE]
+# Parse study_N from INITIAL_SAMPLE_SIZE. Sum sub-samples.
+gwas[, study_N := INITIAL_SAMPLE_SIZE] #data.table warning spurious. 
 gwas[, study_N := gsub("PMID:[0-9]+", "", study_N)]
 gwas[, study_N := gsub("[^0-9,]+", "\t", study_N)]
 gwas[, study_N := gsub(",", "", study_N)]
@@ -49,7 +49,6 @@ gwas[, study_N := gsub("\t", "+", study_N)]
 gwas[, study_N := sapply(sapply(study_N, str2lang), eval)]
 gwas[, study_N := as.integer(study_N)]
 writeLines(sprintf("UNPARSED INITIAL_SAMPLE_SIZE: %s", gwas[is.na(study_N), INITIAL_SAMPLE_SIZE]))
-
 
 message(sprintf("Total gwas count: %6d", nrow(gwas)))
 

@@ -1,33 +1,47 @@
 #!/bin/bash
 #
-EFODIR="/home/data/EFO/data"
-#
-OWLFILE="$EFODIR/efo.owl"
-#
 cwd=$(pwd)
 #
 DATADIR=${cwd}/data
 #
-cd $HOME/src/iu_idsl_jena
+if [ "$(uname -s)" = "Darwin" ]; then
+	EFO_DIR="/Users/data/EFO/data"
+else
+	EFO_DIR="/home/data/EFO/data"
+fi
 #
-mvn exec:java \
-	-Dexec.mainClass="edu.indiana.sice.idsl.jena.jena_utils" \
-	-Dexec.args="-ontfile ${OWLFILE} -vv -ont2tsv -o ${DATADIR}/efo.tsv"
+OWLFILE="$EFO_DIR/efo.owl"
+EFO_URL="https://github.com/EBISPOT/efo/releases/download/current/efo.owl"
+wget -q -O $OWLFILE $EFO_URL
+#
+if [ "$(uname -s)" = "Darwin" ]; then
+	LIBDIR="/Users/app/lib"
+else
+	LIBDIR="/home/app/lib"
+fi
+#
+###
+# See https://github.com/IUIDSL/iu_idsl_util and
+# https://github.com/IUIDSL/iu_idsl_jena
+java -classpath $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar edu.indiana.sice.idsl.jena.jena_utils \
+	-ontfile ${OWLFILE} -vv -ont2tsv -o ${DATADIR}/efo.tsv
 #
 ###
 # CYJS: Not needed now but maybe later?
-mvn exec:java \
-	-Dexec.mainClass="edu.indiana.sice.idsl.jena.jena_utils" \
-	-Dexec.args="-ontfile ${OWLFILE} -vv -ont2cyjs -o ${DATADIR}/efo.cyjs"
+java -classpath $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar edu.indiana.sice.idsl.jena.jena_utils \
+	-ontfile ${OWLFILE} -vv -ont2cyjs -o ${DATADIR}/efo.cyjs
+java -classpath $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar edu.indiana.sice.idsl.jena.jena_utils \
+	-ontfile ${OWLFILE} -vv -ont2edgelist -o ${DATADIR}/efo_edgelist.tsv
+java -classpath $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar edu.indiana.sice.idsl.jena.jena_utils \
+	-ontfile ${OWLFILE} -vv -ont2nodelist -o ${DATADIR}/efo_nodelist.tsv
 #
-mvn exec:java \
-	-Dexec.mainClass="edu.indiana.sice.idsl.jena.jena_utils" \
-	-Dexec.args="-ontfile ${OWLFILE} -vv -ont2edgelist -o ${DATADIR}/efo_edgelist.tsv"
-mvn exec:java \
-	-Dexec.mainClass="edu.indiana.sice.idsl.jena.jena_utils" \
-	-Dexec.args="-ontfile ${OWLFILE} -vv -ont2nodelist -o ${DATADIR}/efo_nodelist.tsv"
+###
 #
-cd ${cwd}
+pandas_utils.py selectcols --coltags "id" \
+	--i $DATADIR/gwascat_trait.tsv \
+	|sed -e '1d' \
+	>$DATADIR/gwascatalog.efoid
+###
 ${cwd}/python/nx_analysis.py cluster \
 	--i_edge $DATADIR/efo_edgelist.tsv \
 	--i_node_attr $DATADIR/efo_nodelist.tsv \

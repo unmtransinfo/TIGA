@@ -44,7 +44,7 @@ for (i in 1:nrow(trait_multi)) {
   traits <- strsplit(trait_multi$MAPPED_TRAIT[i], ', ', perl=T)[[1]]
   accs <- rep(trait_multi$STUDY_ACCESSION[i], length(uris))
   if (length(uris)!=length(traits)) {
-    message(sprintf("ERROR: length(uris)!=length(traits) (%d!=%d) \"%s\"", length(uris), length(traits), trait_multi$MAPPED_TRAIT[i]))
+    message(sprintf("ERROR: length(uris)!=length(traits) (%d!=%d) (probably due to commas in trait names) \"%s\"", length(uris), length(traits), trait_multi$MAPPED_TRAIT[i]))
     traits <- rep(trait_multi$MAPPED_TRAIT[i], length(uris)) #Commas in trait names, so must be curated manually.
   }
   trait <- rbind(trait, data.frame(STUDY_ACCESSION=accs, MAPPED_TRAIT_URI=uris, MAPPED_TRAIT=traits))
@@ -75,7 +75,7 @@ for (i in 1:max(trait_study_counts$N_study)) {
 }
 
 ###
-efo <- read_delim(ifile_efo, "\t")
+efo <- read_delim(ifile_efo, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo <- efo[node_or_edge == "node"]
 efo[, `:=`(node_or_edge = NULL, source = NULL, target = NULL)]
