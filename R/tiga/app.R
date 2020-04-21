@@ -7,8 +7,8 @@
 ### NOTE: requires dqshiny dev version late 2019, via https://github.com/daqana/dqshiny
 ### remotes::install_github("daqana/dqshiny")
 ##########################################################################################
-### To do:
-###  * Links out to Pharos genes, EFO traits
+### Autosuggest is dependent on dqshiny and shiny versions and is fussy. shiny 1.4.0 is
+### ok (but possibly not 1.4.0.2) with dqshiny 0.0.3.9000 and shinyBS 0.61.
 ##########################################################################################
 library(readr)
 library(data.table)
@@ -17,7 +17,9 @@ library(shinyBS, quietly=T)
 library(dqshiny, quietly=T) #https://github.com/daqana/dqshiny
 library(DT, quietly=T)
 library(plotly, quietly=T)
-
+#
+pkgs <- names(sessionInfo()$otherPkgs)
+pkgVerTxt <- paste(sprintf("%s %s", pkgs, sapply(pkgs, function(p){paste(packageVersion(p), collapse=".")})), collapse="; ")
 ###
 efoId2Uri <- function(efoId) { #(non-vector)
   if (is.null(efoId)) { return(NA) }
@@ -158,11 +160,7 @@ Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and En
 <B>Feedback welcome</B> to corresponding author  
 <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
 This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
-  pkgVerHtm <- ""
-  for (pkg in names(sessionInfo()$otherPkgs)) {
-    pkgVerHtm <- paste0(pkgVerHtm, sprintf("; %s %s", pkg, packageVersion(pkg)))
-  }
-  htm <- paste(htm, sprintf("<hr>\nBuilt with:\n<pre>%s %s</pre>", R.version.string, pkgVerHtm), sep="\n")
+  htm <- paste(htm, sprintf("<hr>\nBuilt with:\n<pre>%s; %s</pre>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
 }
 
@@ -341,7 +339,7 @@ server <- function(input, output, session) {
   output$plotTabTxt <- renderText({ ifelse(is.null(Hits()), "Plot", sprintf("Plot (%ss)", hitType())) })
   output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d %ss)", nrow(Hits()), hitType()), "Hits (0)") })
 
-  HitsHtm <- reactive({
+  HitsWithHtm <- reactive({
     hh <- data.table(Hits()) #copy
     if (hitType()=="gene") {
       hh <- hh[, geneSymbol := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", geneSymbol, geneSymbol)]
@@ -481,30 +479,38 @@ server <- function(input, output, session) {
     return(p)
   })
   
+  #DT numbers cols from 0.
   #"ensemblId","geneSymbol","geneName","geneFamily","TDL","n_study","study_N_mean","n_snp","n_snpw","geneNtrait","pvalue_mlog_median","or_median","rcras","muScore","muRank"
   output$hitrows <- DT::renderDataTable({
     if (is.null(Hits())) {
       return(NULL)
     } else if (hitType()=="gene") {
-      return(DT::datatable(data=HitsHtm(), escape=F, rownames=F,
-	selection=list(target="row", mode="multiple", selected=NULL),
-	class="cell-border stripe", style="bootstrap",
-	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
-		columnDefs = list(
-			list(className='dt-center', targets=c(0, 3:(ncol(Hits())-2))), #Numbered from 0.
-			list(visible=F, targets=c(0, ncol(Hits())-1)))), #Numbered from 0.
-	colnames=c("ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "study_N", "N_snp", "N_snpw", "N_trait", "pVal_mlog", "OR", "RCRAS", "muScore", "muRank", "ok")
-  ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(7,9,11,12,13))) #Numbered from 1.
+      return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
+          	selection=list(target="row", mode="multiple", selected=NULL),
+		colnames=c("ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "study_N", "N_snp", "N_snpw", "N_trait", "pVal_mlog", "OR", "RCRAS", "muScore", "muRank", "ok"),
+          	options=list(
+			autoWidth=T, dom='tip',
+			columnDefs=list(
+          	               list(className='dt-center', targets=c(0, 3:(ncol(HitsWithHtm())-2))),
+          	               list(visible=F, targets=c(0, ncol(HitsWithHtm())-1))
+				)
+			)
+	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw"), digits=2))
   } else if (hitType()=="trait") {
-      return(DT::datatable(data=HitsHtm(), escape=F, rownames=F,
-	selection=list(target="row", mode="multiple", selected=NULL),
-	class="cell-border stripe", style="bootstrap",
-	options=list(autoWidth=T, dom='tip', #dom=[lftipr]
-		columnDefs = list(
-			list(className='dt-center', targets=c(0, 2:(ncol(Hits())-2))), #Numbered from 0.
-			list(visible=F, targets=c(0, ncol(Hits())-1)))), #Numbered from 0.
-	colnames=c("efoId", "trait", "N_study", "study_N", "N_snp", "N_snpw", "N_gene", "pVal_mlog", "OR", "RCRAS", "muScore", "muRank", "ok")
-  ) %>% formatRound(digits=c(0,2,2,2,2), columns=c(6,8,9,10,11))) #Numbered from 1.
+      return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
+		selection=list(target="row", mode="multiple", selected=NULL),
+		colnames=c("efoId", "trait", "N_study", "study_N", "N_snp", "N_snpw", "N_gene", "pVal_mlog", "OR", "RCRAS", "muScore", "muRank", "ok"),
+		options=list(
+			autoWidth=T, dom='tip',
+			columnDefs=list(
+				list(className='dt-center', targets=c(0, 2:(ncol(HitsWithHtm())-2))),
+				list(visible=F, targets=c(ncol(HitsWithHtm())-1))
+				)
+			)
+	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw"), digits=2)) 
+  } else {
+    message(sprintf("ERROR: hitType()=%s; must be 'gene' or 'trait'.", hitType()))
+    return(NULL)
   }}, server=T)
 
   trait_tableHtm <- reactive({
