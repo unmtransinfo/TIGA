@@ -39,12 +39,7 @@ t0 <- proc.time()
 DEBUG <- F
 if (!file.exists("tiga.Rdata") | DEBUG) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
-  gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
-	n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(),
-	geneNtrait=col_integer(), geneNstudy=col_integer(),
-	traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(),
-	geneMuScore=col_double(), geneMuRank=col_integer(),
-	traitMuScore=col_double(), traitMuRank=col_integer()))
+  gt <- read_delim("gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(),	traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(), geneMuScore=col_double(), geneMuRank=col_integer(),	traitMuScore=col_double(), traitMuRank=col_integer()))
   setDT(gt)
   setnames(gt, old=c("geneIdgTdl"), new=c("TDL"))
   #

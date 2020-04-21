@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 #############################################################################
 ### GENE-TRAIT stats
-### tiga_gt_stats.R - Produce gt_stats.csv, for GWAS Explorer (TIGA) app.
-### ~50min
+### tiga_gt_stats.R - Produce gt_stats.csv, for TIGA Shiny app.
+### ~1hr
 #############################################################################
 # Multivariable non-parametric ranking via &mu; scores.
 ###
@@ -68,7 +68,7 @@ if (length(args)==5) {
   ifile_snps <- "data/gwascat_Snps.tsv.gz" #API
   ifile_ensembl <- "data/gwascat_Snps_EnsemblInfo.tsv.gz"
   ifile_tcrd <- "data/tcrd_targets.tsv"
-  ofile <- "data/gt_stats.tsv"
+  ofile <- "data/gt_stats.tsv.gz"
 } else {
   message("ERROR: Syntax: tiga_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE\n...or... no args for defaults")
   quit()
@@ -112,8 +112,10 @@ setDT(ensemblInfo)
 #
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
-#
 trait[, traitNstudy := uniqueN(STUDY_ACCESSION), by="MAPPED_TRAIT_URI"]
+setnames(trait, old=c("MAPPED_TRAIT_URI", "MAPPED_TRAIT"), new=c("TRAIT_URI", "TRAIT"))
+trait <- trait[!is.na(trait$TRAIT_URI)]
+trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 #
 ###
 # Estimate RCR prior for new publications as median.
@@ -151,10 +153,7 @@ snp2gene <- unique(snp2gene)
 tcrd <- read_delim(ifile_tcrd, "\t", na=c("", "NA", "NULL"), col_types=cols(.default=col_character(), idgList=col_logical()))
 setDT(tcrd)
 ###
-#Clean & transform:
-setnames(trait, c("STUDY_ACCESSION", "TRAIT", "TRAIT_URI", "id", "efo_label", "traitNstudy"))
-trait <- trait[!is.na(trait$TRAIT_URI)]
-trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
+
 ###
 # Counts:
 writeLines(sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION)))
@@ -394,5 +393,6 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
 gt_stats[, `:=`(geneNtrait_inv = NULL, traitNgene_inv = NULL)]
 #
 write_delim(gt_stats, ofile, delim="\t")
+writeLines(sprintf("Output file written: %s", ofile))
 #
 message(sprintf("NOTE: elapsed time: %.2fs",(proc.time()-t0)[3]))
