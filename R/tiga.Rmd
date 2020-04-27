@@ -1,5 +1,5 @@
 ---
-title: "GWAS Explorer (GWAX)"
+title: "Target Illumination by GWAS Analytics (TIGA)"
 author: "Jeremy Yang"
 output:
   html_document:
@@ -13,7 +13,7 @@ editor_options:
 
 Genome wide association studies (GWAS) can reveal important genotype to phenotype
 associations, however, data quality and interpretability issues must be addressed.
-The GWAX approach enables rational ranking, filtering and interpretation of GWAS
+The TIGA approach enables rational ranking, filtering and interpretation of GWAS
 via metrics, methods, and interactive visualization.  Each inferred gene-to-trait
 association is evaluated for confidence and relevance, with scores solely derived
 from aggregated statistics, linking a protein-coding gene and phenotype. Applicability
@@ -24,12 +24,12 @@ and thresholds will depend on use cases.
 * RCRAS, Relative Citation Ratio (RCR) Aggregated Score based on iCite-RCR.
 * Confidence higher (and provenance/accountability) for `mapped` over `reported` SNP-gene associations.
 * Ensembl IDs (from API) used rather than gene symbols for more accurate gene mapping.
-* Prototype RShiny app: <http://unmtid-shinyapps.net/gwax/>
+* Prototype RShiny app: <http://unmtid-shinyapps.net/tiga/>
 
 Issues:
 
-* BETA not comparable for different units, thus currently only OR used for GWAX.
-* Can disease-gene associations be enriched by tissue-specificity via methods such as [NetWAS](https://hb.flatironinstitute.org/netwas)? If yes, should such a method be integrated with GWAX or perhaps supported as a post-processing step? Or/and is POSTGAP (Ensembl) already considering such sources.
+* BETA not comparable for different units, thus currently only OR used for TIGA.
+* Can disease-gene associations be enriched by tissue-specificity via methods such as [NetWAS](https://hb.flatironinstitute.org/netwas)? If yes, should such a method be integrated with TIGA or perhaps supported as a post-processing step? Or/and is POSTGAP (Ensembl) already considering such sources.
 * If a trait is a disease or syndrome, and so polygenic as to be poorly addressed by GWAS, can this be 
 inferred by some score? Perhaps simply the N\_gene count (mapped) for a trait.
 (E.g. "intelligence" N\_gene ~ 600, "schizophrenia" N\_gene ~ 800).
@@ -336,13 +336,13 @@ TCRD mapping.
 gsyms_tcrd <- unique(tcrd$tcrdGeneSymbol) #mapped
 ensgs_tcrd <- unique(tcrd$ensemblGeneId) #mapped
 sprintf("TCRD targets: %d ; ENSGs: %d; geneSymbols: %d", nrow(tcrd), length(ensgs_tcrd), length(gsyms_tcrd))
-gsyms_gwax <- unique(snp2gene$GSYMB)
-ensgs_gwax <- unique(ensbInfo$id)
-gsyms_common <- intersect(gsyms_gwax, gsyms_tcrd)
-ensgs_common <- intersect(ensgs_gwax, ensgs_tcrd)
+gsyms_tiga <- unique(snp2gene$GSYMB)
+ensgs_tiga <- unique(ensbInfo$id)
+gsyms_common <- intersect(gsyms_tiga, gsyms_tcrd)
+ensgs_common <- intersect(ensgs_tiga, ensgs_tcrd)
 sprintf("GSYMBs mapped to TCRD: %d", length(gsyms_common))
 sprintf("ENSGs mapped to TCRD: %d", length(ensgs_common))
-tcrd <- merge(tcrd, data.table(ensg=ensgs_gwax, in_gwascat=rep(T, length(ensgs_gwax))),
+tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=rep(T, length(ensgs_tiga))),
 	by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
 tcrd$idgList <- as.logical(tcrd$idgList)
@@ -457,7 +457,7 @@ knitr::kable(efo2do_gwas[sample(1:nrow(efo2do_gwas), 10)], caption="EBI OXO EFO-
 
 # GENE-TRAIT stats
 
-Read gt_stats.tsv, built by gwax_gt_stats.R for GWAX. Statistics designed to weigh evidence aggregated across
+Read gt_stats.tsv, built by tiga_gt_stats.R for TIGA. Statistics designed to weigh evidence aggregated across
 studies, for each gene-trait association.
 
 
@@ -573,6 +573,6 @@ Top hits:
 
 ```{r}
 setorder(t2g, geneMuRank)
-knitr::kable(t2g[(ok)][1:10][, .(GSYMB=geneSymbol, name=geneName, family=geneFamily, geneIdgTdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, geneMuScore, geneMuRank)], caption=sprintf("GWAX: %s, top hits", query_trait))
+knitr::kable(t2g[(ok)][1:10][, .(GSYMB=geneSymbol, name=geneName, family=geneFamily, geneIdgTdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, geneMuScore, geneMuRank)], caption=sprintf("TIGA: %s, top hits", query_trait))
 ```
 
