@@ -3,10 +3,11 @@
 library(readr)
 library(data.table)
 
+
 ###
 # JensenLab DISEASES:
 #Experiments means (1) DistiLD (GWAS) and (2) COSMIC (somatic mutations in cancer).
-diseases_exp <- read_delim("/home/data/JensenLab/DISEASES/human_disease_experiments_full.tsv", "\t", col_names=c("geneEnsp", "geneSymbol", "doId", "doName", "DISEASES_source", "DISEASES_evidence", "DISEASES_confidence"))
+diseases_exp <- read_delim(paste0(Sys.getenv("HOME"), "/../data/JensenLab/DISEASES/human_disease_experiments_full.tsv"), "\t", col_names=c("geneEnsp", "geneSymbol", "doId", "doName", "DISEASES_source", "DISEASES_evidence", "DISEASES_confidence"))
 setDT(diseases_exp)
 diseases_exp <- diseases_exp[order(-DISEASES_confidence), .SD, by=c("doId", "doName")]
 
@@ -45,6 +46,7 @@ results_diseases <- data.table(
 )
 Ngenes_min <- 100L
 i <- 0L
+cat("i\tefoId\tefoName\tdoId\tdoName\ttiga_Ngenes\tdiseases_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\n")
 for (efoId_this in tiga[, unique(efoId)]) {
   if (tiga[efoId==efoId_this, uniqueN(ensemblId)] < Ngenes_min) { next }
   tiga_this <- tiga[efoId==efoId_this]
@@ -58,10 +60,7 @@ for (efoId_this in tiga[, unique(efoId)]) {
   diseases_exp_this <- diseases_exp[doId == doId_this]
   diseases_Ngenes <- diseases_exp_this[, uniqueN(geneSymbol)]
   genes_in_common <- intersect(diseases_exp_this$geneSymbol, tiga_this$geneSymbol)
-  print(sprintf("%d. %s (\"%s\") ; %s (\"%s\"); TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon: %d (%.1f%%)", i, efoId_this, efoName_this, 
-                  doId_this, doName_this, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), 
-                  100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes)))
-
+  cat(sprintf("%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%.1f%%\n", i, efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes)))
   set(results_diseases, i, names(results_diseases), list(efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes)))
   if (i==I_max) { break }
 }
@@ -72,16 +71,15 @@ write_delim(results_diseases[, .(efoId)], "data/benchmarks.efoId", col_names=F)
 #
 ###
 # Totals:
-message(sprintf("TOTAL TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon: %d (median %.1f%%)",
+message(sprintf("TOTAL TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon: %d (median %.1f%%)\n",
 	results_diseases[, sum(tiga_Ngenes)],
 	results_diseases[, sum(diseases_Ngenes)],
 	results_diseases[, sum(inCommon_Ngenes)],
 	results_diseases[, median(inCommon_pct)]))
 #
 ###
-# OpenTargets
-message("Calling OpenTargets API...")
-system("python3 -m BioClients.opentargets.Client searchAssociations -v --idtype 'disease' --i data/benchmarks.efoId --o data/benchmarks_opentargets.tsv")
+# OpenTargets (via OpenTargets API)
+# python3 -m BioClients.opentargets.Client searchAssociations -v --idtype 'disease' --i data/benchmarks.efoId --o data/benchmarks_opentargets.tsv
 #
 # id, is_direct, target_id, gene_name, gene_symbol, disease_id, disease_efo_label, score_overall
 opentargets <- read_delim("data/benchmarks_opentargets.tsv", "\t", col_types=cols(.default=col_character(), is_direct=col_logical()))
@@ -110,6 +108,7 @@ results_ot <- data.table(
 	inCommon_pct=rep(as.integer(NA), I_max)
 )
 i <- 0L
+cat("i\tefoId\tefoName\tdoId\tdoName\ttiga_Ngenes\topentargets_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\n")
 for (efoId_this in tiga[, unique(efoId)]) {
   if (tiga[efoId==efoId_this, uniqueN(ensemblId)] < Ngenes_min) { next }
   tiga_this <- tiga[efoId==efoId_this]
@@ -123,10 +122,7 @@ for (efoId_this in tiga[, unique(efoId)]) {
   opentargets_this <- opentargets_this[assn_score_source.ot_genetics_portal>=.8]
   opentargets_Ngenes <- opentargets_this[, uniqueN(geneSymbol)]
   genes_in_common <- intersect(opentargets_this$geneSymbol, tiga_this$geneSymbol)
-  print(sprintf("%d. %s (\"%s\") ; %s (\"%s\"); TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCommon: %d (%.1f%%)", i, efoId_this, efoName_this, 
-                  doId_this, doName_this, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 
-                  100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes)))
-
+  cat(sprintf("%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%.1f%%\n", i, efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes)))
   set(results_ot, i, names(results_ot), list(efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes)))
   if (i==I_max) { break }
 }
@@ -136,10 +132,9 @@ write_delim(results_ot, "data/benchmarks_results_opentargets.tsv", "\t")
 
 ###
 # Totals:
-message(sprintf("TOTAL TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCommon: %d (median %.1f%%)",
+message(sprintf("TOTAL TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCommon: %d (median %.1f%%)\n",
 	results_ot[, sum(tiga_Ngenes)],
 	results_ot[, sum(ot_Ngenes)],
 	results_ot[, sum(inCommon_Ngenes)],
 	results_ot[, median(inCommon_pct)]))
 #
-# library(plotly)

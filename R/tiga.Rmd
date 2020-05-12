@@ -129,10 +129,6 @@ sprintf("Studies: %d; traits: %d ; PMIDs: %d", uniqueN(gwas$STUDY_ACCESSION), un
 gwas[, `:=`(YEAR = format(DATE,"%Y"), PLATFORM = sub("[, ].*$", "", `PLATFORM_[SNPS_PASSING_QC]`))]
 gwas_platforms <- gwas[, .(.N), by=c("YEAR", "PLATFORM")]
 setorder(gwas_platforms, YEAR, PLATFORM)
-#plot_ly(type="bar", data=gwas_platforms[, .(N_study = sum(N)), by=YEAR], x=~YEAR, y=~N_study) %>%
-#  layout(title="GWAS Catalog Counts", 
-#         margin=list(t=120), font=list(family="monospace", size=18)) %>%
-#  add_annotations(text=sprintf("N_study = %d", nrow(gwas)), showarrow=F, x=0.1, y=1.0, xref="paper", yref="paper")
 gwas_platforms_cast <- dcast(gwas_platforms, YEAR ~ PLATFORM, value.var="N", fill=0)
 plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="NR",
                 type="scatter", mode="markers", fill="tonexty") %>%
@@ -140,39 +136,40 @@ plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="NR",
   add_trace(y = ~Affymetrix, name="Affymetrix") %>%
   add_trace(y = ~Illumina, name="Illumina") %>%
   layout(title = 'GWAS counts by year &amp; vendor',
-         xaxis = list(title="", showgrid=F),
-         yaxis = list(title="N_study", showgrid=F),
+         xaxis = list(title="", showgrid=F, range=c(2005, 2017), dtick=1, tickangle=45),
+         yaxis = list(title="", showgrid=F),
          margin = list(t=100, l=100),
          font = list(family="monospace", size=18),
-         legend = list(x=.1, y=.9), showlegend=T)
+         legend = list(x=.1, y=.7), showlegend=T) %>%
+  add_annotations(text=("N = count(study_accession IDs)"), showarrow=F, x=0.05, y=1, xref="paper", yref="paper")
 ```
 
 ### Sample size
 
 Statistical power and strength of evidence is dependent on size of the cohort.
+Sample size box plots by year.
 
 ```{r}
-#anns <- c(sprintf("median: %d", median(gwas$study_N)),
-#          sprintf("mean: %.1f", mean(gwas$study_N)),
-#          sprintf("range: [%d-%d]", min(gwas$study_N), max(gwas$study_N)))
-#plot_ly(gwas, type="histogram", x=~study_N, marker=list(color="#CC2222")) %>%
-#  layout(title="GWAS sample sizes",
-#         xaxis=list(title="Sample size", type="normal"), yaxis=list(title="N_Study", type="log"),
-#         margin = list(t=100, l=100),
-#         font = list(family="monospace", size=18)) %>%
-#  add_annotations(text=paste0(anns, collapse="<br>"), showarrow=F, x=0.5, y=.9, xref="paper", yref="paper")
-#
-  bins <- c(0, 5e2, 1e3, 1e4, 5e4, 1e5, Inf)
-  minN = bins[1:length(bins)-1]
-  maxN = bins[2:length(bins)]
-  gwas_counts <- data.table(minN=minN, maxN=maxN, count = NA)
-  for (i in 1:nrow(gwas_counts)) {
-    gwas_counts$count[i] <- uniqueN(gwas[(study_N>=minN[i] & study_N<maxN[i]), STUDY_ACCESSION])
-  }
-  gwas_counts[, name := sprintf("(%6g <= N < %6g)", minN, maxN)]
-  gwas_counts[, pct := 100 * count / sum(count)]
-  knitr::kable(gwas_counts[, .(Sample_size = name, Study_count = count, Pct = pct)], caption="GWAS sample sizes", digits=1)
+plot_ly(gwas, x=~YEAR, y=~study_N, type="box") %>%
+    layout(title="GWAS sample sizes",
+         xaxis=list(title="", tickangle=45), yaxis=list(title="N_Study", type="log"),
+         margin = list(t=100, l=100),
+         font = list(family="monospace", size=18)) %>%
+  add_annotations(text=sprintf("median:%d  mean:%d  range:[%d-%d]", median(gwas$study_N), round(mean(gwas$study_N)), min(gwas$study_N), max(gwas$study_N)), showarrow=F, x=0.5, y=1, xref="paper", yref="paper")
+```
 
+
+```{r}
+bins <- c(0, 5e2, 1e3, 1e4, 5e4, 1e5, Inf)
+minN = bins[1:length(bins)-1]
+maxN = bins[2:length(bins)]
+gwas_counts <- data.table(minN=minN, maxN=maxN, count = NA)
+for (i in 1:nrow(gwas_counts)) {
+  gwas_counts$count[i] <- uniqueN(gwas[(study_N>=minN[i] & study_N<maxN[i]), STUDY_ACCESSION])
+}
+gwas_counts[, name := sprintf("(%6g <= N < %6g)", minN, maxN)]
+gwas_counts[, pct := 100 * count / sum(count)]
+knitr::kable(gwas_counts[, .(Sample_size = name, Study_count = count, Pct = pct)], caption="GWAS sample sizes", digits=1)
 ```
 
 ### Journals
