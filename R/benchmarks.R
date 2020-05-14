@@ -1,5 +1,8 @@
 #!/usr/bin/env Rscript
 ###
+# https://stats.stackexchange.com/questions/52756/probability-of-overlap-between-independent-samples-of-different-sizes
+# (extreme-tail hypergeometric probability)
+###
 library(readr)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
@@ -33,7 +36,9 @@ setDT(tiga)
 tiga <- merge(tiga, do2efo[, .(efoId, doId, doName)], by="efoId")
 
 ###
-I_max <- 100L
+I_max <- 100L #Max diseases to consider.
+Ngenes_min <- 50L #Min genes per disease.
+###
 results_diseases <- data.table(
 	efoId=rep(as.character(NA), I_max),
 	efoName=rep(as.character(NA)),
@@ -43,14 +48,14 @@ results_diseases <- data.table(
 	diseases_Ngenes=rep(as.integer(NA), I_max),
 	inCommon_Ngenes=rep(as.integer(NA), I_max),
 	inCommon_pct=rep(as.integer(NA), I_max),
+	inCommon_pVal=rep(as.numeric(NA), I_max),
 	corPearson=rep(as.numeric(NA), I_max),
 	corSpearman=rep(as.numeric(NA), I_max),
 	corKendall=rep(as.numeric(NA), I_max)
 )
-Ngenes_min <- 100L
 i <- 0L
 plots_diseases <- list()
-cat("i\tefoId\tefoName\tdoId\tdoName\ttiga_Ngenes\tdiseases_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\tcorSpearman\n")
+cat("i\tefoId\tefoName\tdoId\tdoName\ttiga_Ngenes\tdiseases_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\tNgenes_InCommonPval\tcorSpearman\n")
 for (efoId_this in tiga[, unique(efoId)]) {
   if (tiga[efoId==efoId_this, uniqueN(ensemblId)] < Ngenes_min) { next }
   tiga_this <- tiga[efoId==efoId_this]
@@ -65,23 +70,33 @@ for (efoId_this in tiga[, unique(efoId)]) {
   diseases_Ngenes <- diseases_exp_this[, uniqueN(geneSymbol)]
   genes_in_common <- intersect(diseases_exp_this$geneSymbol, tiga_this$geneSymbol)
 
-  # Correlate scores
-  tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
-  diseases_exp_this_scores <- diseases_exp_this[, .(doId, geneSymbol, DISEASES_confidence)]
-  tiga_vs_diseases <- merge(tiga_this_scores, diseases_exp_this_scores, by=c("doId", "geneSymbol"), all=F)
-  corPearson <- cor(tiga_vs_diseases$geneMuScore, tiga_vs_diseases$DISEASES_confidence, method="pearson")
-  corSpearman <- cor(tiga_vs_diseases$geneMuScore, tiga_vs_diseases$DISEASES_confidence, method="spearman")
-  corKendall <- cor(tiga_vs_diseases$geneMuScore, tiga_vs_diseases$DISEASES_confidence, method="kendall")
+  inCommon_pval <- phyper(length(genes_in_common), 
+	min(tiga_Ngenes, diseases_Ngenes),
+	20000-min(tiga_Ngenes, diseases_Ngenes),
+	max(tiga_Ngenes, diseases_Ngenes),
+	lower.tail=F)
 
-  cat(sprintf("%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%.1f%%\t%.3f\t%.3f\t%.3f\n", i, efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes), corPearson, corSpearman, corKendall))
-  set(results_diseases, i, names(results_diseases), list(efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes), corPearson, corSpearman, corKendall))
+  # Correlate scores
+  if (length(genes_in_common) > 2) {
+    tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
+    diseases_exp_this_scores <- diseases_exp_this[, .(doId, geneSymbol, DISEASES_confidence)]
+    tiga_vs_diseases <- merge(tiga_this_scores, diseases_exp_this_scores, by=c("doId", "geneSymbol"), all=F)
+    corPearson <- cor(tiga_vs_diseases$geneMuScore, tiga_vs_diseases$DISEASES_confidence, method="pearson")
+    corSpearman <- cor(tiga_vs_diseases$geneMuScore, tiga_vs_diseases$DISEASES_confidence, method="spearman")
+    corKendall <- cor(tiga_vs_diseases$geneMuScore, tiga_vs_diseases$DISEASES_confidence, method="kendall")
+  } else {
+    corPearson <- NA
+    corSpearman <- NA
+    corKendall <- NA
+  }
+
+  cat(sprintf("%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%.1f%%\t%g\t%.3f\t%.3f\t%.3f\n", i, efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), inCommon_pval, 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes), corPearson, corSpearman, corKendall))
+  set(results_diseases, i, names(results_diseases), list(efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes), inCommon_pval, corPearson, corSpearman, corKendall))
   
   annos <- c(sprintf("corPearson: %.3f", corPearson), sprintf("corSpearman: %.3f", corSpearman), sprintf("corKendall: %.3f", corKendall))
   plots_diseases[[i]] <- plot_ly(tiga_vs_diseases, x=~DISEASES_confidence, y=~geneMuScore, type="scatter", mode="markers") %>%
 	layout(title=sprintf("%s (%s)<br>geneMuScore vs DISEASES_confidence", efoId_this, efoName_this)) %>%
 	add_annotations(text=annos, showarrow=F, x=.5, y=.1, xref="paper", yref="paper")
-  
-  
   
   if (i==I_max) { break }
 }
@@ -92,11 +107,13 @@ write_delim(results_diseases[, .(efoId)], "data/benchmarks.efoId", col_names=F)
 #
 ###
 # Totals:
-message(sprintf("TOTAL TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon: %d (median %.1f%%); corPearson: %.3f; corSpearman: %.3f; corKendall: %.3f\n",
+message(sprintf("TOTAL doIds: %d; TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon: %d (median %.1f%%); InCommonPval (median): %g; corPearson: %.3f; corSpearman: %.3f; corKendall: %.3f\n",
+	results_diseases[, uniqueN(doId)],
 	results_diseases[, sum(tiga_Ngenes)],
 	results_diseases[, sum(diseases_Ngenes)],
 	results_diseases[, sum(inCommon_Ngenes)],
 	results_diseases[, median(inCommon_pct)],
+	results_diseases[, median(inCommon_pVal)],
 	results_diseases[, median(corPearson)],
 	results_diseases[, median(corSpearman)],
 	results_diseases[, median(corKendall)]))
@@ -128,13 +145,14 @@ results_ot <- data.table(
 	ot_Ngenes=rep(as.integer(NA), I_max),
 	inCommon_Ngenes=rep(as.integer(NA), I_max),
 	inCommon_pct=rep(as.integer(NA), I_max),
+	inCommon_pVal=rep(as.numeric(NA), I_max),
 	corPearson=rep(as.numeric(NA), I_max),
 	corSpearman=rep(as.numeric(NA), I_max),
 	corKendall=rep(as.numeric(NA), I_max)
 )
 i <- 0L
 plots_opentargets <- list()
-cat("i\tefoId\tefoName\tdoId\tdoName\ttiga_Ngenes\topentargets_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\tcorSpearman\n")
+cat("i\tefoId\tefoName\tdoId\tdoName\ttiga_Ngenes\topentargets_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\tNgenes_InCommonPval\tcorPearson\tcorSpearman\tcorKendall\n")
 for (efoId_this in tiga[, unique(efoId)]) {
   if (tiga[efoId==efoId_this, uniqueN(ensemblId)] < Ngenes_min) { next }
   tiga_this <- tiga[efoId==efoId_this]
@@ -150,16 +168,28 @@ for (efoId_this in tiga[, unique(efoId)]) {
   opentargets_Ngenes <- opentargets_this[, uniqueN(geneSymbol)]
   genes_in_common <- intersect(opentargets_this$geneSymbol, tiga_this$geneSymbol)
 
-  # Correlate scores
-  tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
-  opentargets_this_scores <- opentargets_this[, .(efoId, geneSymbol, otOverallScore)]
-  tiga_vs_opentargets <- merge(tiga_this_scores, opentargets_this_scores, by=c("efoId", "geneSymbol"), all=F)
-  corPearson <- cor(tiga_vs_opentargets$geneMuScore, tiga_vs_opentargets$otOverallScore, method="pearson")
-  corSpearman <- cor(tiga_vs_opentargets$geneMuScore, tiga_vs_opentargets$otOverallScore, method="spearman")
-  corKendall <- cor(tiga_vs_opentargets$geneMuScore, tiga_vs_opentargets$otOverallScore, method="kendall")
+  inCommon_pval <- phyper(length(genes_in_common), 
+	min(tiga_Ngenes, opentargets_Ngenes),
+	20000-min(tiga_Ngenes, opentargets_Ngenes),
+	max(tiga_Ngenes, opentargets_Ngenes),
+	lower.tail=F)
 
-  cat(sprintf("%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%.1f%%\t%.3f\t%.3f\t%.3f\n", i, efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes), corPearson, corSpearman, corKendall))
-  set(results_ot, i, names(results_ot), list(efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes), corPearson, corSpearman, corKendall))
+  # Correlate scores
+  if (length(genes_in_common) > 2) {
+    tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
+    opentargets_this_scores <- opentargets_this[, .(efoId, geneSymbol, otOverallScore)]
+    tiga_vs_opentargets <- merge(tiga_this_scores, opentargets_this_scores, by=c("efoId", "geneSymbol"), all=F)
+    corPearson <- cor(tiga_vs_opentargets$geneMuScore, tiga_vs_opentargets$otOverallScore, method="pearson")
+    corSpearman <- cor(tiga_vs_opentargets$geneMuScore, tiga_vs_opentargets$otOverallScore, method="spearman")
+    corKendall <- cor(tiga_vs_opentargets$geneMuScore, tiga_vs_opentargets$otOverallScore, method="kendall")
+  } else {
+    corPearson <- NA
+    corSpearman <- NA
+    corKendall <- NA
+  }
+
+  cat(sprintf("%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%.1f%%\t%g\t%.3f\t%.3f\t%.3f\n", i, efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes), inCommon_pval, corPearson, corSpearman, corKendall))
+  set(results_ot, i, names(results_ot), list(efoId_this, efoName_this, doId_this, doName_this, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes), inCommon_pval, corPearson, corSpearman, corKendall))
   annos <- c(sprintf("corPearson: %.3f", corPearson), sprintf("corSpearman: %.3f", corSpearman), sprintf("corKendall: %.3f", corKendall))
   plots_opentargets[[i]] <- plot_ly(tiga_vs_opentargets, x=~otOverallScore, y=~geneMuScore, type="scatter", mode="markers") %>%
 	layout(title=sprintf("%s (%s)<br>geneMuScore vs otOverallScore", efoId_this, efoName_this)) %>%
@@ -173,11 +203,13 @@ write_delim(results_ot, "data/benchmarks_results_opentargets.tsv", "\t")
 
 ###
 # Totals:
-message(sprintf("TOTAL TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCommon: %d (median %.1f%%); corPearson: %.3f; corSpearman: %.3f; corKendall: %.3f\n",
+message(sprintf("TOTAL efoIds: %d; TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCommon: %d (median %.1f%%); InCommonPval (median): %g; corPearson: %.3f; corSpearman: %.3f; corKendall: %.3f\n",
+	results_diseases[, uniqueN(efoId)],
 	results_ot[, sum(tiga_Ngenes)],
 	results_ot[, sum(ot_Ngenes)],
 	results_ot[, sum(inCommon_Ngenes)],
 	results_ot[, median(inCommon_pct)],
+	results_ot[, median(inCommon_pVal)],
 	results_diseases[, median(corPearson)],
 	results_diseases[, median(corSpearman)],
 	results_diseases[, median(corKendall)]))
