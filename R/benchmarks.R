@@ -8,6 +8,10 @@ library(data.table, quietly=T)
 library(plotly, quietly=T)
 
 ###
+I_max <- 100L #Max diseases to consider for each source.
+Ngenes_min <- 20L #Min genes per disease (TIGA and other source).
+#
+###
 # JensenLab DISEASES:
 #Experiments means (1) DistiLD (GWAS) and (2) COSMIC (somatic mutations in cancer).
 diseases_exp <- read_delim(paste0(Sys.getenv("HOME"), "/../data/JensenLab/DISEASES/human_disease_experiments_full.tsv"), "\t", col_names=c("geneEnsp", "geneSymbol", "doId", "doName", "DISEASES_source", "DISEASES_evidence", "DISEASES_confidence"))
@@ -35,9 +39,6 @@ setDT(tiga)
 #
 tiga <- merge(tiga, do2efo[, .(efoId, doId, doName)], by="efoId")
 
-###
-I_max <- 100L #Max diseases to consider.
-Ngenes_min <- 50L #Min genes per disease.
 ###
 results_diseases <- data.table(
 	efoId=rep(as.character(NA), I_max),
@@ -112,11 +113,11 @@ message(sprintf("TOTAL doIds: %d; TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon
 	results_diseases[, sum(tiga_Ngenes)],
 	results_diseases[, sum(diseases_Ngenes)],
 	results_diseases[, sum(inCommon_Ngenes)],
-	results_diseases[, median(inCommon_pct)],
-	results_diseases[, median(inCommon_pVal)],
-	results_diseases[, median(corPearson)],
-	results_diseases[, median(corSpearman)],
-	results_diseases[, median(corKendall)]))
+	results_diseases[, median(inCommon_pct, na.rm=T)],
+	results_diseases[, median(inCommon_pVal, na.rm=T)],
+	results_diseases[, median(corPearson, na.rm=T)],
+	results_diseases[, median(corSpearman, na.rm=T)],
+	results_diseases[, median(corKendall, na.rm=T)]))
 #
 ###
 # OpenTargets (via OpenTargets API)
@@ -208,9 +209,9 @@ message(sprintf("TOTAL efoIds: %d; TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCo
 	results_ot[, sum(tiga_Ngenes)],
 	results_ot[, sum(ot_Ngenes)],
 	results_ot[, sum(inCommon_Ngenes)],
-	results_ot[, median(inCommon_pct)],
-	results_ot[, median(inCommon_pVal)],
-	results_diseases[, median(corPearson)],
-	results_diseases[, median(corSpearman)],
-	results_diseases[, median(corKendall)]))
+	results_ot[, median(inCommon_pct, na.rm=T)],
+	results_ot[, median(inCommon_pVal, na.rm=T)],
+	results_diseases[, median(corPearson, na.rm=T)],
+	results_diseases[, median(corSpearman, na.rm=T)],
+	results_diseases[, median(corKendall, na.rm=T)]))
 #
