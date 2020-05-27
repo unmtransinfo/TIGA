@@ -164,6 +164,15 @@ This work was supported by the National Institutes of Health grant U24-CA224370.
   return(htm)
 }
 
+#DownloadHtm <- function() {
+#  htm <- (
+#"<H2>Download TIGA dataset:</H2>
+#<UL>
+#<LI><A HREF=\"gt_stats.tsv.gz\">gt_stats.tsv.gz</A>
+#</UL>")
+#  return(htm)
+#}
+
 ##########################################################################################
 ui <- fluidPage(
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
@@ -191,8 +200,15 @@ ui <- fluidPage(
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("tigaPlot", height = "500px")),
 		tabPanel(id="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
-		tabPanel(value="traits", title="Traits (all)", DT::dataTableOutput("traits"), br(), downloadButton("traits_file", label="Download Traits (all)")),
-		tabPanel(value="genes", title="Genes (all)", DT::dataTableOutput("genes"), br(), downloadButton("genes_file", label="Download Genes (all)")),
+		tabPanel(value="traits", title="Traits (all)", DT::dataTableOutput("traits")),
+		tabPanel(value="genes", title="Genes (all)", DT::dataTableOutput("genes")),
+		tabPanel(value="download", title="Download",
+			h1("Downloads"),
+			p(em("NOTE: gene-trait file contains all data in separate genes and traits files.")),
+			p(downloadButton("gt_file", label="Gene-Trait Associations (all)"), textOutput("gtFileInfoTxt")),
+			p(downloadButton("traits_file", label="Traits (all)"), textOutput("traitFileInfoTxt")),
+			p(downloadButton("genes_file", label="Genes (all)"), textOutput("geneFileInfoTxt"))
+		),
 		tabPanel(value="help", title="Help", htmlOutput("helpHtm"))
 	))),
   hr(),
@@ -224,6 +240,7 @@ server <- function(input, output, session) {
   })
   
   output$helpHtm <- reactive({ paste(sprintf("<H2>%s Help</H2>", APPNAME), HelpHtm()) })
+  #output$downloadHtm <- reactive({ paste(sprintf("<H2>%s download</H2>", APPNAME), DownloadHtm()) })
 
   Sys.sleep(1) #Needed?
   qryRand_count <- 0 # initialize once per session
@@ -338,6 +355,10 @@ server <- function(input, output, session) {
   
   output$plotTabTxt <- renderText({ ifelse(is.null(Hits()), "Plot", sprintf("Plot (%ss)", hitType())) })
   output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d %ss)", nrow(Hits()), hitType()), "Hits (0)") })
+
+  output$traitFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(trait_table), ncol(trait_table)) })
+  output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table), ncol(gene_table)) })
+  output$gtFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt), ncol(gt)) })
 
   HitsWithHtm <- reactive({
     hh <- data.table(Hits()) #copy
@@ -558,15 +579,21 @@ server <- function(input, output, session) {
     }
   )
   output$traits_file <- downloadHandler(
-    filename = function() { sprintf("tiga_traits_%s.tsv", qryId()) },
+    filename = "tiga_traits.tsv",
     content = function(file) {
       write_delim(trait_table, file, delim="\t")
     }
   )
   output$genes_file <- downloadHandler(
-    filename = function() { sprintf("tiga_genes_%s.tsv", qryId()) },
+    filename = "tiga_genes.tsv",
     content = function(file) {
       write_delim(gene_table, file, delim="\t")
+    }
+  )
+  output$gt_file <- downloadHandler(
+    filename = "tiga_gene-trait_stats.tsv",
+    content = function(file) {
+      write_delim(gt, file, delim="\t")
     }
   )
 }
