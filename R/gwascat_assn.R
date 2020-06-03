@@ -128,4 +128,6 @@ colnames(tbl) <- c("GENOTYPING_TECHNOLOGY", "Freq")
 tbl <- tbl[order(-tbl$Freq),]
 writeLines(sprintf("%5d: %s", tbl$Freq, tbl$GENOTYPING_TECHNOLOGY))
 
+# Check CDK1 (missing in tiga gt_stats.tsv)
+print(unique(assn[MAPPED_GENE == "CDK1", .(MAPPED_GENE, STUDY_ACCESSION, PUBMEDID, STUDY = substr(STUDY, 1, 80))]))
 

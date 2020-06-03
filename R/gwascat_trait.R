@@ -8,7 +8,7 @@
 library(readr)
 require(data.table, quietly=T)
 
-ifile_default <- "/home/data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv"
+ifile_default <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
 ofile_default <- "data/gwascat_trait.tsv"
 
 args <- commandArgs(trailingOnly=TRUE)
@@ -37,8 +37,8 @@ trait <- trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT)]
 trait <- unique(trait[complete.cases(trait),])
 
 # Split comma separated vals.
-trait_multi <- trait[grepl(",", trait$MAPPED_TRAIT_URI)]
-trait <- trait[!grepl(",", trait$MAPPED_TRAIT_URI)]
+trait_multi <- trait[grepl(",", MAPPED_TRAIT_URI)]
+trait <- trait[!is.na(MAPPED_TRAIT_URI) & !grepl(",", MAPPED_TRAIT_URI)]
 for (i in 1:nrow(trait_multi)) {
   uris <- strsplit(trait_multi$MAPPED_TRAIT_URI[i], ', ', perl=T)[[1]]
   traits <- strsplit(trait_multi$MAPPED_TRAIT[i], ', ', perl=T)[[1]]

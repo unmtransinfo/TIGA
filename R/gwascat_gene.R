@@ -32,49 +32,58 @@ assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(),
                                                OR_or_BETA=col_double(),
                                                oddsratio=col_double(),
                                                beta=col_double()))
+setDT(assn)
 #
-gene_m <- assn[, c("STUDY_ACCESSION", "MAPPED_GENE")]
-gene_r <- assn[, c("STUDY_ACCESSION", "REPORTED_GENE(S)")]
-#rm(assn)
-colnames(gene_m) <- c("STUDY_ACCESSION", "GENE")
-colnames(gene_r) <- c("STUDY_ACCESSION", "GENE")
-gene_m$GENE <- gsub(" ", "", gene_m$GENE)
-gene_r$GENE <- gsub(" ", "", gene_r$GENE)
+gene_m <- assn[, .(STUDY_ACCESSION, MAPPED_GENE)]
+gene_r <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
 #
-# Split comma_or_hyphen_or_semicolon separated vals.
-delim_regex <- "[,-;]"
-setDT(gene_r, key="STUDY_ACCESSION")
-gene_r <- gene_r[, list(GENE=unlist(strsplit(GENE, delim_regex))), by=STUDY_ACCESSION]
+setnames(gene_m, c("STUDY_ACCESSION", "GENE"))
+setnames(gene_r, c("STUDY_ACCESSION", "GENE"))
 #
-# Split hyphen_or_comma_or_semicolon separated vals.
-delim_regex <- "[,-;]"
-setDT(gene_m, key="STUDY_ACCESSION")
-gene_m <- gene_m[,list(GENE=unlist(strsplit(GENE, delim_regex))), by=STUDY_ACCESSION]
+message(sprintf("Unique MAPPED_GENE values: %d", gene_m[, uniqueN(GENE)]))
+message(sprintf("Unique MAPPED_GENE single-values: %d", gene_m[grepl("^[A-z0-9]+$", GENE), uniqueN(GENE)]))
+message(sprintf("Unique MAPPED_GENE multi-values: %d", gene_m[!is.na(GENE) & !grepl("^[A-z0-9]+$", GENE), uniqueN(GENE)]))
+gene_m_chars <- data.table(ch = unique(strsplit(paste(collapse="", gene_m[, unique(GENE)]), split="", fixed=T)[[1]]))
+message(sprintf("MAPPED_GENE non-alphanumeric chars: '%s'", paste(collapse="' '", gene_m_chars[!grepl("[A-z0-9]", ch)]$ch)))
 #
-gene_r <- gene_r[!(is.na(gene_r$GENE) | (gene_r$GENE=="")),]
+message(sprintf("Unique REPORTED_GENE values: %d", gene_r[, uniqueN(GENE)]))
+message(sprintf("Unique REPORTED_GENE single-values: %d", gene_r[grepl("^[A-z0-9]+$", GENE), uniqueN(GENE)]))
+message(sprintf("Unique REPORTED_GENE multi-values: %d", gene_r[!is.na(GENE) & !grepl("^[A-z0-9]+$", GENE), uniqueN(GENE)]))
+gene_r_chars <- data.table(ch = unique(strsplit(paste(collapse="", gene_r[, unique(GENE)]), split="", fixed=T)[[1]]))
+message(sprintf("REPORTED_GENE non-alphanumeric chars: '%s'", paste(collapse="' '", gene_r_chars[!grepl("[A-z0-9]", ch)]$ch)))
+#
+# Split separated vals on apparent delimiters. Must escape '-' and other special regex tokens.
+# Problem: cases like: LOC105375010-3.8-1.4, H3.Y-LOC105374666, CAND1.11
+setkey(gene_m, "STUDY_ACCESSION")
+gene_m <- gene_m[, list(GENE=unlist(strsplit(GENE, "[ ,;@\\-]"))), by=STUDY_ACCESSION]
 gene_m <- gene_m[!(is.na(gene_m$GENE) | (gene_m$GENE=="")),]
-#
-gene_r[['MAPPED_OR_REPORTED']] <- 'R'
 gene_m[['MAPPED_OR_REPORTED']] <- 'M'
+#
+print(gene_m[GENE == "CDK1"]) #DEBUG
+#
+setkey(gene_r, "STUDY_ACCESSION")
+gene_r <- gene_r[, list(GENE=unlist(strsplit(GENE, "[ ,;@\\-]"))), by=STUDY_ACCESSION]
+gene_r <- gene_r[!(is.na(gene_r$GENE) | (gene_r$GENE=="")),]
+gene_r[['MAPPED_OR_REPORTED']] <- 'R'
 #
 writeLines(sprintf("Studies reporting pseudogene associations: %d", length(unique(gene_r$STUDY_ACCESSION[gene_r$GENE=="pseudogene"]))))
 writeLines(sprintf("Studies reporting intergenic associations: %d", length(unique(gene_r$STUDY_ACCESSION[gene_r$GENE=="intergenic"]))))
 #
-gene_r <- gene_r[gene_r$GENE!="pseudogene",]
-gene_r <- gene_r[gene_r$GENE!="intergenic",]
+gene_r <- gene_r[GENE != "pseudogene",]
+gene_r <- gene_r[GENE != "intergenic",]
 #
-gene <- rbind(gene_r, gene_m)
-gene <- gene[order(gene$STUDY_ACCESSION),]
+gene <- rbindlist(list(gene_r, gene_m))
+setorder(gene, "STUDY_ACCESSION")
+print(gene[GENE == "CDK1"]) #DEBUG
 
 # Suspicious 1-char gene symbols:
 writeLines(sprintf("Suspicious 1-char gene symbols (N=%d): '%s'", uniqueN(gene$GENE[!(nchar(gene$GENE)>1)]),
                    paste(collapse="', '", unique(gene$GENE[!(nchar(gene$GENE)>1)]))))
 gene <- gene[nchar(gene$GENE)>1,]
 #
-writeLines(sprintf("Studies: %d", length(unique(gene$STUDY_ACCESSION))))
-writeLines(sprintf("Genes: %d", length(unique(gene$GENE))))
-writeLines(sprintf("Genes (MAPPED): %d", length(unique(gene$GENE[gene$MAPPED_OR_REPORTED=="M"]))))
-writeLines(sprintf("Genes (REPORTED): %d", length(unique(gene$GENE[gene$MAPPED_OR_REPORTED=="R"]))))
-#
+writeLines(sprintf("Studies: %d", gene[, uniqueN(STUDY_ACCESSION)]))
+writeLines(sprintf("Genes: %d", gene[, uniqueN(GENE)]))
+writeLines(sprintf("Genes (MAPPED): %d", gene[MAPPED_OR_REPORTED=="M", uniqueN(GENE)]))
+writeLines(sprintf("Genes (REPORTED): %d", gene[MAPPED_OR_REPORTED=="R", uniqueN(GENE)]))
 #
 write_delim(gene, ofile, delim="\t")

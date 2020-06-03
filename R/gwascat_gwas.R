@@ -10,7 +10,7 @@ if (length(args)==2) {
   (ifile <- args[1])
   (ofile <- args[2])
 } else if (length(args)==0) {
-  ifile <- "/home/data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv"
+  ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
   ofile <- "data/gwascat_gwas.tsv"
 } else {
   message("ERROR: Syntax: gwascat_gwas.R GWASFILE OFILE\n\t...or no args for defaults.")
@@ -22,12 +22,9 @@ writeLines(sprintf("Output: %s", ofile))
 gwas <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), DATE=col_date(), `ASSOCIATION COUNT`=col_integer(), `DATE ADDED TO CATALOG`=col_date()))
 setDT(gwas)
 
-setnames(gwas, gsub("[ \\./]","_",colnames(gwas)))
-setnames(gwas, gsub("__","_",colnames(gwas)))
-setnames(gwas, gsub("_$","",colnames(gwas)))
-
-#Unnecessary; all studies have these fields.
-#gwas <- gwas[complete.cases(gwas[,c("STUDY_ACCESSION","PUBMEDID","DISEASE_TRAIT")]),]
+setnames(gwas, gsub("[ \\./]", "_", colnames(gwas)))
+setnames(gwas, gsub("__", "_", colnames(gwas)))
+setnames(gwas, gsub("_$", "", colnames(gwas)))
 
 #Convert special chars.
 for (tag in colnames(gwas)) {

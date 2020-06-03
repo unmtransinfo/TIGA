@@ -4,6 +4,8 @@
 ### tiga_gt_stats.R - Produce gt_stats.csv, for TIGA Shiny app.
 ### ~1hr
 #############################################################################
+### SEE FOR ALL INPUT WORKFLOWS: Go_gwascat_GetData.sh
+#############################################################################
 # Multivariable non-parametric ranking via &mu; scores.
 ###
 # Non-dominated solutions are not inferior to any other case at any variable.
@@ -59,15 +61,15 @@ if (length(args)==5) {
   (ifile_tcrd	<- args[9])
   (ofile	<- args[10])
 } else if (length(args)==0) {
-  ifile_gwas <- "data/gwascat_gwas.tsv"
-  ifile_counts <- "data/gwascat_counts.tsv"
-  ifile_assn <- "data/gwascat_assn.tsv"
-  ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
-  ifile_trait <- "data/gwascat_trait.tsv"
-  ifile_icite <- "data/gwascat_icite.tsv"
-  ifile_snps <- "data/gwascat_Snps.tsv.gz" #API
-  ifile_ensembl <- "data/gwascat_Snps_EnsemblInfo.tsv.gz"
-  ifile_tcrd <- "data/tcrd_targets.tsv"
+  ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
+  ifile_counts <- "data/gwascat_counts.tsv"	#gwascat_counts.R
+  ifile_assn <- "data/gwascat_assn.tsv"	#gwascat_assn.R
+  ifile_snp2gene <- "data/gwascat_snp2gene.tsv" #snp2gene_mapped.pl, snp2gene_reported.pl
+  ifile_trait <- "data/gwascat_trait.tsv"	#gwascat_trait.R
+  ifile_icite <- "data/gwascat_icite.tsv" #BioClients.icite API
+  ifile_snps <- "data/gwascat_Snps.tsv.gz" #BioClients.gwascatalog API (for addl data)
+  ifile_ensembl <- "data/gwascat_Snps_EnsemblInfo.tsv.gz" #BioClients.ensembl API
+  ifile_tcrd <- "data/tcrd_targets.tsv" #BioClients.idg API
   ofile <- "data/gt_stats.tsv.gz"
 } else {
   message("ERROR: Syntax: tiga_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE\n...or... no args for defaults")
