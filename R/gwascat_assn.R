@@ -24,7 +24,7 @@ if (length(args)==2) {
   (ifile <- args[1])
   (ofile <- args[2])
 } else if (length(args)==0) {
-  ifile <- "/home/data/gwascatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv"
+  ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv")
   ofile <- "data/gwascat_assn.tsv"
 } else {
   message("ERROR: Syntax: gwascat_assn.R ASSNFILE OFILE\n\t...or no args for defaults.")
@@ -57,7 +57,7 @@ message(sprintf("OR_or_BETA values: %6d", nrow(assn[!is.na(assn$OR_or_BETA),])))
 tag="OR_or_BETA"
 assn[[tag]] <- as.numeric(assn[[tag]])
 qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
-writeLines(sprintf("%s %4s-ile: %9.1f",tag,names(qs),qs))
+writeLines(sprintf("%s %4s-ile: %9.1f", tag,names(qs), qs))
 
 assn$oddsratio <- as.numeric(NA)
 assn$beta <- as.numeric(NA)
