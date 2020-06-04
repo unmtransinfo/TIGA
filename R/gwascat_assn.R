@@ -90,32 +90,9 @@ writeLines(sprintf("Studies with both values <=1 and >1: %d", n_both))
 #
 
 ###
-# Write file for GWAX:
-write_delim(assn, ofile, delim="\t")
-
-###
 # Descriptive only, no more changes to assn.
+# See also: gwascat_beta.R
 ###
-tag="beta"
-qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
-writeLines(sprintf("%s %4s-ile: %9.1f",tag,names(qs),qs))
-
-tag="oddsratio"
-qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
-writeLines(sprintf("%s %4s-ile: %9.1f",tag,names(qs),qs))
-
-###
-# Heuristic: all units include (in|de)crease
-assn[, beta_units := sub("^.*\\] *", "", `95%_CI_(TEXT)`)]
-assn$beta_units[!grepl("(in|de)crease", assn$beta_units)] <- NA
-tbl <- sort(table(assn$beta_units), decreasing = T)
-writeLines(sprintf("%d. (N=%d) %s", 1:100, tbl[1:100], names(tbl)[1:100]))
-
-#Top BETA units
-tbl <- as.data.frame(table(assn$beta_units))
-colnames(tbl) <- c("beta_units", "Freq")
-tbl <- tbl[order(-tbl$Freq),]
-writeLines(sprintf("%18s: %3d", tbl$beta_units[1:20], tbl$Freq[1:20]))
 
 # CONTEXT aka functionalClass (via API)
 tbl <- sort(table(assn$CONTEXT), decreasing = T)
@@ -128,6 +105,7 @@ colnames(tbl) <- c("GENOTYPING_TECHNOLOGY", "Freq")
 tbl <- tbl[order(-tbl$Freq),]
 writeLines(sprintf("%5d: %s", tbl$Freq, tbl$GENOTYPING_TECHNOLOGY))
 
-# Check CDK1 (missing in tiga gt_stats.tsv)
-print(unique(assn[MAPPED_GENE == "CDK1", .(MAPPED_GENE, STUDY_ACCESSION, PUBMEDID, STUDY = substr(STUDY, 1, 80))]))
+###
+# Write file for GWAX:
+write_delim(assn, ofile, delim="\t")
 

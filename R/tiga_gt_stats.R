@@ -108,9 +108,11 @@ snp2gene <- read_delim(ifile_snp2gene, "\t",
 	REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
 setDT(snp2gene)
 snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED!="r"]) #Ignore reported.
+print(snp2gene[GSYMB == "CDK1"]) #DEBUG
 #
 ensemblInfo <- read_delim(ifile_ensembl, "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
 setDT(ensemblInfo)
+print(ensemblInfo[display_name == "CDK1"]) #DEBUG
 #
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
@@ -142,14 +144,16 @@ icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_rati
 setkey(icite_gwas, pmid, STUDY_ACCESSION)
 ###
 # Link to Ensembl via IDs from Catalog API.
-# (Switching to EnsemblIDs from gene symbols.)
+# (Switched to EnsemblIDs from gene symbols.)
 studySnps <- read_delim(ifile_snps, "\t", col_types=cols(.default=col_character(), merged=col_logical(), lastUpdateDate=col_datetime(),   genomicContext_isIntergenic = col_logical(), genomicContext_isUpstream = col_logical(), genomicContext_isDownstream = col_logical(), genomicContext_distance = col_double(), genomicContext_isClosestGene = col_logical(), loc_chromosomePosition = col_double()))
 setDT(studySnps)
-ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, ensemblName=display_name)][, protein_coding := T]
+ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, ensemblSymb=display_name)][, protein_coding := T]
 proteinSnps <- merge(studySnps[, .(rsId, ensemblId=gene_ensemblGeneIds, geneName=gene_geneName)], ensemblInfo, by="ensemblId", all.x=F)
 snp2gene <- unique(merge(snp2gene, proteinSnps, by.x="SNP", by.y="rsId", all.x=F, all.y=F, allow.cartesian=T))
+print(snp2gene[GSYMB == "CDK1" | geneName== "CDK1" | ensemblSymb == "CDK1"]) #DEBUG
 snp2gene[, `:=`(GSYMB=NULL, geneName=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
 snp2gene <- unique(snp2gene)
+print(snp2gene[ensemblSymb == "CDK1"]) #DEBUG
 #
 ###
 tcrd <- read_delim(ifile_tcrd, "\t", na=c("", "NA", "NULL"), col_types=cols(.default=col_character(), idgList=col_logical()))
@@ -159,41 +163,47 @@ setDT(tcrd)
 ###
 # Counts:
 writeLines(sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION)))
-# MAPPED_GENE field may include chromosomal locations
-writeLines(sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE)))
 #
 ###
 # Reported genes ignored by TIGA.
 #assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
 #assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
-#writeLines(sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE)))
 ###
-#gsyms_tcrd <- unique(tcrd$tcrdGeneSymbol)
-#writeLines(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
 ensgs_tcrd <- unique(tcrd$ensemblGeneId)
 writeLines(sprintf("TCRD targets: %d ; ensemblGeneIds: %d", nrow(tcrd), length(ensgs_tcrd)))
+print(snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] %in% ensgs_tcrd) #DEBUG
 #
 ensgs_tiga <- unique(snp2gene$ensemblId)
+print(snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] %in% ensgs_tiga) #DEBUG
 ensgs_common <- intersect(ensgs_tiga, ensgs_tcrd)
+print(snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] %in% ensgs_common) #DEBUG
 writeLines(sprintf("EnsemblIds mapped to TCRD: %d", length(ensgs_common)))
 #
 tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=rep(T, length(ensgs_tiga))),
 	by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd[, in_gwascat := !is.na(in_gwascat)]
 writeLines(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwascat), .N]))
-###
-# Currently, we require OR and ignore BETA. (TO BE ADDRESSED.)
-assn <- assn[!is.na(oddsratio)]
+print(tcrd[tcrdGeneSymbol == "CDK1" | ensemblGeneId == snp2gene[ensemblSymb == "CDK1"]$ensemblId[1]]) #DEBUG
+#
 ### g2t should have one row for each gene-snp-study-trait association.
-#g2t <- unique(snp2gene[, c("GSYMB", "SNP", "STUDY_ACCESSION")])
-g2t <- unique(snp2gene[, c("ensemblId", "ensemblName", "SNP", "STUDY_ACCESSION")])
+g2t <- unique(snp2gene[, c("ensemblId", "ensemblSymb", "SNP", "STUDY_ACCESSION")])
 g2t <- merge(g2t, gwas[, c("STUDY_ACCESSION", "study_N")], by="STUDY_ACCESSION", all.x=T, all.y=F)
 g2t <- merge(g2t, assn[, c("SNPS", "STUDY_ACCESSION", "PVALUE_MLOG", "UPSTREAM_GENE_DISTANCE", "DOWNSTREAM_GENE_DISTANCE", "oddsratio", "beta")], all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
-#
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
 #
-#g2t <- g2t[!is.na(GSYMB)]
-#g2t <- g2t[!grepl("(^LOC|^intergenic)", GSYMB)] #non-coding RNA, etc.
+###
+# Currently, we require OR and ignore BETA.
+# This filters many studies, traits, and genes.
+print(sprintf("Studies before and after OR filter: %d -> %d", g2t[, uniqueN(STUDY_ACCESSION)], g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)]))
+print(sprintf("Traits before and after OR filter: %d -> %d", g2t[, uniqueN(TRAIT_URI)], g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)]))
+print(sprintf("Genes before and after OR filter: %d -> %d", g2t[, uniqueN(ensemblId)], g2t[!is.na(oddsratio), uniqueN(ensemblId)]))
+
+print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
+
+g2t <- g2t[!is.na(oddsratio)]
+
+print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
+
 g2t <- g2t[!is.na(ensemblId)] #None to delete.
 #
 message(sprintf("Deleting assocations lacking OR: %d", sum(is.na(g2t$oddsratio))))
@@ -291,14 +301,14 @@ message(sprintf("%s, elapsed: %.1fs", Sys.time(), (proc.time()-t0)[3]))
 message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
 message(sprintf("gene (ensemblId) count: %d", uniqueN(gt_stats$ensemblId)))
 message(sprintf("trait (efoId) count: %d", uniqueN(gt_stats$efoId)))
-message(sprintf("DEBUG: traitNgene: [%d,%d]", min(gt_stats$traitNgene), max(gt_stats$traitNgene)))
-message(sprintf("DEBUG: traitNstudy: [%d,%d]", min(gt_stats$traitNstudy), max(gt_stats$traitNstudy)))
-message(sprintf("DEBUG: geneNtrait: [%d,%d]", min(gt_stats$geneNtrait), max(gt_stats$geneNtrait)))
-message(sprintf("DEBUG: pvalue_mlog_median: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_median, na.rm=T), max(gt_stats$pvalue_mlog_median, na.rm=T)))
-message(sprintf("DEBUG: or_median: [%.2f,%.2f]", min(gt_stats$or_median, na.rm=T), max(gt_stats$or_median, na.rm=T)))
-message(sprintf("DEBUG: study_N_mean: [%.1f,%.1f]", min(gt_stats$study_N_mean, na.rm=T), max(gt_stats$study_N_mean, na.rm=T)))
-message(sprintf("DEBUG: rcras: [%.2f,%.2f]", min(gt_stats$rcras, na.rm=T), max(gt_stats$rcras, na.rm=T)))
-message(sprintf("DEBUG: n_snpw: [%.2f,%.2f]", min(gt_stats$n_snpw, na.rm=T), max(gt_stats$n_snpw, na.rm=T)))
+message(sprintf("traitNgene: [%d,%d]", min(gt_stats$traitNgene), max(gt_stats$traitNgene)))
+message(sprintf("traitNstudy: [%d,%d]", min(gt_stats$traitNstudy), max(gt_stats$traitNstudy)))
+message(sprintf("geneNtrait: [%d,%d]", min(gt_stats$geneNtrait), max(gt_stats$geneNtrait)))
+message(sprintf("pvalue_mlog_median: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_median, na.rm=T), max(gt_stats$pvalue_mlog_median, na.rm=T)))
+message(sprintf("or_median: [%.2f,%.2f]", min(gt_stats$or_median, na.rm=T), max(gt_stats$or_median, na.rm=T)))
+message(sprintf("study_N_mean: [%.1f,%.1f]", min(gt_stats$study_N_mean, na.rm=T), max(gt_stats$study_N_mean, na.rm=T)))
+message(sprintf("rcras: [%.2f,%.2f]", min(gt_stats$rcras, na.rm=T), max(gt_stats$rcras, na.rm=T)))
+message(sprintf("n_snpw: [%.2f,%.2f]", min(gt_stats$n_snpw, na.rm=T), max(gt_stats$n_snpw, na.rm=T)))
 #
 gt_stats <- merge(gt_stats, tcrd[, c("ensemblGeneId", "tcrdGeneSymbol", "TDL", "tcrdTargetFamily", "idgList", "tcrdTargetName")], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
 setnames(gt_stats,
@@ -306,7 +316,7 @@ setnames(gt_stats,
 	new=c("geneSymbol", "geneName", "geneFamily", "geneIdgTdl", "geneIdgList"))
 #
 gt_stats <- gt_stats[!is.na(ensemblId)] #Should be no-op.
-gt_stats <- gt_stats[!is.na(geneIdgTdl)] #Removes non-protein-coding.
+gt_stats <- gt_stats[!is.na(geneIdgTdl)] #Non-protein-coding removed by IDG TDL requirement.
 gt_stats <- gt_stats[!is.na(or_median)] #OR required until beta -able.
 ###
 #
