@@ -34,16 +34,40 @@ writeLines(sprintf("beta %4s-ile: %9.1f", names(qs), qs))
 qs <- quantile(assn[["oddsratio"]][!is.na(assn[["oddsratio"]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
 writeLines(sprintf("oddsratio %4s-ile: %9.1f", names(qs), qs))
 
+#Cleaning
+assn[, ci_95_text := `95%_CI_(TEXT)`]
+assn[, ci_95_text := sub("[\u0080\u0093\u0094]+", "-", ci_95_text)]
+assn[, ci_95_text := gsub("[Ââ]", "", ci_95_text)]
+assn[, ci_95_text := sub("^\\((.*)\\)\\s*$", "[\\1]", ci_95_text)] #both parens to brackets
+assn[, ci_95_text := sub("^\\((.*)\\]\\s*$", "[\\1]", ci_95_text)] #open paren to bracket
+assn[, ci_95_text := sub("^\\[(.*)\\)\\s*$", "[\\1]", ci_95_text)] #close paren to bracket
+assn[, ci_95_text := sub("^([0-9\\-][0-9\\.]*)\\-([0-9\\.]+)\\]$", "[\\1-\\2]", ci_95_text)] #add missing open bracket
+assn[, ci_95_text := sub("^\\[([0-9\\-][0-9\\.]*)\\-([0-9\\.]+)$", "[\\1-\\2]", ci_95_text)] #add missing close bracket
+assn[, ci_95_text := sub("^([0-9\\-][0-9\\.]*)\\-([0-9\\.]+)$", "[\\1-\\2]", ci_95_text)] #add both missing brackets
+assn[, ci_95_text := gsub("^\\[(.*)\\s*\\-\\s*(.*)\\](.*)$", "[\\1-\\2]\\3", ci_95_text)] #remove spaces in ci
+
+assn[, ci_95_text := sub("^([0-9\\-]+\\.[0-9]+)\\.([0-9]+\\.[0-9]+)$", "[\\1-\\2]", ci_95_text)] #weirdo
+#
 ###
-# Heuristic: all units include (in|de)crease
-assn[, beta_units := sub("^.*\\] *", "", `95%_CI_(TEXT)`)]
+# Heuristic: all units include "(in|de)crease"
+assn[, beta_units := sub("^.*\\]\\s*", "", ci_95_text)]
+assn[, ci_min := as.numeric(sub("^\\[(.+)\\-(.+)\\].*$", "\\1", ci_95_text))]
+assn[, ci_max := as.numeric(sub("^\\[(.+)\\-(.+)\\].*$", "\\2", ci_95_text))]
+#
+#Flag unparsable beta units
+assn[, bad_beta := (!is.na(ci_95_text) & !grepl("^\\[.*\\]$", ci_95_text)  & !grepl("(in|de)crease", ci_95_text))]
+print(unique(assn[(bad_beta==TRUE), .(bad = sub("^.*\\] *", "", ci_95_text))]))
+#
+#Flag NR CIs (not recorded)
+assn[, ci_is_nr := (grepl("^\\[NR\\]", ci_95_text))]
+#
 assn$beta_units[!grepl("(in|de)crease", assn$beta_units)] <- NA
-tbl <- sort(table(assn$beta_units), decreasing = T)
-writeLines(sprintf("%d. (N=%d) %s", 1:100, tbl[1:100], names(tbl)[1:100]))
-
+#
 #Top BETA units
-tbl <- as.data.frame(table(assn$beta_units))
-colnames(tbl) <- c("beta_units", "Freq")
-tbl <- tbl[order(-tbl$Freq),]
-writeLines(sprintf("%18s: %3d", tbl$beta_units[1:20], tbl$Freq[1:20]))
-
+tbl <- data.table(table(assn$beta_units))
+setnames(tbl, c("beta_units", "Freq"))
+setorder(tbl, -Freq)
+writeLines(sprintf("%2d. %8d: %s", 1:20, tbl[1:20, Freq], tbl[1:20, beta_units]))
+###
+#Can we generate z-scores? Some?
+xxx <- assn[(grepl("^unit (in|de)crease", beta_units) & ci_is_nr==F), .(`95%_CI_(TEXT)`, ci_95_text, beta, beta_units, ci_min, ci_max)]
