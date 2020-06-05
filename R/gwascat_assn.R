@@ -106,6 +106,6 @@ tbl <- tbl[order(-tbl$Freq),]
 writeLines(sprintf("%5d: %s", tbl$Freq, tbl$GENOTYPING_TECHNOLOGY))
 
 ###
-# Write file for GWAX:
+# Write file:
 write_delim(assn, ofile, delim="\t")
 

@@ -37,12 +37,13 @@ java -classpath $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar ed
 #
 ###
 #
-pandas_utils.py selectcols --coltags "id" \
-	--i $DATADIR/gwascat_trait.tsv \
+cat $DATADIR/gwascat_trait.tsv \
+	|awk -F '\t' '{print $4}' \
 	|sed -e '1d' \
+	|sort -u \
 	>$DATADIR/gwascatalog.efoid
 ###
-${cwd}/python/nx_analysis.py cluster \
+${cwd}/python/nx_analysis.py cluster --min_groupsize 2 --max_level 10 \
 	--i_edge $DATADIR/efo_edgelist.tsv \
 	--i_node_attr $DATADIR/efo_nodelist.tsv \
 	--i_node_set $DATADIR/gwascatalog.efoid \
@@ -52,4 +53,5 @@ ${cwd}/python/nx_analysis.py cluster \
 ###
 # To do:
 #   * Groups file usable by TIGA app for marker color and selection.
-#   * Associate nodes with selected ancestor nodes, defining groups.
+#   * Associate child nodes with selected ancestor nodes, defining groups.
+###

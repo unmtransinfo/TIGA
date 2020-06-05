@@ -194,20 +194,50 @@ g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian
 ###
 # Currently, we require OR and ignore BETA.
 # This filters many studies, traits, and genes.
-print(sprintf("Studies before and after OR filter: %d -> %d", g2t[, uniqueN(STUDY_ACCESSION)], g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)]))
-print(sprintf("Traits before and after OR filter: %d -> %d", g2t[, uniqueN(TRAIT_URI)], g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)]))
-print(sprintf("Genes before and after OR filter: %d -> %d", g2t[, uniqueN(ensemblId)], g2t[!is.na(oddsratio), uniqueN(ensemblId)]))
+print(sprintf("Studies before and after OR filter: %d -> %d (-%d; -%.1f%%)", 
+  g2t[, uniqueN(STUDY_ACCESSION)], g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)],
+  g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)],
+  100*(g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)])/g2t[, uniqueN(STUDY_ACCESSION)]
+))
+
+print(sprintf("Traits before and after OR filter: %d -> %d (-%d; -%.1f%%)", 
+  g2t[, uniqueN(TRAIT_URI)], g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)],
+  g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)],
+  100*(g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)])/g2t[, uniqueN(TRAIT_URI)]
+  ))
+
+print(sprintf("Genes before and after OR filter: %d -> %d (-%d; -%.1f%%)", 
+  g2t[, uniqueN(ensemblId)], g2t[!is.na(oddsratio), uniqueN(ensemblId)],
+  g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)],
+  100*(g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)])/g2t[, uniqueN(ensemblId)]
+  ))
 
 print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
-
-g2t <- g2t[!is.na(oddsratio)]
-
-print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
-
-g2t <- g2t[!is.na(ensemblId)] #None to delete.
 #
-message(sprintf("Deleting assocations lacking OR: %d", sum(is.na(g2t$oddsratio))))
-g2t <- g2t[!is.na(oddsratio)] #Many to delete.
+###
+# Write files accounting for filtered studies, traits and genes.
+filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[is.na(oddsratio)]$STUDY_ACCESSION, g2t[!is.na(oddsratio)]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+filtered_studies[, comment := "Filtered due to missing OR."]
+print(sprintf("Studies removed by OR filter: %d", filtered_studies[, uniqueN(STUDY_ACCESSION)]))
+write_delim(filtered_studies, "data/filtered_studies.tsv", delim="\t")
+
+#
+filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[is.na(oddsratio)]$TRAIT_URI, g2t[!is.na(oddsratio)]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
+filtered_traits[, comment := "Filtered due to missing OR."]
+print(sprintf("Traits removed by OR filter: %d", filtered_traits[, uniqueN(TRAIT_URI)]))
+write_delim(filtered_traits, "data/filtered_traits.tsv", delim="\t")
+#
+filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[is.na(oddsratio)]$ensemblId, g2t[!is.na(oddsratio)]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
+filtered_genes[, comment := "Filtered due to missing OR."]
+print(sprintf("Genes removed by OR filter: %d", filtered_genes[, uniqueN(ensemblId)]))
+write_delim(filtered_genes, "data/filtered_genes.tsv", delim="\t")
+#
+#stop("DEBUG: STOP.")
+#
+print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
+#
+message(sprintf("Filtering assocations missing OR: %d", sum(is.na(g2t$oddsratio))))
+g2t <- g2t[!is.na(oddsratio)] #Many filtered.
 ###
 # Gene-distance weighting function.
 g2t[, GDistWt := 2^(-pmin(g2t$UPSTREAM_GENE_DISTANCE, g2t$DOWNSTREAM_GENE_DISTANCE, na.rm=T)/5e4)]

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-	Load efo.owl as NetworkX (NX) graph, for NX analytics.
-	For each class, associate (cluster) with an ancestral group of defined
-	size or other criteria.
+Load OWL as NetworkX (NX) graph, for NX analytics.
+For each class, associate (cluster) with an ancestral group of defined
+size or other criteria.
 """
 ###
 import sys,os,json,logging,argparse,time
@@ -62,70 +62,60 @@ def GraphSummary(G):
   singles = set(roots) & set(leafs)
   logging.info("Singles: {0}".format(len(singles)))
 ###
-def Cluster(G, nodeSet, min_groupsize, setname):
+def Cluster(G, nodeSet, min_groupsize, max_level, setname):
   roots = [n for n,d in G.in_degree() if d==0] 
   grouplist=[];
   i_node=0;
   for n in G.nodes:
     i_node += 1
+    level = Level(G, n)
+    if level>max_level: continue
     N_sub = SubclassCount(G, n)
     label = nx.get_node_attributes(G, 'label')[n]
     in_set = bool(n in nodeSet)
     #is_root = bool(n in roots)
-    level = Level(G, n)
     N_sub_set = SubclassCount_InSet(G, n, nodeSet)
     if N_sub_set >= min_groupsize:
-      logging.debug("{0}/{1}. {2}: {3}; level={4}; N_sub={5}; N_sub_{6}={7}".format(i_node, G.number_of_nodes(), n, label, level, N_sub, setname, N_sub_set))
+      logging.debug("{}/{}. {}: {}; level={}; N_sub={}; N_sub_{}={}".format(i_node, G.number_of_nodes(), n, label, level, N_sub, setname, N_sub_set))
       grouplist.append((n,label,level,in_set,N_sub,N_sub_set))
   groups = pd.DataFrame({
 	'Id': [Id for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
 	'label': [label for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
 	'level': [level for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'in_%s'%setname: [in_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	'in_{}'.format(setname): [in_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
 	'N_sub': [N_sub for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'N_sub_%s'%setname: [N_sub_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist]
-	}).sort_values(by=['N_sub_%s'%setname, 'N_sub'], ascending=False)
+	'N_sub_{}'.format(setname): [N_sub_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist]
+	}).sort_values(by=['N_sub_{}'.format(setname), 'N_sub'], ascending=False)
   #print(groups.head(10)) #DEBUG
-  print(groups[groups['in_%s'%setname]].head(18)) #DEBUG
+  print(groups[groups['in_{}'.format(setname)]].head(18)) #DEBUG
   return(groups)
 
 #############################################################################
 if __name__=="__main__":
-  PROG=os.path.basename(sys.argv[0])
-  t0 = time.time()
-  logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
-  parser = argparse.ArgumentParser(
-	description="NetworkX analytics, designed for EFO",
-	epilog="clustering into groups by common ancestor")
+  parser = argparse.ArgumentParser(description="NetworkX analytics, from edgelist, optional node list, attributes.", epilog="Clustering into groups by common ancestor. Designed for EFO.")
   ops = ['summary', 'graph2cyjs', 'cluster']
   parser.add_argument("op", choices=ops, help='operation')
-  parser.add_argument("--i_edge", dest="ifile_edge", help="input edgelist (TSV)")
-  parser.add_argument("--i_node_attr", dest="ifile_node_attr", help="input node attributes (TSV)")
+  parser.add_argument("--i_edge", required=True, dest="ifile_edge", help="input edgelist (TSV)")
   parser.add_argument("--i_node_set", dest="ifile_node_set", help="input node set (IDs)")
+  parser.add_argument("--i_node_attr", dest="ifile_node_attr", help="input node attributes (TSV)")
   parser.add_argument("--setname", default="myset", help="node set name")
   parser.add_argument("--o", dest="ofile", help="output (TSV|CYJS|etc.)")
   parser.add_argument("--graphname", help="assign this name to graph")
   parser.add_argument("--min_groupsize", type=int, default=100)
-  parser.add_argument("-v", "--verbose", action="count")
+  parser.add_argument("--max_level", type=int, default=10)
+  parser.add_argument("-v", "--verbose", action="count", default=0)
   args = parser.parse_args()
 
-  #args.ifile_edge = "data/efo_edgelist.tsv"
-  #args.ifile_node_attr = "data/efo_nodelist.tsv"
-  #args.ifile_node_set = "data/gwascatalog.efoid"
-  #args.ofile = "data/efo_groups.tsv"
+  logging.basicConfig(format='%(levelname)s:%(message)s', level = logging.DEBUG if args.verbose>0 else logging.INFO)
 
-  if args.ifile_edge:
-    logging.info("Reading {0}".format(args.ifile_edge))
-    efo_edges = pd.read_csv(args.ifile_edge, "\t", dtype=str)
-    G = from_pandas_edgelist(efo_edges, source="source", target="target", edge_attr="edge_attr", create_using=nx.DiGraph)
-    G.graph['name'] = args.graphname
-  else:
-    parser.error('--i_edge required.')
+  t0 = time.time()
 
-  if args.ofile:
-    fout = open(args.ofile, "w")
-  else:
-    fout = sys.stdout
+  logging.info("Reading {0}".format(args.ifile_edge))
+  efo_edges = pd.read_csv(args.ifile_edge, "\t", dtype=str)
+  G = from_pandas_edgelist(efo_edges, source="source", target="target", edge_attr="edge_attr", create_using=nx.DiGraph)
+  G.graph['name'] = args.graphname
+
+  fout = open(args.ofile, "w") if args.ofile else sys.stdout
 
   ###
   if args.ifile_node_attr:
@@ -149,7 +139,6 @@ if __name__=="__main__":
     GraphSummary(G)
   #
   elif args.op == 'graph2cyjs':
-    #args.ofile = "data/efo_nxgraph.cyjs"
     logging.info("Writing {0}".format(args.ofile))
     Graph2CYJS(G, fout)
   #
@@ -158,8 +147,8 @@ if __name__=="__main__":
   elif args.op == 'cluster':
     if not args.ifile_node_set:
       parser.error('--i_node_set required for cluster operation.')
-    groups = Cluster(G, nodeSetIds, args.min_groupsize, args.setname)
+    groups = Cluster(G, nodeSetIds, args.min_groupsize, args.max_level, args.setname)
     Groups2TSV(groups, fout)
 
-  logging.info(('%s: elapsed time: %s'%(PROG, time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0)))))
+  logging.info(('Elapsed time: %s'%(time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0)))))
 

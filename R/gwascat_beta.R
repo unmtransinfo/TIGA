@@ -3,9 +3,17 @@
 ### Input file from gwascat_assn.R,
 ### which separated OR from BETA, via heuristic: If all OR_or_BETA values
 ### for a study are >=1, assume OR.
+###
+### From Catalog help:
+###`OR or BETA`: Reported odds ratio or beta-coefficient associated with
+### strongest SNP risk allele. Note that if an OR <1 is reported this is
+### inverted, along with the reported allele, so that all ORs included in
+### the Catalog are >1. Appropriate unit and increase/decrease are included
+### for beta coefficients.
 #############################################################################
 library(readr)
-library(data.table)
+library(data.table, quietly=T)
+library(plotly, quietly=T)
 
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)==2) {
@@ -23,6 +31,7 @@ writeLines(sprintf("Output: %s", ofile))
 
 assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), oddsratio=col_double(), beta=col_double()))
 setDT(assn)
+setnames(assn, old=c("MAPPED_TRAIT_URI", "MAPPED_TRAIT"), new=c("TRAIT_URI", "TRAIT"))
 
 writeLines(sprintf("Studies with OR: %d", assn[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)]))
 writeLines(sprintf("Studies with BETA: %d", assn[!is.na(beta), uniqueN(STUDY_ACCESSION)]))
@@ -68,6 +77,23 @@ tbl <- data.table(table(assn$beta_units))
 setnames(tbl, c("beta_units", "Freq"))
 setorder(tbl, -Freq)
 writeLines(sprintf("%2d. %8d: %s", 1:20, tbl[1:20, Freq], tbl[1:20, beta_units]))
+writeLines(sprintf("Pct of associations either \"unit increase\" or \"unit decrease\": %.1f%% (%d/%d)", 
+    100*tbl[grepl("unit (in|de)crease", beta_units), sum(Freq)]/tbl[, sum(Freq)], tbl[grepl("unit (in|de)crease", beta_units), sum(Freq)], tbl[, sum(Freq)]))
 ###
 #Can we generate z-scores? Some?
-xxx <- assn[(grepl("^unit (in|de)crease", beta_units) & ci_is_nr==F), .(`95%_CI_(TEXT)`, ci_95_text, beta, beta_units, ci_min, ci_max)]
+#Maybe for some traits. Assume same traits have same units?
+xxx <- assn[(grepl("^unit (in|de)crease", beta_units) & ci_is_nr==F), .(TRAIT_URI, TRAIT, `95%_CI_(TEXT)`, ci_95_text, beta, beta_units, ci_min, ci_max)]
+setorder(xxx, -ci_min, na.last=T)
+
+anns <- c(sprintf("median:%.3f<br>mean:%.3f<br>range:[%.3f-%.3f]", median(xxx$ci_min, na.rm=T), mean(xxx$ci_min, na.rm=T), min(xxx$ci_min, na.rm=T), max(xxx$ci_min, na.rm=T)),
+  sprintf("median:%.3f<br>mean:%.3f<br>range:[%.3f-%.3f]", median(xxx$ci_max, na.rm=T), mean(xxx$ci_max, na.rm=T), min(xxx$ci_max, na.rm=T), max(xxx$ci_max, na.rm=T))
+          )
+plot_ly() %>%
+  add_boxplot(name="CI_MIN", data=xxx, y=~ci_min) %>%
+  add_boxplot(name="CI_MAX", data=xxx, y=~ci_max) %>%
+  layout(title="Effect size beta 95%_CI",
+         xaxis=list(title="", tickangle=45), yaxis=list(title="", type="log"),
+         margin = list(t=100, l=100),
+         font = list(family="monospace", size=16)) %>%
+  add_annotations(text=anns, 
+        showarrow=F, x=c(0, 1), y=c(1, 1), xref="paper", yref="paper")
