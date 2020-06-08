@@ -166,8 +166,8 @@ gzip -f $DATADIR/gwascat_Snps_EnsemblInfo.tsv
 # tcrd_targets.tsv from:
 # python3 -m BioClients.idg.tcrd.Client listTargets --dbname "tcrd610" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw=""
 #############################################################################
-# Gene-trait statistics:
-# tiga_gt_stats.R: INPUT: 9 files; OUTPUT: gt_stats.tsv
+# Gene-trait statistics, and provenance (STUDY_ACCESSION and PUBMEDID):
+# tiga_gt_stats.R: INPUT: 9 files; OUTPUT: gt_stats.tsv.gz, gt_provenance.tsv.gz
 #
 ${cwd}/R/tiga_gt_stats.R \
 	$DATADIR/gwascat_gwas.tsv \
@@ -179,5 +179,6 @@ ${cwd}/R/tiga_gt_stats.R \
 	$DATADIR/gwascat_Snps.tsv.gz \
 	$DATADIR/gwascat_Snps_EnsemblInfo.tsv.gz \
 	$DATADIR/tcrd_targets.tsv \
-	$DATADIR/gt_stats.tsv
+	$DATADIR/gt_stats.tsv.gz \
+	$DATADIR/gt_prov.tsv.gz
 #
