@@ -16,30 +16,9 @@
 # Issue: cases globally superior in one variable and inferior in one variable
 # have nAbove=0 and nBelow=0 and muScore=0. What should be the rank?
 #############################################################################
-### To do: For the gene-to-trait mode/view, there should be new columns
-### for gene-specific statistics, and it should be very clear whether 
-### stats are about (1) traits, (2) genes, or (3) gene-trait pairs.
-### New:
-###   * traitNstudy (#studies for trait; computed from gwascat_trait.tsv.)
-###   * geneNstudy (#studies for gene; computed from gwascat_assn.tsv.)
-###   * efoId (Replace trait_uri, equivalent and more compact.)
-### Renamed:
-###   * n_traits_g to geneNtrait (#traits for gene)
-###   * n_genes_t to traitNgene (#genes for trait)
-###   * tcrdGeneSymbol to geneSymbol
-###   * tcrdTargetName to geneName
-###   * tcrdTargetFamily to geneFamily
-###   * TDL to geneIdgTdl
-###   * idgList to geneIdgList
-###   * trait_uri to traitUri
-###   * mu_score to geneMuScore
-###   * mu_rank to geneMuRank
-### Delete:
-###   * nAbove
-###   * nBelow
-### Todo:
-###   * traitMuScore
-###   * traitMuRank
+# TODO: 
+# gt_stats provenance, i.e. STUDY_ACCESSION and PUBMEDID.
+# Write gt_provenance file with TRAIT_URI, ensemblId, STUDY_ACCESSION and PUBMEDID.
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
@@ -60,6 +39,7 @@ if (length(args)==5) {
   (ifile_ensembl	<- args[8])
   (ifile_tcrd	<- args[9])
   (ofile	<- args[10])
+  (ofile_prov	<- args[11])
 } else if (length(args)==0) {
   ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
   ifile_counts <- "data/gwascat_counts.tsv"	#gwascat_counts.R
@@ -71,8 +51,9 @@ if (length(args)==5) {
   ifile_ensembl <- "data/gwascat_Snps_EnsemblInfo.tsv.gz" #BioClients.ensembl API
   ifile_tcrd <- "data/tcrd_targets.tsv" #BioClients.idg API
   ofile <- "data/gt_stats.tsv.gz"
+  ofile_prov <- "data/gt_provenance.tsv.gz"
 } else {
-  message("ERROR: Syntax: tiga_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE\n...or... no args for defaults")
+  message("ERROR: Syntax: tiga_gt_stats.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE OFILE_PROVENANCE\n...or... no args for defaults")
   quit()
 }
 writeLines(sprintf("Input gwas file: %s", ifile_gwas))
@@ -84,6 +65,7 @@ writeLines(sprintf("Input iCite file: %s", ifile_icite))
 writeLines(sprintf("Input TCRD file: %s", ifile_tcrd))
 writeLines(sprintf("Input Ensembl file: %s", ifile_ensembl))
 writeLines(sprintf("Output file: %s", ofile))
+writeLines(sprintf("Output provenance file: %s", ofile_prov))
 #
 ###
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
@@ -185,10 +167,10 @@ tcrd[, in_gwascat := !is.na(in_gwascat)]
 writeLines(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwascat), .N]))
 print(tcrd[tcrdGeneSymbol == "CDK1" | ensemblGeneId == snp2gene[ensemblSymb == "CDK1"]$ensemblId[1]]) #DEBUG
 #
-### g2t should have one row for each gene-snp-study-trait association.
-g2t <- unique(snp2gene[, c("ensemblId", "ensemblSymb", "SNP", "STUDY_ACCESSION")])
-g2t <- merge(g2t, gwas[, c("STUDY_ACCESSION", "study_N")], by="STUDY_ACCESSION", all.x=T, all.y=F)
-g2t <- merge(g2t, assn[, c("SNPS", "STUDY_ACCESSION", "PVALUE_MLOG", "UPSTREAM_GENE_DISTANCE", "DOWNSTREAM_GENE_DISTANCE", "oddsratio", "beta")], all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
+### g2t should have one row for each gene-snp-study-trait association. Only 1 PUBMEDID per study.
+g2t <- unique(snp2gene[, .(ensemblId, ensemblSymb, SNP, STUDY_ACCESSION)])
+g2t <- merge(g2t, gwas[, .(STUDY_ACCESSION, PUBMEDID, study_N)], by="STUDY_ACCESSION", all.x=T, all.y=F)
+g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE, oddsratio, beta)], all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
 #
 ###
@@ -254,8 +236,9 @@ message(sprintf("DEBUG: with OR, g2t: %d ; genes: %d ; traits: %d",
 	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)])))
 ###
 ### GENE-TRAIT stats
+### One row per unique gene-trait pair.
 ### From g2t, create gt_stats table for TSV export.
-### Slow. Vectorize/optimize!
+### Slow. Vectorize/optimize!?
 NROW <- 0
 for (ensg in unique(g2t$ensemblId)) {
   NROW <- NROW + uniqueN(g2t[ensemblId==ensg, TRAIT_URI])
@@ -277,6 +260,32 @@ gt_stats <- data.table(ensemblId=rep(NA, NROW),
 	)
 #
 message(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d", nrow(gt_stats)))
+#
+gt_prov <- NULL
+i_row_prov <- 0
+#
+# gene-loop:
+for (ensg in unique(g2t$ensemblId)) {
+  geneNstudy <- g2t[ensemblId==ensg, uniqueN(STUDY_ACCESSION)]
+  # trait-loop:
+  for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
+    studies_this <- unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(STUDY_ACCESSION, PUBMEDID)])
+      gt_prov_this <- data.table(ensemblId=rep(ensg, nrow(studies_this)), TRAIT_URI=rep(trait_uri, nrow(studies_this)),
+		  STUDY_ACCESSION=studies_this[, STUDY_ACCESSION], PUBMEDID=studies_this[, PUBMEDID])
+    if (is.null(gt_prov)) {
+      gt_prov <- gt_prov_this
+    } else {
+      gt_prov <- rbindlist(list(gt_prov, gt_prov_this))
+    }
+  }
+}
+#
+write_delim(gt_prov, ofile_prov, delim="\t")
+writeLines(sprintf("Output provenance file written: %s", ofile_prov))
+#
+#stop("DEBUG: STOP.")
+#
+#
 i_row <- 0 #gt_stats populated row count
 t0 <- proc.time()
 # gene-loop:

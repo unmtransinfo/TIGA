@@ -16,8 +16,8 @@ if (length(args)==2) {
   message("ERROR: Syntax: gwascat_gwas.R GWASFILE OFILE\n\t...or no args for defaults.")
   quit()
 }
-writeLines(sprintf("Input: %s", ifile))
-writeLines(sprintf("Output: %s", ofile))
+message(sprintf("Input: %s", ifile))
+message(sprintf("Output: %s", ofile))
 
 gwas <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), DATE=col_date(), `ASSOCIATION COUNT`=col_integer(), `DATE ADDED TO CATALOG`=col_date()))
 setDT(gwas)
@@ -29,11 +29,26 @@ setnames(gwas, gsub("_$", "", colnames(gwas)))
 #Convert special chars.
 for (tag in colnames(gwas)) {
   if (typeof(gwas[[tag]])=="character") {
-    writeLines(sprintf("NOTE: cleaning: %s", tag))
+    message(sprintf("NOTE: cleaning: %s", tag))
     gwas[[tag]] <- iconv(gwas[[tag]], from="latin1", to="UTF-8")
   }
 }
 
+message(sprintf("Unique STUDY_ACCESSIONs: %d (%f per row)", gwas[!is.na(STUDY_ACCESSION), uniqueN(STUDY_ACCESSION)],  gwas[!is.na(STUDY_ACCESSION), uniqueN(STUDY_ACCESSION)]/nrow(gwas)))
+
+# PUBMEDIDs
+message(sprintf("PUBMEDIDs: %d (%.1f%% of studies)", gwas[!is.na(PUBMEDID), .N], 100*gwas[!is.na(PUBMEDID), .N]/nrow(gwas)))
+message(sprintf("Unique PUBMEDIDs: %d (%f per study)", gwas[!is.na(PUBMEDID), uniqueN(PUBMEDID)], gwas[!is.na(PUBMEDID), uniqueN(PUBMEDID)]/gwas[!is.na(STUDY_ACCESSION), uniqueN(STUDY_ACCESSION)]))
+# DATE is publication date.
+pmid2gwas_counts <- gwas[, .(n_study = uniqueN(STUDY_ACCESSION)), by=c("PUBMEDID", "FIRST_AUTHOR", "JOURNAL", "DATE")]
+setorder(pmid2gwas_counts, -n_study)
+for (n in unique(pmid2gwas_counts$n_study)) {
+  message(sprintf("%4d publications contain %2d studies.", pmid2gwas_counts[n_study==n, .N], n))
+}
+gwas2pmid_counts <- gwas[, .(n_pub = uniqueN(PUBMEDID)), by="STUDY_ACCESSION"]
+message(sprintf("Studies with multiple publications: %d", gwas2pmid_counts[n_pub>1, uniqueN(STUDY_ACCESSION)]))
+
+###
 # Parse study_N from INITIAL_SAMPLE_SIZE. Sum sub-samples.
 gwas[, study_N := INITIAL_SAMPLE_SIZE] #data.table warning spurious. 
 gwas[, study_N := gsub("PMID:[0-9]+", "", study_N)]
