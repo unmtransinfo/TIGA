@@ -9,7 +9,7 @@ library(igraph, quietly=T)
 
 ###
 # File from nx_analysis.py.
-efo_groups <- read_delim(paste0(Sys.getenv("HOME"), "/../data/gwascatalog/tiga_data/efo_groups.tsv"), "\t", col_types=cols(.default=col_character(), level=col_integer(), N_sub=col_integer(), N_sub_gwc=col_integer(), in_gwc=col_logical()))
+efo_groups <- read_delim("data/efo_groups.tsv", "\t", col_types=cols(.default=col_character(), level=col_integer(), N_sub=col_integer(), N_sub_gwc=col_integer(), in_gwc=col_logical()))
 setDT(efo_groups)
 setorder(efo_groups, level, -N_sub)
 #
@@ -21,7 +21,7 @@ setorder(efo_groups, level, -N_sub)
 efo <- read_delim("data/efo.tsv", "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo_node <- efo[node_or_edge == "node", .(id, uri, label, comment)]
-efo_node[['ontology']] <- as.factor(sub("_.*$", "", efo_node$id))
+efo_node[['ontology']] <- sub("_.*$", "", efo_node$id)
 efo_counts <- efo_node[, .N, by="ontology"][order(-N)]
 for (i in 1:min(10, nrow(efo_counts))) {
   message(sprintf("%2d. %12s: %4d / %4d (%4.1f%%)", i, efo_counts$ontology[i], efo_counts$N[i], sum(efo_counts$N), 100*efo_counts$N[i]/sum(efo_counts$N)))
@@ -65,4 +65,6 @@ tkplot(subg, canvas.width=800, canvas.height=600, layout=layout_as_tree, vertex.
        vertex.frame.color="#6666AA", vertex.size=30, edge.color="#6666AA", edge.width=2, edge.arrow.size=1,
        edge.label="has_subclass")
 
+# CYJS not supported. (Can do igraph_utils.py graph2cyjs)
+subg <- set_vertex_attr(subg, "name", V(subg), sprintf("%s: %s", V(subg)$efoId, V(subg)$description))
 write_graph(subg, sprintf("data/efo_subgraph_%s.graphml", efo_node[label == "mood disorder"]$id), format="graphml")

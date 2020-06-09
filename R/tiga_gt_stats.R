@@ -16,9 +16,7 @@
 # Issue: cases globally superior in one variable and inferior in one variable
 # have nAbove=0 and nBelow=0 and muScore=0. What should be the rank?
 #############################################################################
-# TODO: 
-# gt_stats provenance, i.e. STUDY_ACCESSION and PUBMEDID.
-# Write gt_provenance file with TRAIT_URI, ensemblId, STUDY_ACCESSION and PUBMEDID.
+# Writes gt_provenance file with TRAIT_URI, ensemblId, STUDY_ACCESSION and PUBMEDID.
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
