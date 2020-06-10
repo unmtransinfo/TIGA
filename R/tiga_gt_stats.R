@@ -39,7 +39,7 @@ if (length(args)==5) {
   (ofile	<- args[10])
   (ofile_prov	<- args[11])
 } else if (length(args)==0) {
-  ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
+  ifile_gwas <- "data/gwascat_gwas.tsv.gz"	#gwascat_gwas.R
   ifile_counts <- "data/gwascat_counts.tsv"	#gwascat_counts.R
   ifile_assn <- "data/gwascat_assn.tsv"	#gwascat_assn.R
   ifile_snp2gene <- "data/gwascat_snp2gene.tsv" #snp2gene_mapped.pl, snp2gene_reported.pl
@@ -197,20 +197,19 @@ print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
 ###
 # Write files accounting for filtered studies, traits and genes.
 filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[is.na(oddsratio)]$STUDY_ACCESSION, g2t[!is.na(oddsratio)]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
-filtered_studies[, comment := "Filtered due to missing OR."]
+filtered_studies[, reason := "missing OR"]
 print(sprintf("Studies removed by OR filter: %d", filtered_studies[, uniqueN(STUDY_ACCESSION)]))
-write_delim(filtered_studies, "data/filtered_studies.tsv", delim="\t")
-
+write_delim(filtered_studies, "data/filtered_studies.tsv.gz", delim="\t")
 #
 filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[is.na(oddsratio)]$TRAIT_URI, g2t[!is.na(oddsratio)]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
-filtered_traits[, comment := "Filtered due to missing OR."]
+filtered_traits[, reason := "missing OR"]
 print(sprintf("Traits removed by OR filter: %d", filtered_traits[, uniqueN(TRAIT_URI)]))
-write_delim(filtered_traits, "data/filtered_traits.tsv", delim="\t")
+write_delim(filtered_traits, "data/filtered_traits.tsv.gz", delim="\t")
 #
 filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[is.na(oddsratio)]$ensemblId, g2t[!is.na(oddsratio)]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
-filtered_genes[, comment := "Filtered due to missing OR."]
+filtered_genes[, reason := "missing OR"]
 print(sprintf("Genes removed by OR filter: %d", filtered_genes[, uniqueN(ensemblId)]))
-write_delim(filtered_genes, "data/filtered_genes.tsv", delim="\t")
+write_delim(filtered_genes, "data/filtered_genes.tsv.gz", delim="\t")
 #
 #stop("DEBUG: STOP.")
 #

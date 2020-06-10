@@ -45,8 +45,9 @@ writeLines(sprintf("Studies missing MAPPED_TRAIT_URI: %d", trait[is.na(MAPPED_TR
 
 filtered_studies <- merge(data.table(STUDY_ACCESSION = trait[is.na(MAPPED_TRAIT_URI), unique(STUDY_ACCESSION)]),
                           study, by="STUDY_ACCESSION", all.x=T, all.y=F)
-filtered_studies[, comment := "Filtered due to missing MAPPED_TRAIT_URI."]
+filtered_studies[, reason := "missing MAPPED_TRAIT_URI"]
 write_delim(filtered_studies, "data/filtered_studies_trait.tsv", "\t")
+system("gzip -f data/filtered_studies_trait.tsv")
 
 trait <- unique(trait[!is.na(MAPPED_TRAIT_URI)])
 

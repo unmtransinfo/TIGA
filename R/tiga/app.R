@@ -67,15 +67,34 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   gene_menu <- as.list(gene_menu)
   qry_menu <- as.list(qry_menu)
   #
-  system("gunzip -f efo_graph.graphml.gz")
-  efoGraph <- read_graph("efo_graph.graphml", format="graphml")
-  message(sprintf("Graph \"%s\": vertices: %d; edges: %d", graph_attr(efoGraph, "name"), vcount(efoGraph), ecount(efoGraph)))
+  study_table <- read_delim("gwascat_gwas.tsv.gz", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
+  setDT(study_table)
+  study_table <- study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED = DATE, DATE_ADDED_TO_CATALOG)][order(DATE_PUBLISHED)]
   #
-  save(gt, trait_table, gene_table, trait_menu, gene_menu, qry_menu, efoGraph, file="tiga.Rdata")
+  gt_prov <- read_delim("gt_provenance.tsv.gz", "\t", col_types=cols(.default=col_character()))
+  setDT(gt_prov)
+  #
+  filtered_studies <- read_delim("filtered_studies.tsv.gz", "\t")
+  filtered_studies_trait <- read_delim("filtered_studies_trait.tsv.gz", "\t")
+  setDT(filtered_studies)
+  setDT(filtered_studies_trait)
+  filtered_studies <- rbindlist(list(filtered_studies, filtered_studies_trait))
+  filtered_studies[, type := "study"]
+  filtered_traits <- read_delim("filtered_traits.tsv.gz", "\t")
+  setDT(filtered_traits)
+  filtered_traits[, type := "trait"]
+  filtered_genes <- read_delim("filtered_genes.tsv.gz", "\t")
+  setDT(filtered_genes)
+  filtered_genes[, type := "gene"]
+  filtered <- rbindlist(list(filtered_studies[, .(type, id=STUDY_ACCESSION, reason)], filtered_traits[, .(type, id=TRAIT_URI, reason)], filtered_genes[, .(type, id=ensemblId, reason)]))
+  #
+  system("if [ -f \"efo_graph.graphml.gz\" ]; then gunzip -f efo_graph.graphml.gz ; fi")
+  efoGraph <- read_graph("efo_graph.graphml", format="graphml")
+  #
+  save(gt, trait_table, gene_table, trait_menu, gene_menu, qry_menu, gt_prov, filtered, study_table, efoGraph, file="tiga.Rdata")
 } else {
   message(sprintf("Loading tiga.Rdata..."))
   load("tiga.Rdata")
-  setDT(gt)
 }
 #
 t_elapsed <- (proc.time()-t0)[3]
@@ -91,7 +110,15 @@ message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(trait_men
 #message(sprintf("DEBUG: COUNT pvalue_mlog_median: %d", sum(!is.na(gt$pvalue_mlog_median))))
 #message(sprintf("DEBUG: COUNT rcras: %d", sum(!is.na(gt$rcras))))
 #
-dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d (t_load: %.1fs)", uniqueN(gt$ensemblId), uniqueN(gt$efoId), t_elapsed)
+message(sprintf("Provenance: %d PUBMEDIDS and %d studies for %d gene-trait pairs.", gt_prov[, uniqueN(PUBMEDID)], gt_prov[, uniqueN(STUDY_ACCESSION)], nrow(unique(gt_prov[, .(ensemblId, TRAIT_URI)]))))
+flt <- data.table(table(filtered$type, filtered$reason))[order(V1, V2)]
+flt <- flt[N>0]
+message(sprintf("FILTERED entities: (%5s) %5d REASON: %s\n", flt$V1, flt$N, flt$V2))
+#
+message(sprintf("Graph \"%s\": vertices: %d; edges: %d", graph_attr(efoGraph, "name"), vcount(efoGraph), ecount(efoGraph)))
+#
+dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d ; studies: %d; publications: %d (t_load: %.1fs)", 
+                 uniqueN(gt$ensemblId), uniqueN(gt$efoId), uniqueN(gt_prov$STUDY_ACCESSION), uniqueN(gt_prov$PUBMEDID), t_elapsed)
 #
 ###
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")

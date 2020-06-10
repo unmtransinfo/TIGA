@@ -11,7 +11,7 @@ if (length(args)==2) {
   (ofile <- args[2])
 } else if (length(args)==0) {
   ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
-  ofile <- "data/gwascat_gwas.tsv"
+  ofile <- "data/gwascat_gwas.tsv.gz"
 } else {
   message("ERROR: Syntax: gwascat_gwas.R GWASFILE OFILE\n\t...or no args for defaults.")
   quit()
