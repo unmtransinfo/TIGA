@@ -1,23 +1,16 @@
 #!/usr/bin/env Rscript
 ###
-# Higher level groupings could provide UI visual channel for trait classification.
-# General groupings can include child trait-gene associations as needed for expected behavior.
+# Subclass based trait-gene associations needed for expected behavior.
 # https://igraph.org/r/
+# We consider parentage. For a given query trait, all child traits should be
+# considered for associated genes. But which query traits are allowed? How high level?
+# Need statistics mapping all EFO to GWAS Catalog with parentage considered.
+# efo.tsv from efo.owl, produced by iu_idsl_jena jena_utils.
 ###
 library(readr)
 library(data.table, quietly=T)
 library(igraph, quietly=T)
-
 ###
-# File from nx_analysis.py.
-efo_groups <- read_delim("data/efo_groups.tsv", "\t", col_types=cols(.default=col_character(), level=col_integer(), N_sub=col_integer(), N_sub_gwc=col_integer(), in_gwc=col_logical()))
-setDT(efo_groups)
-setorder(efo_groups, level, -N_sub)
-#
-###
-# Here we consider parentage. For a given query trait, all child traits should be
-# considered for associated genes. But which query traits are allowed? How high level?
-# Need statistics mapping all EFO to GWAS Catalog with parentage considered.
 #
 efo <- read_delim("data/efo.tsv", "\t", col_types=cols(.default=col_character()))
 setDT(efo)
@@ -36,8 +29,11 @@ efo_node[['vId']] <- 1:nrow(efo_node)
 efo <- merge(efo, efo_node[, .(uri, sourceId=vId)], by.x="source", by.y="uri", all.x=T, all.y=F)
 efo <- merge(efo, efo_node[, .(uri, targetId=vId)], by.x="target", by.y="uri", all.x=T, all.y=F)
 efoGraph <- igraph::graph_from_edgelist(as.matrix(efo[(!is.na(sourceId) & !is.na(targetId)), .(sourceId, targetId)]), directed=T)
-message(sprintf("Graph (%sDIRECTED): vertices: %d; edges: %d", ifelse(is_directed(efoGraph), "", "NOT_"), vcount(efoGraph), ecount(efoGraph)))
+graph_attr(efoGraph, "name") <- "EFO"
+message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(efoGraph, "name"), ifelse(is_directed(efoGraph), "", "NOT_"), vcount(efoGraph), ecount(efoGraph)))
 efoGraph <- set_vertex_attr(efoGraph, "name", V(efoGraph), efo_node$id)
+###
+#
 efoGraph <- set_vertex_attr(efoGraph, "description", V(efoGraph), efo_node$label)
 efoGraph <- set_vertex_attr(efoGraph, "uri", V(efoGraph), efo_node$uri)
 efoGraph <- set_vertex_attr(efoGraph, "efoId", V(efoGraph), efo_node$id)
@@ -54,15 +50,34 @@ ontocolor <- function(ont) {
 }
 efoGraph <- set_vertex_attr(efoGraph, "color", V(efoGraph), ontocolor(efo_node$ontology))
 
-# Plot subgraph. BFS finds all subclasses.
+###
+# Save annotated graph to file for TIGA UI.
+write_graph(efoGraph, "data/efo_graph.graphml", format="graphml")
+system("gzip -f data/efo_graph.graphml")
 #
+###
+# Induce and plot subgraph. BFS finds all subclasses.
 bfs_this <- igraph::bfs(efoGraph, V(efoGraph)[efo_node[label == "mood disorder"]$vId], neimode="out", unreachable=F)
 subg <- induced_subgraph(efoGraph, bfs_this$order[1:sum(!is.na(bfs_this$order))])
-message(sprintf("Graph (%sDIRECTED): vertices: %d; edges: %d", ifelse(is_directed(subg), "", "NOT_"), vcount(subg), ecount(subg)))
+graph_attr(subg, "name") <- sprintf("EFO_SUBGRAPH:%s (subclasses)", efo_node[label == "mood disorder"]$id)
+message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(subg, "name"), ifelse(is_directed(subg), "", "NOT_"), vcount(subg), ecount(subg)))
+writeLines(sprintf("%2d. %-44s %-18s \"%s\"", 1:vcount(subg), V(subg)$uri, V(subg)$efoId, V(subg)$description))
+###
+# Plot
 tkplot(subg, canvas.width=800, canvas.height=600, layout=layout_as_tree, vertex.label=sprintf("%s\n%s", V(subg)$efoId, V(subg)$description), 
        vertex.frame.color="#6666AA", vertex.size=30, edge.color="#6666AA", edge.width=2, edge.arrow.size=1,
        edge.label="has_subclass")
-
+#
 # CYJS not supported. (Can do igraph_utils.py graph2cyjs)
 subg <- set_vertex_attr(subg, "name", V(subg), sprintf("%s: %s", V(subg)$efoId, V(subg)$description))
 write_graph(subg, sprintf("data/efo_subgraph_%s.graphml", efo_node[label == "mood disorder"]$id), format="graphml")
+#
+###
+# Test that we can read graphml file ok.
+system("gunzip -f data/efo_graph.graphml.gz")
+efoGraph2 <- read_graph("data/efo_graph.graphml", format="graphml")
+message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(efoGraph2, "name"), ifelse(is_directed(efoGraph2), "", "NOT_"), vcount(efoGraph2), ecount(efoGraph2)))
+message(sprintf("TEST: %d =? %d (%s)", vcount(efoGraph2), vcount(efoGraph), ifelse(vcount(efoGraph2)==vcount(efoGraph), "OK", "NOT OK")))
+message(sprintf("TEST: %d =? %d (%s)", ecount(efoGraph2), ecount(efoGraph), ifelse(ecount(efoGraph2)==ecount(efoGraph), "OK", "NOT OK")))
+system("gzip -f data/efo_graph.graphml")
+#

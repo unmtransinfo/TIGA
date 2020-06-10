@@ -12,6 +12,7 @@
 ##########################################################################################
 library(readr)
 library(data.table)
+library(igraph, quietly=T)
 library(shiny, quietly=T)
 library(shinyBS, quietly=T)
 library(dqshiny, quietly=T) #https://github.com/daqana/dqshiny
@@ -66,7 +67,11 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   gene_menu <- as.list(gene_menu)
   qry_menu <- as.list(qry_menu)
   #
-  save(gt, trait_table, gene_table, trait_menu, gene_menu, qry_menu, file="tiga.Rdata")
+  system("gunzip -f efo_graph.graphml.gz")
+  efoGraph <- read_graph("efo_graph.graphml", format="graphml")
+  message(sprintf("Graph \"%s\": vertices: %d; edges: %d", graph_attr(efoGraph, "name"), vcount(efoGraph), ecount(efoGraph)))
+  #
+  save(gt, trait_table, gene_table, trait_menu, gene_menu, qry_menu, efoGraph, file="tiga.Rdata")
 } else {
   message(sprintf("Loading tiga.Rdata..."))
   load("tiga.Rdata")
