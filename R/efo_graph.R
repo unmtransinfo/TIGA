@@ -28,16 +28,16 @@ efo <- efo[node_or_edge == "edge", .(source, target, label)]
 efo_node[['vId']] <- 1:nrow(efo_node)
 efo <- merge(efo, efo_node[, .(uri, sourceId=vId)], by.x="source", by.y="uri", all.x=T, all.y=F)
 efo <- merge(efo, efo_node[, .(uri, targetId=vId)], by.x="target", by.y="uri", all.x=T, all.y=F)
-efoGraph <- igraph::graph_from_edgelist(as.matrix(efo[(!is.na(sourceId) & !is.na(targetId)), .(sourceId, targetId)]), directed=T)
-graph_attr(efoGraph, "name") <- "EFO"
-message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(efoGraph, "name"), ifelse(is_directed(efoGraph), "", "NOT_"), vcount(efoGraph), ecount(efoGraph)))
-efoGraph <- set_vertex_attr(efoGraph, "name", V(efoGraph), efo_node$id)
+efoG <- igraph::graph_from_edgelist(as.matrix(efo[(!is.na(sourceId) & !is.na(targetId)), .(sourceId, targetId)]), directed=T)
+graph_attr(efoG, "name") <- "EFO"
+message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(efoG, "name"), ifelse(is_directed(efoG), "", "NOT_"), vcount(efoG), ecount(efoG)))
+efoG <- set_vertex_attr(efoG, "name", V(efoG), efo_node$id)
 ###
 #
-efoGraph <- set_vertex_attr(efoGraph, "description", V(efoGraph), efo_node$label)
-efoGraph <- set_vertex_attr(efoGraph, "uri", V(efoGraph), efo_node$uri)
-efoGraph <- set_vertex_attr(efoGraph, "efoId", V(efoGraph), efo_node$id)
-efoGraph <- set_vertex_attr(efoGraph, "ontology", V(efoGraph), efo_node$ontology)
+efoG <- set_vertex_attr(efoG, "description", V(efoG), efo_node$label)
+efoG <- set_vertex_attr(efoG, "uri", V(efoG), efo_node$uri)
+efoG <- set_vertex_attr(efoG, "efoId", V(efoG), efo_node$id)
+efoG <- set_vertex_attr(efoG, "ontology", V(efoG), efo_node$ontology)
 ontocolor <- function(ont) {
   ifelse(ont=="EFO", "#CCCCFF",
   ifelse(ont=="Orphanet", "green",
@@ -48,18 +48,19 @@ ontocolor <- function(ont) {
   ifelse(ont=="UBERON", "aqua",
          "#CCCCCC")))))))
 }
-efoGraph <- set_vertex_attr(efoGraph, "color", V(efoGraph), ontocolor(efo_node$ontology))
+efoG <- set_vertex_attr(efoG, "color", V(efoG), ontocolor(efo_node$ontology))
 
 ###
 # Save annotated graph to file for TIGA UI.
-write_graph(efoGraph, "data/efo_graph.graphml", format="graphml")
+write_graph(efoG, "data/efo_graph.graphml", format="graphml")
 system("gzip -f data/efo_graph.graphml")
 #
 ###
 # Induce and plot subgraph. BFS finds all subclasses.
-bfs_this <- igraph::bfs(efoGraph, V(efoGraph)[efo_node[label == "mood disorder"]$vId], neimode="out", unreachable=F)
-subg <- induced_subgraph(efoGraph, bfs_this$order[1:sum(!is.na(bfs_this$order))])
-graph_attr(subg, "name") <- sprintf("EFO_SUBGRAPH:%s (subclasses)", efo_node[label == "mood disorder"]$id)
+v_this <- V(efoG)[V(efoG)$description == "mood disorder"]
+bfs_this <- igraph::bfs(efoG, v_this, neimode="out", unreachable=F)
+subg <- induced_subgraph(efoG, bfs_this$order[1:sum(!is.na(bfs_this$order))])
+graph_attr(subg, "name") <- sprintf("EFO_SUBGRAPH:%s (subclasses)", v_this$efoId)
 message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(subg, "name"), ifelse(is_directed(subg), "", "NOT_"), vcount(subg), ecount(subg)))
 writeLines(sprintf("%2d. %-44s %-18s \"%s\"", 1:vcount(subg), V(subg)$uri, V(subg)$efoId, V(subg)$description))
 ###
@@ -75,9 +76,9 @@ write_graph(subg, sprintf("data/efo_subgraph_%s.graphml", efo_node[label == "moo
 ###
 # Test that we can read graphml file ok.
 system("gunzip -f data/efo_graph.graphml.gz")
-efoGraph2 <- read_graph("data/efo_graph.graphml", format="graphml")
-message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(efoGraph2, "name"), ifelse(is_directed(efoGraph2), "", "NOT_"), vcount(efoGraph2), ecount(efoGraph2)))
-message(sprintf("TEST: %d =? %d (%s)", vcount(efoGraph2), vcount(efoGraph), ifelse(vcount(efoGraph2)==vcount(efoGraph), "OK", "NOT OK")))
-message(sprintf("TEST: %d =? %d (%s)", ecount(efoGraph2), ecount(efoGraph), ifelse(ecount(efoGraph2)==ecount(efoGraph), "OK", "NOT OK")))
+efoG2 <- read_graph("data/efo_graph.graphml", format="graphml")
+message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(efoG2, "name"), ifelse(is_directed(efoG2), "", "NOT_"), vcount(efoG2), ecount(efoG2)))
+message(sprintf("TEST: %d =? %d (%s)", vcount(efoG2), vcount(efoG), ifelse(vcount(efoG2)==vcount(efoG), "OK", "NOT OK")))
+message(sprintf("TEST: %d =? %d (%s)", ecount(efoG2), ecount(efoG), ifelse(ecount(efoG2)==ecount(efoG), "OK", "NOT OK")))
 system("gzip -f data/efo_graph.graphml")
 #

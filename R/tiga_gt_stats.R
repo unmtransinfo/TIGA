@@ -209,9 +209,11 @@ write_delim(filtered_traits, "data/filtered_traits.tsv.gz", delim="\t")
 filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[is.na(oddsratio)]$ensemblId, g2t[!is.na(oddsratio)]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
 filtered_genes[, reason := "missing OR"]
 print(sprintf("Genes removed by OR filter: %d", filtered_genes[, uniqueN(ensemblId)]))
+filtered_genes <- merge(filtered_genes, tcrd[, .(ensemblGeneId, geneName=tcrdTargetName, geneFamily=tcrdTargetFamily, TDL)], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
+filtered_genes <- filtered_genes[, .(ensemblId, ensemblSymb, geneName, geneFamily, TDL, reason)]
 write_delim(filtered_genes, "data/filtered_genes.tsv.gz", delim="\t")
 #
-#stop("DEBUG: STOP.")
+stop("DEBUG: STOP.")
 #
 print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
 #
