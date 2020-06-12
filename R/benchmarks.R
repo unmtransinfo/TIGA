@@ -20,10 +20,11 @@ system("gzip -f data/efo_graph.graphml")
 #
 # Return all subclasses for input efoId.
 efoId2Subclasses <- function(G, id_this) {
+  if (!(id_this %in% V(G)$efoId)) { return(NULL) }
   v_this <- V(G)[V(G)$efoId == id_this]
   bfs_this <- igraph::bfs(G, v_this, neimode="out", unreachable=F)
   subG <- induced_subgraph(G, bfs_this$order[1:sum(!is.na(bfs_this$order))])
-  V(subG)$efoId
+  return(V(subG)$efoId)
 }
 ###
 # JensenLab DISEASES:
