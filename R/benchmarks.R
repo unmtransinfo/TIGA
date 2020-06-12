@@ -10,6 +10,7 @@ library(igraph, quietly=T)
 ###
 I_max <- 100L #Max diseases to consider for each source.
 Ngenes_min <- 20L #Min genes per disease (TIGA and other source).
+Ngenes_max <- 1000L #Max genes per disease (TIGA and other source).
 #
 ###
 # EFO graph for subclass association inclusion.
@@ -26,6 +27,9 @@ efoId2Subclasses <- function(G, id_this) {
   subG <- induced_subgraph(G, bfs_this$order[1:sum(!is.na(bfs_this$order))])
   return(V(subG)$efoId)
 }
+#
+t0 <- proc.time()
+#
 ###
 # JensenLab DISEASES:
 #Experiments means (1) DistiLD (GWAS) and (2) COSMIC (somatic mutations in cancer).
@@ -74,12 +78,20 @@ plots_diseases <- list()
 cat("i\tefoId\tefoName\tdoId\tdoName\nefoSubclassCount\ttiga_Ngenes\tdiseases_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\tNgenes_InCommonPval\n")
 for (efoId_this in tiga[, unique(efoId)]) {
   efoIds_this <- efoId2Subclasses(efoG, efoId_this)
-  efoIds_all <- c(efoIds_all , efoIds_this)
+  if (is.null(efoIds_this)) {
+    message(sprintf("ERROR: not found in efoGraph: %s", efoId_this))
+    next
+  }
   message(sprintf("Subclasses %s: %d", efoId_this, length(efoIds_this)-1))
-  if (tiga[efoId %in% efoIds_this, uniqueN(ensemblId)] < Ngenes_min) { next }
+  if (length(efoIds_this)>999) {
+    message(sprintf("Too many subclasses; skipping: %s", efoId_this))
+    next
+  }
+  efoIds_all <- c(efoIds_all , efoIds_this)
+  if (!inrange(tiga[efoId %in% efoIds_this, uniqueN(ensemblId)], Ngenes_min, Ngenes_max)) { next }
   tiga_this <- tiga[efoId %in% efoIds_this]
   doIds_this <- tiga_this[, doId]
-  if (diseases_exp[doId %in% doIds_this, uniqueN(geneSymbol)] < Ngenes_min) { next }
+  if (!inrange(diseases_exp[doId %in% doIds_this, uniqueN(geneSymbol)], Ngenes_min, Ngenes_max)) { next }
 
   i <- i + 1L
   efoName_this <- tiga[efoId==efoId_this, first(trait)]
@@ -97,10 +109,10 @@ for (efoId_this in tiga[, unique(efoId)]) {
 	lower.tail=F)
 
   # Correlate scores
+  tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
+  diseases_exp_this_scores <- diseases_exp_this[, .(doId, geneSymbol, DISEASES_confidence)]
+  tiga_vs_diseases <- merge(tiga_this_scores, diseases_exp_this_scores, by=c("doId", "geneSymbol"), all=F)
   if (length(genes_in_common) > 2) {
-    tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
-    diseases_exp_this_scores <- diseases_exp_this[, .(doId, geneSymbol, DISEASES_confidence)]
-    tiga_vs_diseases <- merge(tiga_this_scores, diseases_exp_this_scores, by=c("doId", "geneSymbol"), all=F)
     corPearson <- cor(tiga_vs_diseases$geneMuScore, tiga_vs_diseases$DISEASES_confidence, method="pearson")
   } else {
     corPearson <- NA
@@ -136,12 +148,18 @@ message(sprintf("TOTAL doIds: %d; TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon
 #stop("DEBUG")
 ###
 # OpenTargets (via OpenTargets API)
-cmd <- ("python3 -m BioClients.opentargets.Client searchAssociations -v --idtype 'disease' --i data/benchmarks.efoId --o data/benchmarks_opentargets.tsv")
+if (system("uname -s", intern=T) == "Darwin") {
+  PYTHONEXE <- "/usr/local/opt/python@3.8/bin/python3"
+} else {
+  PYTHONEXE <- "python3"
+}
+cmd <- sprintf("%s -m BioClients.opentargets.Client searchAssociations -v --idtype 'disease' --i data/benchmarks.efoId --o data/benchmarks_opentargets.tsv", PYTHONEXE)
 message(cmd)
 system(cmd)
+system("gzip -f data/benchmarks_opentargets.tsv")
 #
 # id, is_direct, target_id, gene_name, gene_symbol, disease_id, disease_efo_label, score_overall
-opentargets <- read_delim("data/benchmarks_opentargets.tsv", "\t")
+opentargets <- read_delim("data/benchmarks_opentargets.tsv.gz", "\t")
 setDT(opentargets)
 
 for (name in names(opentargets)) {
@@ -172,10 +190,18 @@ plots_opentargets <- list()
 cat("i\tefoId\tefoName\tdoId\tdoName\tefoSubclassCount\ttiga_Ngenes\topentargets_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\tNgenes_InCommonPval\tcorPearson\n")
 for (efoId_this in tiga[, unique(efoId)]) {
   efoIds_this <- efoId2Subclasses(efoG, efoId_this)
+  if (is.null(efoIds_this)) {
+    message(sprintf("ERROR: not found in efoGraph: %s", efoId_this))
+    next
+  }
   message(sprintf("Subclasses %s: %d", efoId_this, length(efoIds_this)-1))
-  if (tiga[efoId %in% efoIds_this, uniqueN(ensemblId)] < Ngenes_min) { next }
+  if (length(efoIds_this)>999) {
+    message(sprintf("Too many subclasses; skipping: %s", efoId_this))
+    next
+  }
+  if (!inrange(tiga[efoId %in% efoIds_this, uniqueN(ensemblId)], Ngenes_min, Ngenes_max)) { next }
   tiga_this <- tiga[efoId %in% efoIds_this]
-  if (opentargets[efoId %in% efoIds_this, uniqueN(geneSymbol)] < Ngenes_min) { next }
+  if (!inrange(opentargets[efoId %in% efoIds_this, uniqueN(geneSymbol)], Ngenes_min, Ngenes_max)) { next }
   
   i <- i + 1L
   efoName_this <- tiga[efoId==efoId_this, first(trait)]
@@ -195,10 +221,10 @@ for (efoId_this in tiga[, unique(efoId)]) {
 	lower.tail=F)
 
   # Correlate scores
+  tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
+  opentargets_this_scores <- opentargets_this[, .(efoId, geneSymbol, otOverallScore)]
+  tiga_vs_opentargets <- merge(tiga_this_scores, opentargets_this_scores, by=c("efoId", "geneSymbol"), all=F)
   if (length(genes_in_common) > 2) {
-    tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
-    opentargets_this_scores <- opentargets_this[, .(efoId, geneSymbol, otOverallScore)]
-    tiga_vs_opentargets <- merge(tiga_this_scores, opentargets_this_scores, by=c("efoId", "geneSymbol"), all=F)
     corPearson <- cor(tiga_vs_opentargets$geneMuScore, tiga_vs_opentargets$otOverallScore, method="pearson")
   } else {
     corPearson <- NA
@@ -216,7 +242,7 @@ for (efoId_this in tiga[, unique(efoId)]) {
 setorder(results_ot, -tiga_Ngenes, na.last=T)
 results_ot <- results_ot[!is.na(efoId)]
 write_delim(results_ot, "data/benchmarks_results_opentargets.tsv", "\t")
-
+#
 ###
 # Totals:
 message(sprintf("TOTAL efoIds: %d; TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCommon: %d (median %.1f%%); InCommonPval (median): %g; corPearson: %.3f\n",
@@ -227,4 +253,6 @@ message(sprintf("TOTAL efoIds: %d; TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCo
 	results_ot[, median(inCommon_pct, na.rm=T)],
 	results_ot[, median(inCommon_pVal, na.rm=T)],
 	results_diseases[, median(corPearson, na.rm=T)]))
+#
+message(sprintf("NOTE: elapsed time: %.2fs",(proc.time()-t0)[3]))
 #
