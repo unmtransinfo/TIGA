@@ -9,9 +9,11 @@ Rplot*
 data
 old/
 
-R/gwax/rsconnect/
-R/gwax/*.tsv.gz
-R/gwax/*.html
+R/tiga/rsconnect/
+R/tiga/*.tsv.gz
+R/tiga/*.html
+R/tiga/*.graphml
+R/*.html
 
 .runsql_my
 

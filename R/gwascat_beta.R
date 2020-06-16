@@ -82,6 +82,7 @@ writeLines(sprintf("Pct of associations either \"unit increase\" or \"unit decre
 ###
 #Can we generate z-scores? Some?
 #Maybe for some traits. Assume same traits have same units?
+#Another approach: beta value counts for mu scoring/ranking.
 xxx <- assn[(grepl("^unit (in|de)crease", beta_units) & ci_is_nr==F), .(TRAIT_URI, TRAIT, `95%_CI_(TEXT)`, ci_95_text, beta, beta_units, ci_min, ci_max)]
 setorder(xxx, -ci_min, na.last=T)
 
