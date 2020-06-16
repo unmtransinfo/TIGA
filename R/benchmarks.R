@@ -3,12 +3,14 @@
 # https://stats.stackexchange.com/questions/52756/probability-of-overlap-between-independent-samples-of-different-sizes
 # (extreme-tail hypergeometric probability)
 ###
+options(warn=-1) #suppress warnings
+#
 library(readr)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
 library(igraph, quietly=T)
+#
 ###
-I_max <- 100L #Max diseases to consider for each source.
 Ngenes_min <- 20L #Min genes per disease (TIGA and other source).
 Ngenes_max <- 1000L #Max genes per disease (TIGA and other source).
 #
@@ -60,20 +62,21 @@ tiga <- merge(tiga, do2efo[, .(efoId, doId, doName)], by="efoId")
 
 ###
 results_diseases <- data.table(
-	efoId=rep(as.character(NA), I_max),
-	efoName=rep(as.character(NA), I_max),
-	doId=rep(as.character(NA), I_max),
-	doName=rep(as.character(NA), I_max),
-	efoSubclassCount=rep(as.character(NA), I_max),
-	tiga_Ngenes=rep(as.integer(NA), I_max),
-	diseases_Ngenes=rep(as.integer(NA), I_max),
-	inCommon_Ngenes=rep(as.integer(NA), I_max),
-	inCommon_pct=rep(as.integer(NA), I_max),
-	inCommon_pVal=rep(as.numeric(NA), I_max),
-	corPearson=rep(as.numeric(NA), I_max)
+	efoId=rep(as.character(NA), 100),
+	efoName=rep(as.character(NA), 100),
+	doId=rep(as.character(NA), 100),
+	doName=rep(as.character(NA), 100),
+	efoSubclassCount=rep(as.character(NA), 100),
+	tiga_Ngenes=rep(as.integer(NA), 100),
+	diseases_Ngenes=rep(as.integer(NA), 100),
+	inCommon_Ngenes=rep(as.integer(NA), 100),
+	inCommon_pct=rep(as.integer(NA), 100),
+	inCommon_pVal=rep(as.numeric(NA), 100),
+	corPearson=rep(as.numeric(NA), 100)
 )
 i <- 0L
 efoIds_all <- c()
+efoIds_used_all <- c()
 plots_diseases <- list()
 cat("i\tefoId\tefoName\tdoId\tdoName\nefoSubclassCount\ttiga_Ngenes\tdiseases_Ngenes\tNgenes_InCommon\tNgenes_InCommonPct\tNgenes_InCommonPval\n")
 for (efoId_this in tiga[, unique(efoId)]) {
@@ -82,7 +85,7 @@ for (efoId_this in tiga[, unique(efoId)]) {
     message(sprintf("ERROR: not found in efoGraph: %s", efoId_this))
     next
   }
-  message(sprintf("Subclasses %s: %d", efoId_this, length(efoIds_this)-1))
+  #message(sprintf("Subclasses %s: %d", efoId_this, length(efoIds_this)-1))
   if (length(efoIds_this)>999) {
     message(sprintf("Too many subclasses; skipping: %s", efoId_this))
     next
@@ -92,7 +95,8 @@ for (efoId_this in tiga[, unique(efoId)]) {
   tiga_this <- tiga[efoId %in% efoIds_this]
   doIds_this <- tiga_this[, doId]
   if (!inrange(diseases_exp[doId %in% doIds_this, uniqueN(geneSymbol)], Ngenes_min, Ngenes_max)) { next }
-
+  efoIds_used_all <- c(efoIds_used_all , efoIds_this)
+  
   i <- i + 1L
   efoName_this <- tiga[efoId==efoId_this, first(trait)]
   doId_this <- tiga[efoId==efoId_this, first(doId)]
@@ -119,6 +123,11 @@ for (efoId_this in tiga[, unique(efoId)]) {
   }
 
   cat(sprintf("%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%.1f%%\t%g\t%.3f\n", i, efoId_this, efoName_this, doId_this, doName_this, length(efoIds_this)-1, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), inCommon_pval, 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes), corPearson))
+  if (i>nrow(results_diseases)) {
+    dtcopy <- results_diseases
+    dtcopy[, names(dtcopy) := NA]
+    results_diseases <- rbindlist(list(results_diseases, dtcopy))
+  }
   set(results_diseases, i, names(results_diseases), list(efoId_this, efoName_this, doId_this, doName_this, length(efoIds_this)-1, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes), inCommon_pval, corPearson))
   
   annos <- c(sprintf("corPearson: %.3f", corPearson), sprintf("Subclasses: %d", length(efoIds_this)-1))
@@ -126,17 +135,18 @@ for (efoId_this in tiga[, unique(efoId)]) {
 	layout(title=sprintf("%s (%s)<br>geneMuScore vs DISEASES_confidence", efoId_this, efoName_this)) %>%
 	add_annotations(text=annos, showarrow=F, x=.5, y=.1, xref="paper", yref="paper")
   
-  if (i==I_max) { break }
 }
 setorder(results_diseases, -tiga_Ngenes, na.last=T)
 results_diseases <- results_diseases[!is.na(efoId)]
 write_delim(results_diseases, "data/benchmarks_results_diseases.tsv", "\t")
-write_delim(data.table(efoId=unique(efoIds_all)), "data/benchmarks.efoId", col_names=F)
+message(sprintf("efoIds_all: %d; efoIds_used_all: %d", length(efoIds_all), length(efoIds_used_all)))
+write_delim(data.table(efoId=unique(efoIds_used_all)), "data/benchmarks.efoId", col_names=F)
 #
 ###
 # Totals:
-message(sprintf("TOTAL doIds: %d; TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon: %d (median %.1f%%); InCommonPval (median): %g; corPearson: %.3f\n",
-	results_diseases[, uniqueN(doId)],
+message(sprintf("TOTAL efoIds: %d; doIds: %d; TIGA_Ngenes: %d; DISEASES_Ngenes: %d; InCommon: %d (median %.1f%%); InCommonPval (median): %g; corPearson: %.3f\n",
+                results_diseases[, uniqueN(efoId)],
+                results_diseases[, uniqueN(doId)],
 	results_diseases[, sum(tiga_Ngenes)],
 	results_diseases[, sum(diseases_Ngenes)],
 	results_diseases[, sum(inCommon_Ngenes)],
@@ -173,17 +183,17 @@ setnames(opentargets, old=c("target_id", "gene_name", "gene_symbol", "disease_id
 
 ###
 results_ot <- data.table(
-	efoId=rep(as.character(NA), I_max),
+	efoId=rep(as.character(NA), 100),
 	efoName=rep(as.character(NA)),
-	doId=rep(as.character(NA), I_max),
-	doName=rep(as.character(NA), I_max),
-	efoSubclassCount=rep(as.character(NA), I_max),
-	tiga_Ngenes=rep(as.integer(NA), I_max),
-	ot_Ngenes=rep(as.integer(NA), I_max),
-	inCommon_Ngenes=rep(as.integer(NA), I_max),
-	inCommon_pct=rep(as.integer(NA), I_max),
-	inCommon_pVal=rep(as.numeric(NA), I_max),
-	corPearson=rep(as.numeric(NA), I_max)
+	doId=rep(as.character(NA), 100),
+	doName=rep(as.character(NA), 100),
+	efoSubclassCount=rep(as.character(NA), 100),
+	tiga_Ngenes=rep(as.integer(NA), 100),
+	ot_Ngenes=rep(as.integer(NA), 100),
+	inCommon_Ngenes=rep(as.integer(NA), 100),
+	inCommon_pct=rep(as.integer(NA), 100),
+	inCommon_pVal=rep(as.numeric(NA), 100),
+	corPearson=rep(as.numeric(NA), 100)
 )
 i <- 0L
 plots_opentargets <- list()
@@ -194,14 +204,16 @@ for (efoId_this in tiga[, unique(efoId)]) {
     message(sprintf("ERROR: not found in efoGraph: %s", efoId_this))
     next
   }
-  message(sprintf("Subclasses %s: %d", efoId_this, length(efoIds_this)-1))
+  #message(sprintf("Subclasses %s: %d", efoId_this, length(efoIds_this)-1))
   if (length(efoIds_this)>999) {
     message(sprintf("Too many subclasses; skipping: %s", efoId_this))
     next
   }
-  if (!inrange(tiga[efoId %in% efoIds_this, uniqueN(ensemblId)], Ngenes_min, Ngenes_max)) { next }
+  if (efoId_this == "EFO_0004247") { } #no-op "mood disorder"
+  else if (!inrange(tiga[efoId %in% efoIds_this, uniqueN(ensemblId)], Ngenes_min, Ngenes_max)) { next }
+  else if (!inrange(opentargets[efoId %in% efoIds_this, uniqueN(geneSymbol)], Ngenes_min, Ngenes_max)) { next }
+  
   tiga_this <- tiga[efoId %in% efoIds_this]
-  if (!inrange(opentargets[efoId %in% efoIds_this, uniqueN(geneSymbol)], Ngenes_min, Ngenes_max)) { next }
   
   i <- i + 1L
   efoName_this <- tiga[efoId==efoId_this, first(trait)]
@@ -231,13 +243,17 @@ for (efoId_this in tiga[, unique(efoId)]) {
   }
 
   cat(sprintf("%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%.1f%%\t%g\t%.3f\n", i, efoId_this, efoName_this, doId_this, doName_this, length(efoIds_this)-1, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes), inCommon_pval, corPearson))
+  if (i>nrow(results_ot)) {
+    dtcopy <- results_ot
+    dtcopy[, names(dtcopy) := NA]
+    results_ot <- rbindlist(list(results_ot, dtcopy))
+  }
   set(results_ot, i, names(results_ot), list(efoId_this, efoName_this, doId_this, doName_this, length(efoIds_this)-1, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes), inCommon_pval, corPearson))
   annos <- c(sprintf("corPearson: %.3f", corPearson), sprintf("Subclasses: %s", paste(collapse="; ", efoIds_this)))
   plots_opentargets[[i]] <- plot_ly(tiga_vs_opentargets, x=~otOverallScore, y=~geneMuScore, type="scatter", mode="markers") %>%
 	layout(title=sprintf("%s (%s)<br>geneMuScore vs otOverallScore", efoId_this, efoName_this)) %>%
 	add_annotations(text=annos, showarrow=F, x=.5, y=.1, xref="paper", yref="paper")
   
-  if (i==I_max) { break }
 }
 setorder(results_ot, -tiga_Ngenes, na.last=T)
 results_ot <- results_ot[!is.na(efoId)]

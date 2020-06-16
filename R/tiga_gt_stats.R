@@ -172,21 +172,21 @@ g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, UPSTREAM_GENE_DIS
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
 #
 ###
-# Currently, we require OR and ignore BETA.
-# This filters many studies, traits, and genes.
-print(sprintf("Studies before and after OR filter: %d -> %d (-%d; -%.1f%%)", 
+# Initially, we required OR and ignored BETA.
+# This filtered many studies, traits, and genes.
+print(sprintf("Studies without and with OR filter: %d -> %d (-%d; -%.1f%%)", 
   g2t[, uniqueN(STUDY_ACCESSION)], g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)],
   g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)],
   100*(g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)])/g2t[, uniqueN(STUDY_ACCESSION)]
 ))
 
-print(sprintf("Traits before and after OR filter: %d -> %d (-%d; -%.1f%%)", 
+print(sprintf("Traits without and with OR filter: %d -> %d (-%d; -%.1f%%)", 
   g2t[, uniqueN(TRAIT_URI)], g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)],
   g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)],
   100*(g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)])/g2t[, uniqueN(TRAIT_URI)]
   ))
 
-print(sprintf("Genes before and after OR filter: %d -> %d (-%d; -%.1f%%)", 
+print(sprintf("Genes without and with OR filter: %d -> %d (-%d; -%.1f%%)", 
   g2t[, uniqueN(ensemblId)], g2t[!is.na(oddsratio), uniqueN(ensemblId)],
   g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)],
   100*(g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)])/g2t[, uniqueN(ensemblId)]
@@ -194,31 +194,37 @@ print(sprintf("Genes before and after OR filter: %d -> %d (-%d; -%.1f%%)",
 
 print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
 #
+#badrows <- is.na(g2t$oddsratio)
+#reason_txt <- "Missing OR"
+badrows <- (is.na(g2t$oddsratio) & is.na(g2t$beta))
+reason_txt <- "Missing both OR and beta"
+print(sprintf("badrows: %d", sum(badrows)))
 ###
 # Write files accounting for filtered studies, traits and genes.
-filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[is.na(oddsratio)]$STUDY_ACCESSION, g2t[!is.na(oddsratio)]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
-filtered_studies[, reason := "missing OR"]
-print(sprintf("Studies removed by OR filter: %d", filtered_studies[, uniqueN(STUDY_ACCESSION)]))
+filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows]$STUDY_ACCESSION, g2t[!badrows]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+filtered_studies[, reason := reason_txt]
+print(sprintf("Studies removed by filter (%s): %d", reason_txt, filtered_studies[, uniqueN(STUDY_ACCESSION)]))
 write_delim(filtered_studies, "data/filtered_studies.tsv.gz", delim="\t")
 #
-filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[is.na(oddsratio)]$TRAIT_URI, g2t[!is.na(oddsratio)]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
-filtered_traits[, reason := "missing OR"]
-print(sprintf("Traits removed by OR filter: %d", filtered_traits[, uniqueN(TRAIT_URI)]))
+filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows]$TRAIT_URI, g2t[!badrows]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
+filtered_traits[, reason := reason_txt]
+print(sprintf("Traits removed by filter (%s): %d", reason_txt, filtered_traits[, uniqueN(TRAIT_URI)]))
 write_delim(filtered_traits, "data/filtered_traits.tsv.gz", delim="\t")
 #
-filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[is.na(oddsratio)]$ensemblId, g2t[!is.na(oddsratio)]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
-filtered_genes[, reason := "missing OR"]
-print(sprintf("Genes removed by OR filter: %d", filtered_genes[, uniqueN(ensemblId)]))
+filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows]$ensemblId, g2t[!badrows]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
+filtered_genes[, reason := reason_txt]
+print(sprintf("Genes removed by filter (%s): %d", reason_txt, filtered_genes[, uniqueN(ensemblId)]))
 filtered_genes <- merge(filtered_genes, tcrd[, .(ensemblGeneId, geneName=tcrdTargetName, geneFamily=tcrdTargetFamily, TDL)], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
 filtered_genes <- filtered_genes[, .(ensemblId, ensemblSymb, geneName, geneFamily, TDL, reason)]
 write_delim(filtered_genes, "data/filtered_genes.tsv.gz", delim="\t")
 #
-stop("DEBUG: STOP.")
-#
 print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
 #
-message(sprintf("Filtering assocations missing OR: %d", sum(is.na(g2t$oddsratio))))
-g2t <- g2t[!is.na(oddsratio)] #Many filtered.
+message(sprintf("Filtering assocations (%s): %d", reason_txt, sum(badrows)))
+g2t <- g2t[!badrows] #Many filtered.
+#
+#stop("DEBUG: STOP.")
+#
 ###
 # Gene-distance weighting function.
 g2t[, GDistWt := 2^(-pmin(g2t$UPSTREAM_GENE_DISTANCE, g2t$DOWNSTREAM_GENE_DISTANCE, na.rm=T)/5e4)]
@@ -254,6 +260,7 @@ gt_stats <- data.table(ensemblId=rep(NA, NROW),
 	traitNstudy=as.integer(rep(NA, NROW)),
 	pvalue_mlog_median=as.numeric(rep(NA, NROW)),
 	or_median=as.numeric(rep(NA, NROW)),
+	betaN=as.integer(rep(NA, NROW)), #simple count of beta values
 	study_N_mean=as.numeric(rep(NA, NROW)),
 	rcras=rep(NA, NROW)
 	)
@@ -304,7 +311,8 @@ for (ensg in unique(g2t$ensemblId)) {
     gt_stats$traitNstudy[i_row] <- g2t[TRAIT_URI==trait_uri, traitNstudy][1]
     gt_stats$n_study[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])
     gt_stats$pvalue_mlog_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
-    gt_stats$or_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, oddsratio], na.rm=T)
+    gt_stats$or_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, oddsratio], na.rm=T) #NA if no ORs
+    gt_stats$betaN[i_row] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri & !is.na(beta), .N] #0 if no betas
     gt_stats$study_N_mean[i_row] <- round(mean(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, study_N], na.rm=T), 1)
     gt_stats$n_snp[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, SNP])
     # Deduplicate (group-by) SNPs for `n_snpw` computation. 
@@ -344,6 +352,7 @@ message(sprintf("traitNstudy: [%d,%d]", min(gt_stats$traitNstudy), max(gt_stats$
 message(sprintf("geneNtrait: [%d,%d]", min(gt_stats$geneNtrait), max(gt_stats$geneNtrait)))
 message(sprintf("pvalue_mlog_median: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_median, na.rm=T), max(gt_stats$pvalue_mlog_median, na.rm=T)))
 message(sprintf("or_median: [%.2f,%.2f]", min(gt_stats$or_median, na.rm=T), max(gt_stats$or_median, na.rm=T)))
+message(sprintf("betaN: [%d,%d]", min(gt_stats$beta, na.rm=T), max(gt_stats$beta, na.rm=T)))
 message(sprintf("study_N_mean: [%.1f,%.1f]", min(gt_stats$study_N_mean, na.rm=T), max(gt_stats$study_N_mean, na.rm=T)))
 message(sprintf("rcras: [%.2f,%.2f]", min(gt_stats$rcras, na.rm=T), max(gt_stats$rcras, na.rm=T)))
 message(sprintf("n_snpw: [%.2f,%.2f]", min(gt_stats$n_snpw, na.rm=T), max(gt_stats$n_snpw, na.rm=T)))
@@ -355,7 +364,7 @@ setnames(gt_stats,
 #
 gt_stats <- gt_stats[!is.na(ensemblId)] #Should be no-op.
 gt_stats <- gt_stats[!is.na(geneIdgTdl)] #Non-protein-coding removed by IDG TDL requirement.
-gt_stats <- gt_stats[!is.na(or_median)] #OR required until beta -able.
+#gt_stats <- gt_stats[!is.na(or_median)] #OR required until beta -able.
 ###
 #
 message(sprintf("Genes (ensemblIDs): %d", uniqueN(gt_stats$ensemblId)))
@@ -378,10 +387,11 @@ gt_stats[, traitNgene_inv := 1 / traitNgene]
 # The square matrix GE is stored by column in a vector. Thus nrow(GE_matrix) = nrow(x)^2.
 ###
 # Gene &mu; scores:
+# Some or_median will be NA, since beta included. Is that ok?
 gt_stats[, `:=`(geneMuScore=as.integer(NA), geneMuRank=as.integer(NA))]
 ii <- 0
 for (efoId_this in unique(gt_stats$efoId)) {
-  gtmat <- as.matrix(gt_stats[efoId==efoId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, rcras)])
+  gtmat <- as.matrix(gt_stats[efoId==efoId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, betaN, rcras)])
   ii <- ii + 1
   trait_this <- gt_stats[efoId==efoId_this, trait][1]
   message(sprintf("[%d / %d] (N_gene: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$efoId), dim(gtmat)[1], efoId_this, trait_this))
@@ -413,7 +423,7 @@ for (efoId_this in unique(gt_stats$efoId)) {
 gt_stats[, `:=`(traitMuScore=as.integer(NA), traitMuRank=as.integer(NA))]
 ii <- 0
 for (ensemblId_this in unique(gt_stats$ensemblId)) {
-  gtmat <- as.matrix(gt_stats[ensemblId==ensemblId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, rcras)])
+  gtmat <- as.matrix(gt_stats[ensemblId==ensemblId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, betaN, rcras)])
   ii <- ii + 1
   geneSymbol_this <- gt_stats[ensemblId==ensemblId_this, geneSymbol][1]
   message(sprintf("[%d / %d] (N_trait: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$ensemblId), dim(gtmat)[1], ensemblId_this, geneSymbol_this))

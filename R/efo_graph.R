@@ -57,7 +57,9 @@ system("gzip -f data/efo_graph.graphml")
 #
 ###
 # Induce and plot subgraph. BFS finds all subclasses.
-v_this <- V(efoG)[V(efoG)$description == "mood disorder"]
+EFONAME <- "mood disorder" #EFO_0004247 (11 subclasses)
+#EFONAME <- "epilepsy" #500+ subclasses!
+v_this <- V(efoG)[V(efoG)$description == EFONAME]
 bfs_this <- igraph::bfs(efoG, v_this, neimode="out", unreachable=F)
 subg <- induced_subgraph(efoG, bfs_this$order[1:sum(!is.na(bfs_this$order))])
 graph_attr(subg, "name") <- sprintf("EFO_SUBGRAPH:%s (subclasses)", v_this$efoId)
@@ -71,7 +73,7 @@ tkplot(subg, canvas.width=800, canvas.height=600, layout=layout_as_tree, vertex.
 #
 # CYJS not supported. (Can do igraph_utils.py graph2cyjs)
 subg <- set_vertex_attr(subg, "name", V(subg), sprintf("%s: %s", V(subg)$efoId, V(subg)$description))
-write_graph(subg, sprintf("data/efo_subgraph_%s.graphml", efo_node[label == "mood disorder"]$id), format="graphml")
+write_graph(subg, sprintf("data/efo_subgraph_%s.graphml", efo_node[label == EFONAME]$id), format="graphml")
 #
 ###
 # Test that we can read graphml file ok.
