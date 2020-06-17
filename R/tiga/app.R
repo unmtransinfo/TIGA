@@ -1,14 +1,17 @@
 ########################################################################################
 ### TIGA: Target Illumination by GWAS Analytics
 ### gt = gene-trait data
-### Dataset gt_stats.tsv from tiga_gt_stats.R.
+### Dataset gt_stats.tsv.gz from tiga_gt_stats.R.
 ### Jeremy Yang
 ########################################################################################
-### NOTE: requires dqshiny dev version late 2019, via https://github.com/daqana/dqshiny
+### Requires dqshiny dev version late 2019, via https://github.com/daqana/dqshiny
 ### remotes::install_github("daqana/dqshiny")
 ########################################################################################
 ### Autosuggest is dependent on dqshiny and shiny versions and is fussy. shiny 1.4.0 is
 ### ok (but possibly not 1.4.0.2) with dqshiny 0.0.3.9000 and shinyBS 0.61.
+########################################################################################
+### TODO: g-t association detail tab with table of evidence (studies and publications).
+### TODO: HTTP params for trait+gene URLs.
 ########################################################################################
 library(readr)
 library(data.table)
@@ -27,13 +30,21 @@ efoId2Uri <- function(efoId) { #(non-vector)
   if (is.null(efoId)) { return(NA) }
   if (grepl("^EFO_", efoId)) {
     return(sprintf("http://www.ebi.ac.uk/efo/%s", efoId))
-  } else if (grepl("(^HP_|^GO_|^CHEBI_)", efoId)) {
-    return(sprintf("http://purl.obolibrary.org/obo/%s", efoId))
   } else if (grepl("^Orphanet_", efoId)) {
     return(sprintf("http://www.orpha.net/ORDO/%s", efoId))
+  } else if (grepl("(^HP_|^GO_|^CHEBI_|^UBERON_|^NCBITaxon_|^MONDO_|^UO_|^CL_|^PATO_|^HANCESTRO_)", efoId)) {
+    return(sprintf("http://purl.obolibrary.org/obo/%s", efoId))
   } else {
     return(NA)
   }
+}
+# Return all subclass efoIds for input efoId, including self.
+efoId2Subclasses <- function(G, id_this) {
+  if (!(id_this %in% V(G)$efoId)) { return(NULL) }
+  v_this <- V(G)[V(G)$efoId == id_this]
+  bfs_this <- igraph::bfs(G, v_this, neimode="out", unreachable=F)
+  subG <- induced_subgraph(G, bfs_this$order[1:sum(!is.na(bfs_this$order))])
+  return(V(subG)$efoId)
 }
 ########################################################################################
 APPNAME <- "TIGA"
@@ -146,7 +157,8 @@ Data from the <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">NHGRI-EB
 <B>Datatypes:</B>
 <UL>
   <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting trait-gene association.
-  <LI><B>OR<SUP>*</SUP></B>: median(odds ratio, inverted if &lt;1) supporting trait-gene association.
+  <LI><B>OR<SUP>*</SUP></B>: median(odds ratio, inverted if &lt;1) supporting trait-gene association (computed as one if missing).
+  <LI><B>betaN<SUP>*</SUP></B>: simple count of beta values with 95% confidence intervals supporting trait-gene association.
   <LI><B>N_snp<SUP>*</SUP></B>: SNPs involved with trait-gene association.
   <LI><B>N_snpw<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
   <LI><B>N_study<SUP>*</SUP></B>: studies supporting trait-gene association.
@@ -223,6 +235,11 @@ ui <- fluidPage(
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("tigaPlot", height = "500px")),
 		tabPanel(id="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
+		tabPanel(value="association_detail", title="Detail",
+			textOutput("association_detail"),
+			DT::dataTableOutput("association_detail_studies"),
+			DT::dataTableOutput("association_detail_publications")
+			),
 		tabPanel(value="traits", title="Traits (all)", DT::dataTableOutput("traits")),
 		tabPanel(value="genes", title="Genes (all)", DT::dataTableOutput("genes")),
 		tabPanel(value="studies", title="Studies (all)", DT::dataTableOutput("studies")),
@@ -328,6 +345,11 @@ server <- function(input, output, session) {
       qStr <- httpQstr()
       if ("trait" %in% names(qStr)) {
         dqshiny::update_autocomplete_input(session, "usrQry", value=efoId2Name(qStr[["trait"]]))
+        if ("gene" %in% names(qStr)) {
+          #How to handle both? And invoke association detail tab?
+          geneSymbol <-  ensemblId2Symbol(qStr[["gene"]])
+          geneName <-  ensemblId2Name(qStr[["gene"]])
+        }
       } else if ("gene" %in% names(qStr)) {
         dqshiny::update_autocomplete_input(session, "usrQry", 
                     value=sprintf("%s:%s", ensemblId2Symbol(qStr[["gene"]]), ensemblId2Name(qStr[["gene"]])))
@@ -383,6 +405,7 @@ server <- function(input, output, session) {
   output$traitFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(trait_table), ncol(trait_table)) })
   output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table), ncol(gene_table)) })
   output$gtFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt), ncol(gt)) })
+  output$association_detail <- renderText({ h1("Gene-trait association detail") })
 
   HitsWithHtm <- reactive({
     hh <- data.table(Hits()) #copy
@@ -600,7 +623,15 @@ server <- function(input, output, session) {
   output$studies <- DT::renderDataTable({
     DT::datatable(data=study_tableHtm()[, .(Accession, Study, PMID, DatePublished, DateAdded)], rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
-  
+
+  output$association_detail_studies <- DT::renderDataTable({
+    DT::datatable(data=data.table(STUDY_ACCESSION=rep(10, "BLAH"), STUDY=rep(10, "GROK")), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+  }, server=T)
+
+  output$association_detail_publications <- DT::renderDataTable({
+    DT::datatable(data=data.table(PMID=rep(10, "BLAH"), TITLE=rep(10, "GROK")), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+  }, server=T)
+
   Hits_export <- reactive({
     if (is.null(Hits())) { return(NULL) }
     hits_out <- data.table(Hits()) #copy

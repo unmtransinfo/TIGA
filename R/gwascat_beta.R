@@ -58,21 +58,33 @@ assn[, ci_95_text := gsub("^\\[(.*)\\s*\\-\\s*(.*)\\](.*)$", "[\\1-\\2]\\3", ci_
 assn[, ci_95_text := sub("^([0-9\\-]+\\.[0-9]+)\\.([0-9]+\\.[0-9]+)$", "[\\1-\\2]", ci_95_text)] #weirdo
 #
 ###
+# Beta units parsed from CI_95 text, or NA from NA.
 # Heuristic: all units include "(in|de)crease"
 assn[, beta_units := sub("^.*\\]\\s*", "", ci_95_text)]
 assn[, ci_min := as.numeric(sub("^\\[(.+)\\-(.+)\\].*$", "\\1", ci_95_text))]
 assn[, ci_max := as.numeric(sub("^\\[(.+)\\-(.+)\\].*$", "\\2", ci_95_text))]
 #
-#Flag unparsable beta units
-assn[, bad_beta := (!is.na(ci_95_text) & !grepl("^\\[.*\\]$", ci_95_text)  & !grepl("(in|de)crease", ci_95_text))]
-print(unique(assn[(bad_beta==TRUE), .(bad = sub("^.*\\] *", "", ci_95_text))]))
+#Flag missing CI
+assn[, ci_missing := (!is.na(ci_95_text) & grepl("^\\s*$", ci_95_text))]
+message(sprintf("Associations with missing CIs: %d / %d (%.1f%%)",
+	assn[(ci_missing), .N], assn[, .N], 100* assn[(ci_missing), .N]/assn[, .N]))
+#
+#Flag unparsable CI
+assn[, ci_unparsable := (!is.na(ci_95_text) & !grepl("^\\[.*\\]$", ci_95_text)  & !grepl("(in|de)crease", ci_95_text))]
+message(sprintf("Associations with unparsable CIs: %d / %d (%.1f%%)",
+	assn[(ci_unparsable), .N], assn[, .N], 100* assn[(ci_unparsable), .N]/assn[, .N]))
+print(unique(assn[(ci_unparsable==TRUE), .(UNPARSABLE = sub("^.*\\] *", "", ci_95_text))]))
 #
 #Flag NR CIs (not recorded)
 assn[, ci_is_nr := (grepl("^\\[NR\\]", ci_95_text))]
+message(sprintf("Associations with CIs \"NR\" (not recorded): %d / %d (%.1f%%)",
+	assn[(ci_is_nr), .N], assn[, .N], 100* assn[(ci_is_nr), .N]/assn[, .N]))
 #
-assn$beta_units[!grepl("(in|de)crease", assn$beta_units)] <- NA
+assn[, beta_units_unparsable := (!is.na(beta_units) & !grepl("(in|de)crease", beta_units))]
+message(sprintf("Associations with beta units unparseable: %d / %d (%.1f%%)",
+	assn[(beta_units_unparsable), .N], assn[, .N], 100* assn[(beta_units_unparsable), .N]/assn[, .N]))
 #
-#Top BETA units
+#Commonest BETA units
 tbl <- data.table(table(assn$beta_units))
 setnames(tbl, c("beta_units", "Freq"))
 setorder(tbl, -Freq)
@@ -80,9 +92,21 @@ writeLines(sprintf("%2d. %8d: %s", 1:20, tbl[1:20, Freq], tbl[1:20, beta_units])
 writeLines(sprintf("Pct of associations either \"unit increase\" or \"unit decrease\": %.1f%% (%d/%d)", 
     100*tbl[grepl("unit (in|de)crease", beta_units), sum(Freq)]/tbl[, sum(Freq)], tbl[grepl("unit (in|de)crease", beta_units), sum(Freq)], tbl[, sum(Freq)]))
 ###
-#Can we generate z-scores? Some?
-#Maybe for some traits. Assume same traits have same units?
-#Another approach: beta value counts for mu scoring/ranking.
+#Approach: beta value counts for mu scoring/ranking.
+#However, only count betas with CIs which are unidirectional (not + and -).
+#
+assn[, ci_spans_zero := ((ci_min * ci_max)<0)]
+message(sprintf("Associations with CIs spanning zero: %d / %d (%.1f%%)",
+	assn[(ci_spans_zero), .N], assn[, .N], 100* assn[(ci_spans_zero), .N]/assn[, .N]))
+message(sprintf("STUDY_ACCESSIONs filtered by criterion (CI spanning zero): %d / %d",
+	length(setdiff(assn[(ci_spans_zero), unique(STUDY_ACCESSION)], assn[, unique(STUDY_ACCESSION)])), assn[, uniqueN(STUDY_ACCESSION)]))
+message(sprintf("TRAIT_URIs filtered by criterion (CI spanning zero): %d / %d",
+	length(setdiff(assn[(ci_spans_zero), unique(TRAIT_URI)], assn[, unique(TRAIT_URI)])), assn[, uniqueN(TRAIT_URI)]))
+message(sprintf("MAPPED_GENEs filtered by criterion (CI spanning zero): %d / %d",
+	length(setdiff(assn[(ci_spans_zero), unique(MAPPED_GENE)], assn[, unique(MAPPED_GENE)])), assn[, uniqueN(MAPPED_GENE)]))
+#
+stop("DEBUG")
+#
 xxx <- assn[(grepl("^unit (in|de)crease", beta_units) & ci_is_nr==F), .(TRAIT_URI, TRAIT, `95%_CI_(TEXT)`, ci_95_text, beta, beta_units, ci_min, ci_max)]
 setorder(xxx, -ci_min, na.last=T)
 

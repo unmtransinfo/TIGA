@@ -382,6 +382,10 @@ message(sprintf("G-T associations in dataset: %d", nrow(gt_stats)))
 gt_stats[, geneNtrait_inv := 1 / geneNtrait]
 gt_stats[, traitNgene_inv := 1 / traitNgene]
 
+# Save pre-mu to file for debugging.
+write_delim(gt_stats, "data/tmp.tsv.gz", delim="\t")
+
+
 # For each (trait|gene), convert to matrix for muStat::mu.GE().
 # The (i,j) entry of GE matrix is 1 if \code{x_i >= x_j}, 0 otherwise.
 # The square matrix GE is stored by column in a vector. Thus nrow(GE_matrix) = nrow(x)^2.
