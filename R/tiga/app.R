@@ -152,13 +152,14 @@ Data from the <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">NHGRI-EB
 <UL>
 <LI>Traits are mapped to EFO, HPO, Orphanet, PATO or GO, with ~90%% mapped to EFO.
 <LI>Mapped genes via Ensembl pipeline as per GWAS Catalog documentation. Reported genes ignored for consistency and accountable confidence assessment in this app and downstream.
-<LI>In this version, OR required and BETA ignored, due to problem of harmonizing varying BETA units.
+<LI>In this version, effect size measure (1) odds ratio (OR) or (2) BETA required.
+<LI>Due to difficulties parsing and harmonizing beta units, simple count N_beta is employed.
 </UL>
 <B>Datatypes:</B>
 <UL>
   <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting trait-gene association.
   <LI><B>OR<SUP>*</SUP></B>: median(odds ratio, inverted if &lt;1) supporting trait-gene association (computed as one if missing).
-  <LI><B>betaN<SUP>*</SUP></B>: simple count of beta values with 95% confidence intervals supporting trait-gene association.
+  <LI><B>N_beta<SUP>*</SUP></B>: simple count of beta values with 95% confidence intervals supporting trait-gene association.
   <LI><B>N_snp<SUP>*</SUP></B>: SNPs involved with trait-gene association.
   <LI><B>N_snpw<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
   <LI><B>N_study<SUP>*</SUP></B>: studies supporting trait-gene association.
@@ -215,6 +216,7 @@ ui <- fluidPage(
   fluidRow(
     column(3, 
       wellPanel(
+
 	dqshiny::autocomplete_input("usrQry", div("Query", actionButton("randQuery", 
 	       tags$img(height="28", valign="bottom", src="dice.png"),
 	       style='padding:0px; background-color:#DDDDDD'),
@@ -222,6 +224,7 @@ ui <- fluidPage(
 	       tags$img(height="28", valign="bottom", src="refresh_icon.png"), 
 	       style='padding:0px;background-color:#DDDDDD')),
             options=qry_menu, max_options=10000, placeholder="Query trait or gene..."),
+
         sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
 	checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
         radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS", "None"), choiceValues=c("n_study", "rcras", NA), selected="n_study", inline=T)
@@ -236,7 +239,7 @@ ui <- fluidPage(
 		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("tigaPlot", height = "500px")),
 		tabPanel(id="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
 		tabPanel(value="association_detail", title="Detail",
-			textOutput("association_detail"),
+			htmlOutput("association_detail"),
 			DT::dataTableOutput("association_detail_studies"),
 			DT::dataTableOutput("association_detail_publications")
 			),
@@ -339,6 +342,13 @@ server <- function(input, output, session) {
     return(name)
   }
   
+  AssociationDetailHtm <- function(efoId_this, ensemblId_this) {
+    traitName <- efoId2Name(efoId_this)
+    geneName <- ensemblId2Name(ensemblId_this)
+    htm <- sprintf("TRAIT: %s; GENE: %s", traitName, geneName)
+    return(htm)
+  }
+
   qryId <- reactive({
     if (i_query==0) { #1st query may be via URL http param.
       #message(sprintf("DEBUG: url: \"%s\"", urlText()))
@@ -383,14 +393,14 @@ server <- function(input, output, session) {
     if (hitType()=="trait") {
       gt_this <- gt[ensemblId==qryId()]
       if (nrow(gt_this)==0) { return(NULL) }
-      gt_this <- gt_this[, .(efoId, trait, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, rcras, traitMuScore, traitMuRank)]
+      gt_this <- gt_this[, .(efoId, trait, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, betaN, rcras, traitMuScore, traitMuRank)]
       setnames(gt_this, old=c("traitMuScore", "traitMuRank"), new=c("muScore", "muRank"))
     } else { #hitType=="gene"
       gt_this <- gt[efoId==qryId()]
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
-      gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, geneMuScore, geneMuRank)]
-      setnames(gt_this, old=c("geneMuScore", "geneMuRank"), new=c("muScore", "muRank"))
+      gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, betaN,rcras, geneMuScore, geneMuRank)]
+      setnames(gt_this, old=c("betaN", "geneMuScore", "geneMuRank"), new=c("n_beta", "muScore", "muRank"))
     }
     gt_this[, ok := (is.na(muRank) | as.logical(muRank<=input$maxHits))] #1-hit situation problematic.
     setorder(gt_this, muRank)
@@ -405,7 +415,7 @@ server <- function(input, output, session) {
   output$traitFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(trait_table), ncol(trait_table)) })
   output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table), ncol(gene_table)) })
   output$gtFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt), ncol(gt)) })
-  output$association_detail <- renderText({ h1("Gene-trait association detail") })
+  output$association_detail <- reactive({ paste(sprintf("<H2>%s gene-trait association detail</H2>", APPNAME), AssociationDetailHtm(qryId(), qryId())) })
 
   HitsWithHtm <- reactive({
     hh <- data.table(Hits()) #copy
@@ -428,7 +438,7 @@ server <- function(input, output, session) {
       htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"https://pharos.nih.gov/targets/%s\">%s</a>)", qryId(), qryId()))
     }
     if (!is.null(Hits())) {
-      htm <- paste0(htm, sprintf("; N_%s: %d", hitType(), nrow(Hits())))
+      htm <- paste0(htm, sprintf("; N_%s: %d; ORs: %d; betas: %d", hitType(), nrow(Hits()), Hits()[!is.na(or_median), .N], Hits()[!is.na(n_beta), .N]))
     } else if (qryId() %in% filtered$id) {
       htm <- paste0(htm, sprintf("; %s <B>%s: %s</B> filtered; reason: %s.", hitType(), qryId(), qryName(), filtered[id==qryId(), reason]))
     } else {
@@ -476,6 +486,7 @@ server <- function(input, output, session) {
     "; N_snp = ", Hits()[(ok)]$n_snp,
     ";<br>N_snpw = ", Hits()[(ok)]$n_snpw,
     "; OR = ", round(Hits()[(ok)]$or_median, digits=2), 
+    "; N_beta = ", Hits()[(ok)]$n_beta,
     "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok)]$pvalue_mlog_median)),
     "; RCRAS = ", round(Hits()[(ok)]$rcras, digits=2))
     return(text)
@@ -492,6 +503,7 @@ server <- function(input, output, session) {
     "; N_snp = ", Hits()[(ok)]$n_snp,
     ";<br>N_snpw = ", Hits()[(ok)]$n_snpw,
     "; OR = ", round(Hits()[(ok)]$or_median, digits=2), 
+    "; N_beta = ", Hits()[(ok)]$n_beta,
     "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok)]$pvalue_mlog_median)),
     "; RCRAS = ", round(Hits()[(ok)]$rcras, digits=2))
     return(text)
@@ -565,7 +577,7 @@ server <- function(input, output, session) {
     } else if (hitType()=="gene") {
       return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
           	selection=list(target="row", mode="multiple", selected=NULL),
-		colnames=c("ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "study_N", "N_snp", "N_snpw", "N_trait", "pVal_mlog", "OR", "RCRAS", "muScore", "muRank", "ok"),
+		colnames=c("ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "study_N", "N_snp", "N_snpw", "N_trait", "pVal_mlog", "OR", "N_beta", "RCRAS", "muScore", "muRank", "ok"),
           	options=list(
 			autoWidth=T, dom='tip',
 			columnDefs=list(
@@ -577,7 +589,7 @@ server <- function(input, output, session) {
   } else if (hitType()=="trait") {
       return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
 		selection=list(target="row", mode="multiple", selected=NULL),
-		colnames=c("efoId", "trait", "N_study", "study_N", "N_snp", "N_snpw", "N_gene", "pVal_mlog", "OR", "RCRAS", "muScore", "muRank", "ok"),
+		colnames=c("efoId", "trait", "N_study", "study_N", "N_snp", "N_snpw", "N_gene", "pVal_mlog", "OR", "N_beta", "RCRAS", "muScore", "muRank", "ok"),
 		options=list(
 			autoWidth=T, dom='tip',
 			columnDefs=list(
@@ -625,11 +637,11 @@ server <- function(input, output, session) {
   }, server=T)
 
   output$association_detail_studies <- DT::renderDataTable({
-    DT::datatable(data=data.table(STUDY_ACCESSION=rep(10, "BLAH"), STUDY=rep(10, "GROK")), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=data.table(STUDY_ACCESSION=rep("BLAH", 10), STUDY=rep("GROK", 10)), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
 
   output$association_detail_publications <- DT::renderDataTable({
-    DT::datatable(data=data.table(PMID=rep(10, "BLAH"), TITLE=rep(10, "GROK")), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=data.table(PMID=rep("BLAH", 10), TITLE=rep("GROK", 10)), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
 
   Hits_export <- reactive({
@@ -638,11 +650,11 @@ server <- function(input, output, session) {
     if (hitType()=="gene") {
       hits_out[["efoId"]] <- qryId()
       hits_out[["trait"]] <- qryName()
-      hits_out <- hits_out[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
+      hits_out <- hits_out[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, n_beta, rcras, muScore, muRank)]
     } else if (hitType()=="trait") {
       hits_out[["ensemblId"]] <- qryId()
       hits_out[["geneName"]] <- qryName()
-      hits_out <- hits_out[, .(ensemblId, geneName, efoId, trait, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, rcras, muScore, muRank)]
+      hits_out <- hits_out[, .(ensemblId, geneName, efoId, trait, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, n_beta, rcras, muScore, muRank)]
     }
     return(hits_out)
   })

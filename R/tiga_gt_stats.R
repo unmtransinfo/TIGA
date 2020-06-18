@@ -260,7 +260,7 @@ gt_stats <- data.table(ensemblId=rep(NA, NROW),
 	traitNstudy=as.integer(rep(NA, NROW)),
 	pvalue_mlog_median=as.numeric(rep(NA, NROW)),
 	or_median=as.numeric(rep(NA, NROW)),
-	betaN=as.integer(rep(NA, NROW)), #simple count of beta values
+	n_beta=as.integer(rep(NA, NROW)), #simple count of beta values
 	study_N_mean=as.numeric(rep(NA, NROW)),
 	rcras=rep(NA, NROW)
 	)
@@ -312,7 +312,7 @@ for (ensg in unique(g2t$ensemblId)) {
     gt_stats$n_study[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])
     gt_stats$pvalue_mlog_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
     gt_stats$or_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, oddsratio], na.rm=T) #NA if no ORs
-    gt_stats$betaN[i_row] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri & !is.na(beta), .N] #0 if no betas
+    gt_stats$n_beta[i_row] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri & !is.na(beta), .N] #0 if no betas
     gt_stats$study_N_mean[i_row] <- round(mean(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, study_N], na.rm=T), 1)
     gt_stats$n_snp[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, SNP])
     # Deduplicate (group-by) SNPs for `n_snpw` computation. 
@@ -352,7 +352,7 @@ message(sprintf("traitNstudy: [%d,%d]", min(gt_stats$traitNstudy), max(gt_stats$
 message(sprintf("geneNtrait: [%d,%d]", min(gt_stats$geneNtrait), max(gt_stats$geneNtrait)))
 message(sprintf("pvalue_mlog_median: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_median, na.rm=T), max(gt_stats$pvalue_mlog_median, na.rm=T)))
 message(sprintf("or_median: [%.2f,%.2f]", min(gt_stats$or_median, na.rm=T), max(gt_stats$or_median, na.rm=T)))
-message(sprintf("betaN: [%d,%d]", min(gt_stats$beta, na.rm=T), max(gt_stats$beta, na.rm=T)))
+message(sprintf("n_beta: [%d,%d]", min(gt_stats$beta, na.rm=T), max(gt_stats$beta, na.rm=T)))
 message(sprintf("study_N_mean: [%.1f,%.1f]", min(gt_stats$study_N_mean, na.rm=T), max(gt_stats$study_N_mean, na.rm=T)))
 message(sprintf("rcras: [%.2f,%.2f]", min(gt_stats$rcras, na.rm=T), max(gt_stats$rcras, na.rm=T)))
 message(sprintf("n_snpw: [%.2f,%.2f]", min(gt_stats$n_snpw, na.rm=T), max(gt_stats$n_snpw, na.rm=T)))
@@ -395,7 +395,7 @@ write_delim(gt_stats, "data/tmp.tsv.gz", delim="\t")
 gt_stats[, `:=`(geneMuScore=as.integer(NA), geneMuRank=as.integer(NA))]
 ii <- 0
 for (efoId_this in unique(gt_stats$efoId)) {
-  gtmat <- as.matrix(gt_stats[efoId==efoId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, betaN, rcras)])
+  gtmat <- as.matrix(gt_stats[efoId==efoId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, n_beta, rcras)])
   ii <- ii + 1
   trait_this <- gt_stats[efoId==efoId_this, trait][1]
   message(sprintf("[%d / %d] (N_gene: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$efoId), dim(gtmat)[1], efoId_this, trait_this))
@@ -427,7 +427,7 @@ for (efoId_this in unique(gt_stats$efoId)) {
 gt_stats[, `:=`(traitMuScore=as.integer(NA), traitMuRank=as.integer(NA))]
 ii <- 0
 for (ensemblId_this in unique(gt_stats$ensemblId)) {
-  gtmat <- as.matrix(gt_stats[ensemblId==ensemblId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, betaN, rcras)])
+  gtmat <- as.matrix(gt_stats[ensemblId==ensemblId_this, .(n_study, n_snp, n_snpw, geneNtrait_inv, traitNgene_inv, pvalue_mlog_median, or_median, n_beta, rcras)])
   ii <- ii + 1
   geneSymbol_this <- gt_stats[ensemblId==ensemblId_this, geneSymbol][1]
   message(sprintf("[%d / %d] (N_trait: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$ensemblId), dim(gtmat)[1], ensemblId_this, geneSymbol_this))
