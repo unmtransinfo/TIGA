@@ -425,15 +425,16 @@ server <- function(input, output, session) {
   output$gtFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt), ncol(gt)) })
   output$association_detail <- reactive({ AssociationDetailHtm(traitQryId(), geneQryId()) })
 
+  #Hits table has links to tiga:trait+gene
   HitsWithHtm <- reactive({
     hh <- data.table(Hits()) #copy
     if (hitType() == "trait") {
-      hh <- hh[, efoId := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", sapply(efoId, efoId2Uri), efoId)]
+      hh <- hh[, efoId := sprintf("<a href=\"%s\" target=\"_blank\">EFO:%s</a><br><a href=\"%s?trait=%s&gene=%s\">TIGA:%s+%s</a>", sapply(efoId, efoId2Uri), efoId, urlBase(), efoId, geneQryId(), efoId, geneQryId())]
     } else if (hitType() == "gene") {
-      hh <- hh[, geneSymbol := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", geneSymbol, geneSymbol)]
+      hh <- hh[, geneSymbol := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">IDG:%s</a><br><a href=\"%s?trait=%s&gene=%s\">TIGA:%s+%s</a>", geneSymbol, geneSymbol, urlBase(), traitQryId(), ensemblId, traitQryId(), geneSymbol)]
     } else if (hitType() == "genetrait") {
-      hh <- hh[, efoId := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", sapply(efoId, efoId2Uri), efoId)]
-      hh <- hh[, geneSymbol := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", geneSymbol, geneSymbol)]
+      hh <- hh[, efoId := sprintf("<a href=\"%s\" target=\"_blank\">EFO:%s</a>", sapply(efoId, efoId2Uri), efoId)]
+      hh <- hh[, geneSymbol := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">IDG:%s</a>", geneSymbol, geneSymbol)]
     }
     return(hh)
   })
@@ -633,10 +634,11 @@ server <- function(input, output, session) {
     return(NULL)
   }}, server=T)
 
+  #All-traits table has tiga-trait links.
   trait_tableHtm <- reactive({
     dt <- data.table(trait_table) #copy
     #dt[, idHtm := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", trait_uri, efoId)][, .(ID = idHtm, trait, N_study, N_gene)][order(trait)]
-    dt[, idHtm := sprintf("<a href=\"%s?trait=%s&gene=%s\">%s</a>", urlBase(), efoId, geneQryId(), efoId)]
+    dt[, idHtm := sprintf("<a href=\"%s?trait=%s\">%s</a>", urlBase(), efoId, efoId)]
     dt[, .(efoId = idHtm, trait, N_study, N_gene)][order(trait)]
   })
 
@@ -644,10 +646,11 @@ server <- function(input, output, session) {
     DT::datatable(data=trait_tableHtm()[, .(efoId, trait, N_study, N_gene)], rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
 
+  #All-genes table has tiga-gene links.
   gene_tableHtm <- reactive({
     dt <- data.table(gene_table)[order(geneSymbol)]
     #dt[, symbHtm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", geneSymbol, geneSymbol)][, .(Symbol = symbHtm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
-    dt[, symbHtm := sprintf("<a href=\"%s?gene=%s&trait=%s\">%s</a>", urlBase(), ensemblId, traitQryId(), geneSymbol)]
+    dt[, symbHtm := sprintf("<a href=\"%s?gene=%s\">%s</a>", urlBase(), ensemblId, geneSymbol)]
     dt[, .(ensemblId, geneSymbol = symbHtm, geneName, geneFamily, TDL, N_study, N_trait, filtered)]
   })
 
