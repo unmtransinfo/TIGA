@@ -286,6 +286,7 @@ for (ensg in unique(g2t$ensemblId)) {
   }
 }
 #
+gt_prov[, efoId := sub("^.*/", "", TRAIT_URI)]
 write_delim(gt_prov, ofile_prov, delim="\t")
 writeLines(sprintf("Output provenance file written: %s", ofile_prov))
 #
@@ -459,4 +460,4 @@ gt_stats[, `:=`(geneNtrait_inv = NULL, traitNgene_inv = NULL)]
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
 #
-message(sprintf("NOTE: elapsed time: %.2fs",(proc.time()-t0)[3]))
+message(sprintf("NOTE: elapsed time: %.2fs", (proc.time()-t0)[3]))
