@@ -77,7 +77,7 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   filtered_genes <- read_delim("data/filtered_genes.tsv.gz", "\t")
   setDT(filtered_genes)
   filtered_genes[, type := "gene"]
-  filtered_gene_menu <- paste0("gene:", filtered_genes$ensemblId) #named vector
+  filtered_gene_menu <- filtered_genes$ensemblId #named vector
   names(filtered_gene_menu) <- sprintf("%s:%s", filtered_genes$ensemblSymb, filtered_genes$geneName)
   filtered <- rbindlist(list(filtered_studies[, .(type, id=STUDY_ACCESSION, reason)], filtered_traits[, .(type, id=TRAIT_URI, reason)], filtered_genes[, .(type, id=ensemblId, reason)]))
   #
@@ -86,17 +86,16 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   trait_table <- trait_table[N_gene>=MIN_ASSN]
   trait_table[, trait_uri := sapply(efoId, efoId2Uri)]
   trait_table <- trait_table[, .(trait_uri, efoId, trait, N_study, N_gene)][order(trait)]
-  trait_menu <- paste0("trait:", trait_table$efoId) #named vector
+  trait_menu <- trait_table$efoId #named vector
   names(trait_menu) <- trait_table$trait
   #
   gene_table <- gt[, .(geneSymbol, geneName, geneFamily, TDL, N_study = geneNstudy, N_trait = uniqueN(efoId), filtered=F),  by=c("ensemblId")]
   gene_table <- rbindlist(list(gene_table, filtered_genes[, .(ensemblId, geneSymbol=ensemblSymb, geneName, geneFamily, TDL, N_study=0, N_trait=0, filtered=T)]))
   gene_table <- unique(gene_table)[order(geneSymbol)]
   #
-  gene_menu <- paste0("gene:", gene_table$ensemblId) #named vector
+  gene_menu <- gene_table$ensemblId #named vector
   names(gene_menu) <- sprintf("%s:%s", gene_table$geneSymbol, gene_table$geneName)
   #
-  qry_menu <- as.list(c(trait_menu, gene_menu, filtered_gene_menu))
   trait_menu <- as.list(trait_menu)
   gene_menu <- as.list(gene_menu)
   #
@@ -106,8 +105,9 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   #
   system("if [ -f \"data/efo_graph.graphml.gz\" ]; then gunzip -f data/efo_graph.graphml.gz ; fi")
   efoGraph <- read_graph("data/efo_graph.graphml", format="graphml")
+  system("if [ -f \"data/efo_graph.graphml\" ]; then gzip -f data/efo_graph.graphml ; fi")
   #
-  save(gt, trait_table, gene_table, trait_menu, gene_menu, filtered_gene_menu, qry_menu, gt_prov, filtered, study_table, efoGraph, file="tiga.Rdata")
+  save(gt, trait_table, gene_table, trait_menu, gene_menu, filtered_gene_menu, gt_prov, filtered, study_table, efoGraph, file="tiga.Rdata")
 } else {
   message(sprintf("Loading tiga.Rdata..."))
   load("tiga.Rdata")
@@ -152,9 +152,12 @@ evidence usable by drug discovery scientists to enrich prioritization of target 
 Data from the <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">NHGRI-EBI GWAS Catalog</A>.
 <UL>
 <LI>Traits are mapped to EFO, HPO, Orphanet, PATO or GO, with ~90%% mapped to EFO.
-<LI>Mapped genes via Ensembl pipeline as per GWAS Catalog documentation. Reported genes ignored for consistency and accountable confidence assessment in this app and downstream.
+<LI>Mapped genes via Ensembl pipeline as per GWAS Catalog documentation. Reported genes ignored for consistency and accountable
+confidence assessment in this app and downstream.
 <LI>In this version, effect size measure (1) odds ratio (OR) or (2) BETA required.
-<LI>Due to difficulties parsing and harmonizing beta units, simple count N_beta is employed.
+<LI>Due to lack of reported, extracted, parsed and harmonized beta units, N_beta count is employed
+as simplistic but rational measure of effect evidence and confidence (but not
+magnitudude).
 </UL>
 <B>Datatypes:</B>
 <UL>
@@ -177,13 +180,17 @@ Hits are filtered and ranked based on non-parametric multivariate &mu; scores
 (Wittkowski, 2008).
 <BR/>
 <B>UI:</B>
-Scatterplot axes are Effect (OR) vs. Evidence as measured by <B>muScore</B>.
+Scatterplot axes are Effect (OR or beta) vs. Evidence as measured by <B>muScore</B>.
+Odds ratio (OR) is the median, beta is a count of non-zero beta values, hence a
+measure of effect-evidence but not magnitude.
 <UL>
 <LI>Genes markers colored by TDL, and may be be hidden via legend.
 <LI>Trait markers colored by EFO top-level class, and may be hidden via legend (TO DO).
 <LI>Plot markers may be sized by <B>N_study</B> or <B>RCRAS</B>.
-<LI>Note that this app will accept query parameter <B>trait</B> via URL, e.g.
-<B><TT>?trait=EFO_0000341</TT></B>.
+<LI>Note that this app will accept query parameters <B>trait</B> (EFO_ID) and/or <B>gene</B>
+(ENSEMBL_ID) via URL, e.g.
+<B><TT>?trait=EFO_1000654</TT></B>, <B><TT>?gene=ENSG00000094914</TT></B>,
+<B><TT>?trait=EFO_1000654&gene=ENSG00000094914</TT></B>.
 </UL>
 <B>More documentation:</B>
 <UL>
@@ -197,8 +204,8 @@ Scatterplot axes are Effect (OR) vs. Evidence as measured by <B>muScore</B>.
 <LI>Plot markers may obscure others.
 </UL>
 <B>Authors:</B> Jeremy Yang<SUP>1</SUP>, Stephen Mathias<SUP>1</SUP>, Cristian
-Bologa<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP>, Christophe Lambert<SUP>1</SUP>, David Wild<SUP>3</SUP> and Tudor
-Oprea<SUP>1</SUP>.<BR/>
+Bologa<SUP>1</SUP>,  Anna Waller<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP>, Christophe Lambert<SUP>1</SUP>,
+David Wild<SUP>3</SUP> and Tudor Oprea<SUP>1</SUP>.<BR/>
 <I><SUP>1</SUP>University of New Mexico, Translational Informatics Division, Dept. of
 Internal Medicine; <SUP>2</SUP>Novo Nordisk Center for Protein Research, Copenhagen,
 Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and Engineering, Integrative Data Science Lab.</I>
@@ -217,16 +224,13 @@ ui <- fluidPage(
   fluidRow(
     column(3, 
       wellPanel(
-
 	dqshiny::autocomplete_input("traitQry", div("Trait",
-		actionButton("randTraitQry", tags$img(height="28", valign="bottom", src="dice.png"), style='padding:0px; background-color:#DDDDDD'),
+		#actionButton("randTraitQry", tags$img(height="28", valign="bottom", src="dice.png"), style='padding:0px; background-color:#DDDDDD'),
 		actionButton("goReset", tags$img(height="28", valign="bottom", src="refresh_icon.png"), style='padding:0px;background-color:#DDDDDD')),
 		options=trait_menu, max_options=1000, placeholder="Query trait..."),
-
 	dqshiny::autocomplete_input("geneQry", div("Gene"), options=as.list(c(gene_menu, filtered_gene_menu)), max_options=10000, placeholder="Query gene..."),
-
         sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
-	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR_median", "N_beta"), choiceValues=c("or_median", "n_beta"), selected="or_median", inline=T),
+	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "nBeta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T),
 		checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
         radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS", "None"), choiceValues=c("n_study", "rcras", NA), selected="n_study", inline=T)
       ),
@@ -236,20 +240,18 @@ ui <- fluidPage(
     column(9,
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("tigaPlot", height = "500px")),
-		tabPanel(id="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
-		tabPanel(value="association_detail", title="Detail",
-			htmlOutput("association_detail_summary"),
-			DT::dataTableOutput("association_detail_studies")
-			),
-		tabPanel(value="traits", title="Traits (all)", DT::dataTableOutput("traits")),
-		tabPanel(value="genes", title="Genes (all)", DT::dataTableOutput("genes")),
-		tabPanel(value="studies", title="Studies (all)", DT::dataTableOutput("studies")),
+		tabPanel(value="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
+		tabPanel(value="association_detail", title="Detail", htmlOutput("association_detail_summary"), DT::dataTableOutput("association_detail_studies")),
+		tabPanel(value="traits", title="Traits (browse)", DT::dataTableOutput("traits")),
+		tabPanel(value="genes", title="Genes (browse)", DT::dataTableOutput("genes")),
+		tabPanel(value="studies", title="Studies (browse)", DT::dataTableOutput("studies")),
 		tabPanel(value="download", title="Download",
 			h1("Downloads"),
 			p(em("NOTE: gene-trait file contains all data in separate genes and traits files.")),
 			p(downloadButton("gt_file", label="Gene-Trait Associations (all)"), textOutput("gtFileInfoTxt")),
 			p(downloadButton("traits_file", label="Traits (all)"), textOutput("traitFileInfoTxt")),
-			p(downloadButton("genes_file", label="Genes (all)"), textOutput("geneFileInfoTxt"))
+			p(downloadButton("genes_file", label="Genes (all)"), textOutput("geneFileInfoTxt")),
+			p(downloadButton("provenance_file", label="Provenance (association-to-study)"), textOutput("provFileInfoTxt"))
 		),
 		tabPanel(value="help", title="Help", htmlOutput("helpHtm"))
 	))),
@@ -264,8 +266,7 @@ ui <- fluidPage(
         " and ",
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
-  bsTooltip("randTraitQry", "Random query trait or gene", "right"),
-  bsTooltip("jitter", "Jitter can un-hide plot markers.", "right"),
+  #bsTooltip("randTraitQry", "Random query trait or gene", "right"),
   bsTooltip("goReset", "Reset.", "right"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
@@ -334,11 +335,16 @@ server <- function(input, output, session) {
   
   AssociationDetailSummaryHtm <- function(efoId_this, ensemblId_this) {
     htm <- h2("Gene-trait association detail")
-    message(sprintf("DEBUG: AssociationDetailSummaryHtm: %s; %s", efoId_this, ensemblId_this))
-    traitName <- efoId2Name(efoId_this)
-    geneName <- ensemblId2Name(ensemblId_this)
-    message(sprintf("DEBUG: AssociationDetailSummaryHtm TRAIT: %s; GENE: %s", traitName, geneName))
-    htm <- sprintf("<h3>TRAIT: %s; GENE: %s</h3>", traitName, geneName)
+    #message(sprintf("DEBUG: AssociationDetailSummaryHtm: %s; %s", efoId_this, ensemblId_this))
+    #message(sprintf("DEBUG: AssociationDetailSummaryHtm TRAIT: %s; GENE: %s", efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this)))
+    htm <- sprintf("<h3>TRAIT: %s &#8226; GENE: %s</h3>\n", efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this))
+    #(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, n_beta, rcras)]
+    htm <- paste(htm, "<P>", sep="\n")
+    for (tag in names(Hits())) {
+      if (tag %in% c("ok")) next
+      htm <- paste(htm, sprintf("<B>%s:</B> %s", tag, Hits()[[tag]][1]), sep=" &#8226; ")
+    }
+    htm <- paste(htm, "</P>", sep="\n")
     return(htm)
   }
 
@@ -376,8 +382,8 @@ server <- function(input, output, session) {
     ids <- list(trait = NA, gene = NA)
     if (i_query==0 & length(names(httpQstr()))>0) { processUrlParams() } #1st query may be via URL http param.
     i_query <<- i_query + 1  # Must assign to up-scoped variable.
-    if (!grepl("^\\s*$", input$traitQry)) ids$trait <- sub("^.*:", "", input$traitQry)
-    if (!grepl("^\\s*$", input$geneQry)) ids$gene <- sub("^.*:", "", input$geneQry)
+    if (!grepl("^\\s*$", input$traitQry)) ids$trait <- input$traitQry
+    if (!grepl("^\\s*$", input$geneQry)) ids$gene <- input$geneQry
     return(ids)
   })
 
@@ -429,6 +435,11 @@ server <- function(input, output, session) {
       gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, n_beta, rcras)]
       gt_this[, ok := T]
     }
+    if (hitType() %in% c("trait", "gene") & input$yAxis=="auto") { #auto-set yAxis
+      n_or <- gt_this[!is.na(or_median), .N]
+      n_nbeta <- gt_this[n_beta>0, .N]
+      updateRadioButtons(session, "yAxis", selected=ifelse(n_nbeta>n_or, "n_beta", "or_median"))
+    }
     message(sprintf("DEBUG: nrow(gt_this)=%d", nrow(gt_this)))
     return(gt_this)
   })
@@ -441,6 +452,7 @@ server <- function(input, output, session) {
   output$traitFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(trait_table), ncol(trait_table)) })
   output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table), ncol(gene_table)) })
   output$gtFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt), ncol(gt)) })
+  output$provFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt_prov), ncol(gt_prov)) })
   output$association_detail_summary <- reactive({ AssociationDetailSummaryHtm(qryIds()$trait, qryIds()$gene) })
 
   #Hits table has links to tiga:trait+gene
@@ -549,7 +561,7 @@ geneSymbol, urlBase(), qryIds()$trait, ensemblId, qryIds()$trait, geneSymbol)]
   output$tigaPlot <- renderPlotly({
     message("DEBUG: yAxis = ", input$yAxis)
     xaxis <- list(title="Evidence (muScore)", type="normal", zeroline=F, showline=F)
-    yaxis <- list(title=ifelse(input$yAxis=="n_beta", "Effect (N_beta)", "Effect (OddsRatio)"), type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
+    yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
     axis_none <- list(zeroline=F, showline=F, showgrid=F, showticklabels=F)
     #message(sprintf("DEBUG: length(qryIds()$trait=%d; length(qryIds()$gene=%d", length(qryIds()$trait), length(qryIds()$gene)))
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
@@ -574,7 +586,7 @@ geneSymbol, urlBase(), qryIds()$trait, ensemblId, qryIds()$trait, geneSymbol)]
         p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~muScore, y=~n_beta,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
-      else
+      else # or_median or auto
         p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~muScore, y=~or_median,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
@@ -590,7 +602,7 @@ geneSymbol, urlBase(), qryIds()$trait, ensemblId, qryIds()$trait, geneSymbol)]
       if (input$yAxis=="n_beta")
         p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~muScore, y=~n_beta,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
-      else
+      else # or_median or auto
         p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~muScore, y=~or_median,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
@@ -605,6 +617,8 @@ geneSymbol, urlBase(), qryIds()$trait, ensemblId, qryIds()$trait, geneSymbol)]
       title <- "<I>(No plot in gene+trait mode.)</I>"
       p <- plot_ly(type="scatter", mode="markers") %>% config(displayModeBar=F) %>% layout(title=title, xaxis=axis_none, yaxis=axis_none, margin=list(t=120,b=20))
       updateTabsetPanel(session, "tabset", selected="association_detail")
+      hideTab("tabset", "plot")
+      hideTab("tabset", "hits")
     }
     return(p)
   })
@@ -692,7 +706,8 @@ geneSymbol, urlBase(), qryIds()$trait, ensemblId, qryIds()$trait, geneSymbol)]
   }, server=T)
 
   output$association_detail_studies <- DT::renderDataTable({
-    DT::datatable(data=association_detail_studies_tableHtm(), rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=association_detail_studies_tableHtm(), rownames=F, width="100%", options=list(autoWidth=F, dom='tip'), escape=F,
+      caption = tags$caption(style='caption-side:top; text-align:center;', 'Table: ', tags$b('Studies with association evidence')))
   }, server=T)
 
   association_detail_studies_tableHtm <- reactive({
@@ -749,6 +764,12 @@ geneSymbol, urlBase(), qryIds()$trait, ensemblId, qryIds()$trait, geneSymbol)]
     filename = "tiga_gene-trait_stats.tsv",
     content = function(file) {
       write_delim(gt, file, delim="\t")
+    }
+  )
+  output$provenance_file <- downloadHandler(
+    filename = "tiga_gene-trait_provenance.tsv",
+    content = function(file) {
+      write_delim(gt_prov, file, delim="\t")
     }
   )
 }
