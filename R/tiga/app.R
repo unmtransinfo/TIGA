@@ -139,22 +139,21 @@ axes <- c("Effect", "Evidence")
 #
 #############################################################################
 HelpHtm <- function() {
-  htm <- ("<P><B>TIGA</B>, Target Illumination by GWAS Analytics, is designed to facilitate drug target illumination by 
-scoring and ranking of protein-coding genes associated with traits from genome-wide association studies
+  htm <- ("<P><B>TIGA</B>, Target Illumination by GWAS Analytics, facilitates drug target illumination by 
+scoring and ranking protein-coding genes associated with traits from genome-wide association studies
 (GWAS). Similarly, <B>TIGA</B> can score and rank traits with the same gene-trait association metrics. 
 Rather than a comprehensive analysis of GWAS for all biological implications and insights, this
-more focused application provides a rational method by which GWAS findings can be 
-aggregated and filtered for applicable, actionable intelligence, 
+focused application provides a rational method by which GWAS findings can be 
+aggregated and filtered for applicable, actionable intelligence, with 
 evidence usable by drug discovery scientists to enrich prioritization of target hypotheses. 
 Data from the <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">NHGRI-EBI GWAS Catalog</A>.
 <UL>
-<LI>Traits are mapped to EFO, HPO, Orphanet, PATO or GO, with ~90%% mapped to EFO.
+<LI>Traits are mapped to EFO, Experimental Factor Ontology.
 <LI>Mapped genes via Ensembl pipeline as per GWAS Catalog documentation. Reported genes ignored for consistency and accountable
 confidence assessment in this app and downstream.
 <LI>In this version, effect size measure (1) odds ratio (OR) or (2) BETA required.
 <LI>Due to lack of reported, extracted, parsed and harmonized beta units, N_beta count is employed
-as simplistic but rational measure of effect evidence and confidence (but not
-magnitudude).
+as simple, rational measure of effect evidence and confidence (but not magnitude).
 </UL>
 <B>Datatypes:</B>
 <UL>
@@ -208,9 +207,9 @@ Internal Medicine; <SUP>2</SUP>Novo Nordisk Center for Protein Research, Copenha
 Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and Engineering, Integrative Data Science Lab.</I>
 <BR/>
 <B>Feedback welcome</B> to corresponding author  
-<a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
+<a href=\"mailto:jjyang_AT_salud_DOT_unm_DOT_edu\">Jeremy Yang</a>.<br/>
 This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
-  htm <- paste(htm, sprintf("<hr>\nBuilt with:\n<pre>%s; %s</pre>", R.version.string, pkgVerTxt), sep="\n")
+  htm <- paste(htm, sprintf("<hr>\nBuilt with: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
 }
 
@@ -645,19 +644,17 @@ server <- function(input, output, session) {
   #All-traits table has tiga-trait links.
   trait_tableHtm <- reactive({
     dt <- data.table(trait_table) #copy
-    #dt[, idHtm := sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", trait_uri, efoId)][, .(ID = idHtm, trait, N_study, N_gene)][order(trait)]
     dt[, idHtm := sprintf("<a href=\"%s?trait=%s\">%s</a>", urlBase(), efoId, efoId)]
     dt[, .(efoId = idHtm, trait, N_study, N_gene)][order(trait)]
   })
 
   output$traits <- DT::renderDataTable({
-    DT::datatable(data=trait_tableHtm()[, .(efoId, trait, N_study, N_gene)], rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=trait_tableHtm()[, .(efoId, trait, N_study, N_gene)], rownames=F, width="100%", options=list(autoWidth=F, dom='tipf'), escape=F)
   }, server=T)
 
   #All-genes table has tiga-gene links.
   gene_tableHtm <- reactive({
     dt <- data.table(gene_table)[order(geneSymbol)]
-    #dt[, symbHtm := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a>", geneSymbol, geneSymbol)][, .(Symbol = symbHtm, ensemblId, Name = geneName, Family = geneFamily, TDL, N_study, N_trait)][order(Symbol)]
     dt[, symbHtm := sprintf("<a href=\"%s?gene=%s\">%s</a>", urlBase(), ensemblId, geneSymbol)]
     dt[, .(ensemblId, geneSymbol = symbHtm, geneName, geneFamily, TDL, N_study, N_trait, filtered)]
   })
@@ -668,13 +665,13 @@ server <- function(input, output, session) {
   
   study_tableHtm <- reactive({
     dt <- data.table(study_table)
-    dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s</a>", STUDY_ACCESSION, STUDY_ACCESSION)]
-    dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s</a>", PUBMEDID, PUBMEDID)]
+    dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s</a><i class=\"fa fa-external-link\">", STUDY_ACCESSION, STUDY_ACCESSION)]
+    dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s</a><i class=\"fa fa-external-link\">", PUBMEDID, PUBMEDID)]
     dt[, .(Accession=gcHtm, Study=STUDY, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED, DateAdded=DATE_ADDED_TO_CATALOG)][order(-DatePublished)]
   })
 
   output$studies <- DT::renderDataTable({
-    DT::datatable(data=study_tableHtm()[, .(Accession, Study, PMID, DatePublished, DateAdded)], rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=study_tableHtm()[, .(Accession, Study, PMID, DatePublished, DateAdded)], rownames=F, width="100%", options=list(autoWidth=F, dom='tipf'), escape=F)
   }, server=T)
 
   output$detail_studies <- DT::renderDataTable({
