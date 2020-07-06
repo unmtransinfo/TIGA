@@ -92,7 +92,7 @@ library(plotly, quietly=T)
 From GWAS Catalog, TCRD, and EFO.
 
 ```{r}
-ifile_gwas <- "data/gwascat_gwas.tsv"
+ifile_gwas <- "data/gwascat_gwas.tsv.gz"
 ifile_assn <- "data/gwascat_assn.tsv"
 ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
 ifile_trait <- "data/gwascat_trait.tsv"
@@ -130,9 +130,9 @@ gwas[, `:=`(YEAR = format(DATE,"%Y"), PLATFORM = sub("[, ].*$", "", `PLATFORM_[S
 gwas_platforms <- gwas[, .(.N), by=c("YEAR", "PLATFORM")]
 setorder(gwas_platforms, YEAR, PLATFORM)
 gwas_platforms_cast <- dcast(gwas_platforms, YEAR ~ PLATFORM, value.var="N", fill=0)
-plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="NR",
+plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="Not Reported",
                 type="scatter", mode="markers", fill="tonexty") %>%
-  add_trace(y = ~Perlegen, name="Perlegen") %>%
+#  add_trace(y = ~Perlegen, name="Perlegen") %>%
   add_trace(y = ~Affymetrix, name="Affymetrix") %>%
   add_trace(y = ~Illumina, name="Illumina") %>%
   layout(title = 'GWAS counts by year &amp; vendor',
@@ -141,7 +141,7 @@ plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="NR",
          margin = list(t=100, l=100),
          font = list(family="monospace", size=18),
          legend = list(x=.1, y=.7), showlegend=T) %>%
-  add_annotations(text=("N = count(study_accession IDs)"), showarrow=F, x=0.05, y=1, xref="paper", yref="paper")
+  add_annotations(text=("N = count(studies)"), showarrow=F, x=0.05, y=1, xref="paper", yref="paper")
 ```
 
 ### Sample size
