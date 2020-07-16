@@ -417,8 +417,12 @@ for (efoId_this in unique(gt_stats$efoId)) {
     message(sprintf("DEBUG: missing score count: %d (%s)", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "ALL FIXED", "NOT FIXED")))
     #print(sums[badrows]) #DEBUG
   }
-  sums <- setorder(sums, -score, na.last=T)
-  sums[, rank := 1:nrow(sums)]
+
+  #sums <- setorder(sums, -score, na.last=T)
+  #sums[, rank := 1:nrow(sums)]
+
+  sums[order(-score), rank := 1:nrow(sums)]
+
   gt_stats[efoId==efoId_this]$geneMuScore <- sums$score
   gt_stats[efoId==efoId_this]$geneMuRank <- sums$rank
 }
@@ -440,7 +444,7 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
   ge <- mu.GE(gtmat)
   sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
   setDT(sums)
-  sums$name <- gt_stats[efoId==efoId_this, .(geneName)]
+  sums$name <- gt_stats[ensemblId==ensemblId_this, .(geneName)]
   if (sum(is.na(sums$score))>0) {
     #badrows <- is.na(sums$score) # Bug in muStat?
     #message(sprintf("DEBUG: missing score count: %d", sum(badrows)))
@@ -449,8 +453,12 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
     message(sprintf("DEBUG: missing score count: %d (%s)", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "(ALL FIXED)", "NOT FIXED")))
     #print(sums[badrows]) #DEBUG
   }
-  sums <- setorder(sums, -score, na.last=T)
-  sums[, rank := 1:nrow(sums)]
+  
+  #sums <- setorder(sums, -score, na.last=T)
+  #sums[, rank := 1:nrow(sums)]
+
+  sums[order(-score), rank := 1:nrow(sums)]
+
   gt_stats[ensemblId==ensemblId_this]$traitMuScore <- sums$score
   gt_stats[ensemblId==ensemblId_this]$traitMuRank <- sums$rank
 }
