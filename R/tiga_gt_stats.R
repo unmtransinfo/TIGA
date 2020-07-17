@@ -353,7 +353,7 @@ message(sprintf("traitNstudy: [%d,%d]", min(gt_stats$traitNstudy), max(gt_stats$
 message(sprintf("geneNtrait: [%d,%d]", min(gt_stats$geneNtrait), max(gt_stats$geneNtrait)))
 message(sprintf("pvalue_mlog_median: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_median, na.rm=T), max(gt_stats$pvalue_mlog_median, na.rm=T)))
 message(sprintf("or_median: [%.2f,%.2f]", min(gt_stats$or_median, na.rm=T), max(gt_stats$or_median, na.rm=T)))
-message(sprintf("n_beta: [%d,%d]", min(gt_stats$beta, na.rm=T), max(gt_stats$beta, na.rm=T)))
+message(sprintf("n_beta: [%d,%d]", min(gt_stats$n_beta, na.rm=T), max(gt_stats$n_beta, na.rm=T)))
 message(sprintf("study_N_mean: [%.1f,%.1f]", min(gt_stats$study_N_mean, na.rm=T), max(gt_stats$study_N_mean, na.rm=T)))
 message(sprintf("rcras: [%.2f,%.2f]", min(gt_stats$rcras, na.rm=T), max(gt_stats$rcras, na.rm=T)))
 message(sprintf("n_snpw: [%.2f,%.2f]", min(gt_stats$n_snpw, na.rm=T), max(gt_stats$n_snpw, na.rm=T)))
@@ -392,7 +392,7 @@ write_delim(gt_stats, "data/tmp.tsv.gz", delim="\t")
 # The square matrix GE is stored by column in a vector. Thus nrow(GE_matrix) = nrow(x)^2.
 ###
 # Gene &mu; scores:
-# Some or_median will be NA, since beta included. Is that ok?
+# Some or_median will be NA, since beta included.
 gt_stats[, `:=`(geneMuScore=as.integer(NA), geneMuRank=as.integer(NA))]
 ii <- 0
 for (efoId_this in unique(gt_stats$efoId)) {
