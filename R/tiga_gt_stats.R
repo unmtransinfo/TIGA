@@ -2,7 +2,7 @@
 #############################################################################
 ### GENE-TRAIT stats
 ### tiga_gt_stats.R - Produce gt_stats.csv, for TIGA Shiny app.
-### ~1hr
+### ~20hr
 #############################################################################
 ### SEE FOR ALL INPUT WORKFLOWS: Go_gwascat_GetData.sh
 #############################################################################
@@ -22,7 +22,7 @@ library(readr, quietly=T)
 library(data.table, quietly=T)
 library(muStat)
 #
-Sys.time()
+t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
@@ -317,7 +317,7 @@ for (ensg in unique(g2t$ensemblId)) {
     gt_stats$study_N_mean[i_row] <- round(mean(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, study_N], na.rm=T), 1)
     gt_stats$n_snp[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, SNP])
     # Deduplicate (group-by) SNPs for `n_snpw` computation. 
-    gt_stats$n_snpw[i_row] <- sum(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt)), by="SNP"][, GDistWt], na.rm=T)
+    gt_stats$n_snpw[i_row] <- sum(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt, na.rm=T)), by="SNP"][, GDistWt], na.rm=T)
     #
     rcras <- 0.0
     for (stacc in unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
@@ -386,7 +386,6 @@ gt_stats[, traitNgene_inv := 1 / traitNgene]
 # Save pre-mu to file for debugging.
 write_delim(gt_stats, "data/tmp.tsv.gz", delim="\t")
 
-
 # For each (trait|gene), convert to matrix for muStat::mu.GE().
 # The (i,j) entry of GE matrix is 1 if \code{x_i >= x_j}, 0 otherwise.
 # The square matrix GE is stored by column in a vector. Thus nrow(GE_matrix) = nrow(x)^2.
@@ -414,15 +413,10 @@ for (efoId_this in unique(gt_stats$efoId)) {
     #message(sprintf("DEBUG: missing score count: %d", sum(badrows)))
     #print(sums[badrows]) #DEBUG
     sums[is.na(score), score := nAbove - nBelow]
-    message(sprintf("DEBUG: missing score count: %d (%s)", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "ALL FIXED", "NOT FIXED")))
+    #message(sprintf("DEBUG: missing score count: %d %s", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "(ALL FIXED)", "NOT FIXED")))
     #print(sums[badrows]) #DEBUG
   }
-
-  #sums <- setorder(sums, -score, na.last=T)
-  #sums[, rank := 1:nrow(sums)]
-
   sums[order(-score), rank := 1:nrow(sums)]
-
   gt_stats[efoId==efoId_this]$geneMuScore <- sums$score
   gt_stats[efoId==efoId_this]$geneMuRank <- sums$rank
 }
@@ -450,15 +444,10 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
     #message(sprintf("DEBUG: missing score count: %d", sum(badrows)))
     #print(sums[badrows]) #DEBUG
     sums[is.na(score), score := nAbove - nBelow]
-    message(sprintf("DEBUG: missing score count: %d (%s)", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "(ALL FIXED)", "NOT FIXED")))
+    #message(sprintf("DEBUG: missing score count: %d %s", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "(ALL FIXED)", "NOT FIXED")))
     #print(sums[badrows]) #DEBUG
   }
-  
-  #sums <- setorder(sums, -score, na.last=T)
-  #sums[, rank := 1:nrow(sums)]
-
   sums[order(-score), rank := 1:nrow(sums)]
-
   gt_stats[ensemblId==ensemblId_this]$traitMuScore <- sums$score
   gt_stats[ensemblId==ensemblId_this]$traitMuRank <- sums$rank
 }
@@ -468,4 +457,6 @@ gt_stats[, `:=`(geneNtrait_inv = NULL, traitNgene_inv = NULL)]
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
 #
-message(sprintf("NOTE: elapsed time: %.2fs", (proc.time()-t0)[3]))
+message(sprintf("Elapsed time: %.2fs", (proc.time()-t0)[3]))
+t_elapsed <- (Sys.time()-t0)
+message(sprintf("Elapsed time: %.2f %s", t_elapsed, attr(t_elapsed, "units")))
