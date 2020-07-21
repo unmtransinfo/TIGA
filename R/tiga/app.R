@@ -199,9 +199,11 @@ measure of effect-evidence but not magnitude. Nonexistent ORs plotted as zero.
 <LI>Query traits with apostrophes must be typed in full. Autocomplete autosuggests but does not complete.
 <LI>Plot markers may obscure others.
 </UL>
-<B>Authors:</B> Jeremy Yang<SUP>1</SUP>, Stephen Mathias<SUP>1</SUP>, Cristian
-Bologa<SUP>1</SUP>,  Anna Waller<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP>, Christophe Lambert<SUP>1</SUP>,
-David Wild<SUP>3</SUP> and Tudor Oprea<SUP>1</SUP>.<BR/>
+<B>Authors:</B>
+Jeremy Yang<SUP>1</SUP>, Stephen Mathias<SUP>1</SUP>, Cristian Bologa<SUP>1</SUP>,
+Anna Waller<SUP>1</SUP>, Dhouha Grissa<SUP>2</SUP>,
+Christophe Lambert<SUP>1</SUP>, David Wild<SUP>3</SUP>,
+Lars Juhl Jensen<SUP>2</SUP> and Tudor Oprea<SUP>1</SUP>.<BR/>
 <I><SUP>1</SUP>University of New Mexico, Translational Informatics Division, Dept. of
 Internal Medicine; <SUP>2</SUP>Novo Nordisk Center for Protein Research, Copenhagen,
 Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and Engineering, Integrative Data Science Lab.</I>
