@@ -88,11 +88,9 @@ snp2gene <- read_delim(ifile_snp2gene, "\t",
 	REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
 setDT(snp2gene)
 snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED!="r"]) #Ignore reported.
-print(snp2gene[GSYMB == "CDK1"]) #DEBUG
 #
 ensemblInfo <- read_delim(ifile_ensembl, "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
 setDT(ensemblInfo)
-print(ensemblInfo[display_name == "CDK1"]) #DEBUG
 #
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
@@ -130,10 +128,8 @@ setDT(studySnps)
 ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, ensemblSymb=display_name)][, protein_coding := T]
 proteinSnps <- merge(studySnps[, .(rsId, ensemblId=gene_ensemblGeneIds, geneName=gene_geneName)], ensemblInfo, by="ensemblId", all.x=F)
 snp2gene <- unique(merge(snp2gene, proteinSnps, by.x="SNP", by.y="rsId", all.x=F, all.y=F, allow.cartesian=T))
-print(snp2gene[GSYMB == "CDK1" | geneName== "CDK1" | ensemblSymb == "CDK1"]) #DEBUG
 snp2gene[, `:=`(GSYMB=NULL, geneName=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
 snp2gene <- unique(snp2gene)
-print(snp2gene[ensemblSymb == "CDK1"]) #DEBUG
 #
 ###
 tcrd <- read_delim(ifile_tcrd, "\t", na=c("", "NA", "NULL"), col_types=cols(.default=col_character(), idgList=col_logical()))
@@ -151,19 +147,16 @@ writeLines(sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION)))
 ###
 ensgs_tcrd <- unique(tcrd$ensemblGeneId)
 writeLines(sprintf("TCRD targets: %d ; ensemblGeneIds: %d", nrow(tcrd), length(ensgs_tcrd)))
-print(snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] %in% ensgs_tcrd) #DEBUG
 #
 ensgs_tiga <- unique(snp2gene$ensemblId)
-print(snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] %in% ensgs_tiga) #DEBUG
 ensgs_common <- intersect(ensgs_tiga, ensgs_tcrd)
-print(snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] %in% ensgs_common) #DEBUG
 writeLines(sprintf("EnsemblIds mapped to TCRD: %d", length(ensgs_common)))
 #
 tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=rep(T, length(ensgs_tiga))),
 	by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd[, in_gwascat := !is.na(in_gwascat)]
 writeLines(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwascat), .N]))
-print(tcrd[tcrdGeneSymbol == "CDK1" | ensemblGeneId == snp2gene[ensemblSymb == "CDK1"]$ensemblId[1]]) #DEBUG
+#print(tcrd[tcrdGeneSymbol == "CDK1" | ensemblGeneId == snp2gene[ensemblSymb == "CDK1"]$ensemblId[1]]) #DEBUG
 #
 ### g2t should have one row for each gene-snp-study-trait association. Only 1 PUBMEDID per study.
 g2t <- unique(snp2gene[, .(ensemblId, ensemblSymb, SNP, STUDY_ACCESSION)])
@@ -191,8 +184,6 @@ print(sprintf("Genes without and with OR filter: %d -> %d (-%d; -%.1f%%)",
   g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)],
   100*(g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)])/g2t[, uniqueN(ensemblId)]
   ))
-
-print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
 #
 #badrows <- is.na(g2t$oddsratio)
 #reason_txt <- "Missing OR"
@@ -218,8 +209,6 @@ filtered_genes <- merge(filtered_genes, tcrd[, .(ensemblGeneId, geneName=tcrdTar
 filtered_genes <- filtered_genes[, .(ensemblId, ensemblSymb, geneName, geneFamily, TDL, reason)]
 write_delim(filtered_genes, "data/filtered_genes.tsv.gz", delim="\t")
 #
-print(g2t[snp2gene[ensemblSymb == "CDK1"]$ensemblId[1] == ensemblId])
-#
 message(sprintf("Filtering assocations (%s): %d", reason_txt, sum(badrows)))
 g2t <- g2t[!badrows] #Many filtered.
 #
@@ -240,33 +229,7 @@ message(sprintf("DEBUG: with OR, g2t: %d ; genes: %d ; traits: %d",
 	 uniqueN(g2t$ensemblId[!is.na(g2t$oddsratio)]),
 	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)])))
 ###
-### GENE-TRAIT stats
-### One row per unique gene-trait pair.
-### From g2t, create gt_stats table for TSV export.
-### Slow. Vectorize/optimize!?
-NROW <- 0
-for (ensg in unique(g2t$ensemblId)) {
-  NROW <- NROW + uniqueN(g2t[ensemblId==ensg, TRAIT_URI])
-}
-message(sprintf("Building gt_stats with NROW: %s", NROW))
-gt_stats <- data.table(ensemblId=rep(NA, NROW), 
-	efoId=rep(NA, NROW), trait=rep(NA, NROW), 
-	n_study=as.integer(rep(NA, NROW)), 
-	n_snp=as.integer(rep(NA, NROW)),
-	n_snpw=as.numeric(rep(NA, NROW)),
-	geneNtrait=as.integer(rep(NA, NROW)),
-	geneNstudy=as.integer(rep(NA, NROW)),
-	traitNgene=as.integer(rep(NA, NROW)),
-	traitNstudy=as.integer(rep(NA, NROW)),
-	pvalue_mlog_median=as.numeric(rep(NA, NROW)),
-	or_median=as.numeric(rep(NA, NROW)),
-	n_beta=as.integer(rep(NA, NROW)), #simple count of beta values
-	study_N_mean=as.numeric(rep(NA, NROW)),
-	rcras=rep(NA, NROW)
-	)
-#
-message(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d", nrow(gt_stats)))
-#
+# GENE-TRAIT provenance
 gt_prov <- NULL
 i_row_prov <- 0
 #
@@ -290,8 +253,32 @@ gt_prov[, efoId := sub("^.*/", "", TRAIT_URI)]
 write_delim(gt_prov, ofile_prov, delim="\t")
 writeLines(sprintf("Output provenance file written: %s", ofile_prov))
 #
-#stop("DEBUG: STOP.")
+###
+### GENE-TRAIT stats
+### One row per unique gene-trait pair.
+### From g2t, create gt_stats table for TSV export.
+### Slow. Vectorize/optimize!?
+NROW <- nrow(unique(g2t[, .(ensemblId, TRAIT_URI)]))
+message(sprintf("Building gt_stats with NROW: %s", NROW))
+gt_stats <- data.table(ensemblId=rep(NA, NROW), 
+	efoId=rep(NA, NROW), trait=rep(NA, NROW), 
+	n_study=as.integer(rep(NA, NROW)), 
+	n_snp=as.integer(rep(NA, NROW)),
+	n_snpw=as.numeric(rep(NA, NROW)),
+	geneNtrait=as.integer(rep(NA, NROW)),
+	geneNstudy=as.integer(rep(NA, NROW)),
+	traitNgene=as.integer(rep(NA, NROW)),
+	traitNstudy=as.integer(rep(NA, NROW)),
+	pvalue_mlog_median=as.numeric(rep(NA, NROW)),
+	or_median=as.numeric(rep(NA, NROW)),
+	n_beta=as.integer(rep(NA, NROW)), #simple count of beta values
+	study_N_mean=as.numeric(rep(NA, NROW)),
+	rcras=rep(NA, NROW)
+	)
 #
+message(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d", nrow(gt_stats)))
+#
+#stop("DEBUG: STOP.")
 #
 i_row <- 0 #gt_stats populated row count
 t0 <- proc.time()
@@ -457,6 +444,5 @@ gt_stats[, `:=`(geneNtrait_inv = NULL, traitNgene_inv = NULL)]
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
 #
-message(sprintf("Elapsed time: %.2fs", (proc.time()-t0)[3]))
-t_elapsed <- (Sys.time()-t0)
-message(sprintf("Elapsed time: %.2f %s", t_elapsed, attr(t_elapsed, "units")))
+t_elapsed <- (Sys.time()-t_start)
+message(sprintf("Elapsed time: %.2fs (%.2f %s)", (proc.time()-t0)[3], t_elapsed, attr(t_elapsed, "units")))
