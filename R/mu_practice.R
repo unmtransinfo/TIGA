@@ -29,7 +29,7 @@ for (i in 1:nrow(sums)) {
 # Bigger example (100x7)
 n <- 300
 dt <- data.table(
-	names = sprintf("name_%03d", 1:n),
+	names = sprintf("case_%03d", 1:n),
 	a = as.integer(rnorm(n, sd=5)),
 	b = as.integer(rnorm(n, sd=5)),
 	c = as.integer(rnorm(n, sd=5)),
@@ -43,8 +43,12 @@ ge_and <- mu.AND(ge)
 sums <- mu.Sums(ge_and)
 setDT(sums)
 sums$name <- dt$name
-sums <- setorder(sums, -score)
+sums <- setorder(sums, -score, na.last=T)
 
-for (i in 1:nrow(sums)) {
+for (i in c(1:10, (nrow(dt)-10):nrow(dt))) {
   message(sprintf("RANK: %2d. %s: score = %2d; nAbove = %2d; nBelow = %2d", i, sums$name[i], sums$score[i], sums$nAbove[i], sums$nBelow[i]))
 }
+
+# Handling NAs.
+#dt[runif(n)<.1, a := NA]
+#dt[runif(n)<.1, f := NA]
