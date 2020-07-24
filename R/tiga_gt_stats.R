@@ -13,8 +13,15 @@
 # The resulting ranking is the useful result, not so much the score itself.
 # Using muStat package.
 ###
+# mu.GE: greater than or equal to
+# mu.AND: Logical AND GEs for all variables
+###
 # Issue: cases globally superior in one variable and inferior in one variable
 # have nAbove=0 and nBelow=0 and muScore=0. What should be the rank?
+# If a case has nAbove=0 and nBelow=0 then weight=0 and mu.Sums() returns score = NA.
+# This is arbitrary so we assign score = nBelow = nAbove = 0 - 0 = 0.
+# ?mu.Sums:
+# score  = (nB-nA) * ifelse(weight==0, NA, 1)
 #############################################################################
 # Writes gt_provenance file with TRAIT_URI, ensemblId, STUDY_ACCESSION and PUBMEDID.
 #############################################################################
@@ -395,15 +402,8 @@ for (efoId_this in unique(gt_stats$efoId)) {
   sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
   setDT(sums)
   sums$name <- gt_stats[efoId==efoId_this, .(geneName)]
-  if (sum(is.na(sums$score))>0) {
-    #badrows <- is.na(sums$score) # Bug in muStat?
-    #message(sprintf("DEBUG: missing score count: %d", sum(badrows)))
-    #print(sums[badrows]) #DEBUG
-    sums[is.na(score), score := nAbove - nBelow]
-    #message(sprintf("DEBUG: missing score count: %d %s", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "(ALL FIXED)", "NOT FIXED")))
-    #print(sums[badrows]) #DEBUG
-  }
-  sums[order(-score), rank := 1:nrow(sums)]
+  sums[is.na(score) & weight==0, score := 0] # Override NA scores
+  sums[order(-score, -weight), rank := 1:nrow(sums)]
   gt_stats[efoId==efoId_this]$geneMuScore <- sums$score
   gt_stats[efoId==efoId_this]$geneMuRank <- sums$rank
 }
@@ -426,15 +426,8 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
   sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
   setDT(sums)
   sums$name <- gt_stats[ensemblId==ensemblId_this, .(geneName)]
-  if (sum(is.na(sums$score))>0) {
-    #badrows <- is.na(sums$score) # Bug in muStat?
-    #message(sprintf("DEBUG: missing score count: %d", sum(badrows)))
-    #print(sums[badrows]) #DEBUG
-    sums[is.na(score), score := nAbove - nBelow]
-    #message(sprintf("DEBUG: missing score count: %d %s", sum(is.na(sums$score)), ifelse(sum(is.na(sums$score))==0, "(ALL FIXED)", "NOT FIXED")))
-    #print(sums[badrows]) #DEBUG
-  }
-  sums[order(-score), rank := 1:nrow(sums)]
+  sums[is.na(score) & weight==0, score := 0] # Override NA scores
+  sums[order(-score, -weight), rank := 1:nrow(sums)]
   gt_stats[ensemblId==ensemblId_this]$traitMuScore <- sums$score
   gt_stats[ensemblId==ensemblId_this]$traitMuRank <- sums$rank
 }

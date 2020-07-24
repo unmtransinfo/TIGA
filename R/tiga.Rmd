@@ -169,6 +169,7 @@ for (i in 1:nrow(gwas_counts)) {
 }
 gwas_counts[, name := sprintf("(%6g <= N < %6g)", minN, maxN)]
 gwas_counts[, pct := 100 * count / sum(count)]
+write_delim(gwas_counts, "data/gwas_counts_by_samplesize.tsv", "\t")
 knitr::kable(gwas_counts[, .(Sample_size = name, Study_count = count, Pct = pct)], caption="GWAS sample sizes", digits=1)
 ```
 
@@ -177,6 +178,7 @@ knitr::kable(gwas_counts[, .(Sample_size = name, Study_count = count, Pct = pct)
 ```{r}
 gwas_journals <- gwas[, .(N_gwas = .N, N_pmid = uniqueN(PUBMEDID), N_assn = sum(ASSOCIATION_COUNT)), by="JOURNAL"]
 setorder(gwas_journals, -N_gwas)
+write_delim(gwas_journals, "data/gwas_counts_by_journal.tsv", "\t")
 knitr::kable(gwas_journals[1:12], caption="Top journals by N_gwas")
 ```
 
@@ -206,7 +208,12 @@ plot_ly(gwas_icite, x=~relative_citation_ratio, type="histogram", marker=list(co
 ```{r warning=FALSE}
 gwas_icite[!(journal %in% gwas_icite[, .N, by=journal][order(-N)][1:12, journal]), journal := "Other"]
 wordwrap <- function(v, len) sapply(sapply(v, strwrap, len), paste, collapse="<br>")
-plot_ly(gwas_icite, x=~year, y=~relative_citation_ratio, color = ~journal, type="box",
+plot_ly(gwas_icite, 
+      #  x=~year, 
+      x=~journal,
+        y=~relative_citation_ratio, 
+      #  color = ~journal, 
+        type="box",
         text=sprintf("%s: %s, <i>%s</i> (%d)", gwas_icite$PUBMEDID, wordwrap(gwas_icite$title, 40), gwas_icite$journal, gwas_icite$year)) %>%
   layout(title = 'iCite Relative Citation Ratio<br>GWAS Publications',
          xaxis = list(title="", range=c(2012, 2016), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
