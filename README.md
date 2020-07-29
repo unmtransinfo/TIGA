@@ -1,6 +1,4 @@
-# TIGA: Target Illumination by GWAS Analytics
-
-_(Formerly named GWAX: GWAS Explorer)_
+# TIGA: Target Illumination GWAS Analytics
 
 Genome-wide association studies (GWAS) generate large volumes of associations between
 genomic variations and phenotypic traits. However, assessing strength, specificity
@@ -57,8 +55,8 @@ are combined in one field `OR_or_BETA`.
 * Evidence assessment based on confirmatory statistics.
 * __iCite__ annotations from __iCite API__, via PMIDs from __GWAS Catalog__.
 * Visualization of associations for a given disease by scatter plot of
-effect size versus __&mu; score__, a rational, unbiased,
-non-parametric multivariate method.
+effect size versus __meanrank score__, inverse multivariate mean rank
+of benchmark-validated variables.
 
 ## TIGA Workflow
 
@@ -76,6 +74,7 @@ non-parametric multivariate method.
   * `RCRAS`: RCR Aggregated Score
   * `pValue`: median of SNP pValues
   * `OR`: median(OR), where OR = `odds_ratio`, or `1/odds_ratio` if &lt;1
+  * `N_beta`: count of supporting beta values
 * MySql database intended for transition toward IDG TCRD integration (currently not required for TIGA app).
 
 ## TIGA Application
@@ -83,17 +82,10 @@ non-parametric multivariate method.
 * Currently at <http://unmtid-shinyapps.net/tiga/>
 * Dependencies
    * R 3.6+
-   * readr, data.table, shiny, DT, shinyBS, plotly
+   * readr, data.table, shiny, DT, shinyBS, plotly, igraph
    * [dqshiny](https://github.com/daqana/dqshiny) dev version (late 2019) via `remotes::install_github("daqana/dqshiny")` to resolve update\_autocomplete\_input bug.
 
 ## Dependencies
 
 * <https://github.com/jeremyjyang/BioClients>
 
-## To do:
-
-* Traits may be closely related as defined by the EFO
-ontology (or others), and may be quantified by semantic similarity
-score based on MICA (Maximally Informative Common Ancestor). Thus
-aggregated, disease-gene associations may gain confidence and scientific
-relevance.
