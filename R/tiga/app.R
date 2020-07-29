@@ -58,7 +58,7 @@ t0 <- proc.time()
 DEBUG <- F
 if (!file.exists("tiga.Rdata") | DEBUG) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
-  gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(), geneMuScore=col_double(), geneMuRank=col_integer(), traitMuScore=col_double(), traitMuRank=col_integer()))
+  gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(), geneMeanRank=col_double(), geneMeanRankScore=col_double(), traitMeanRank=col_double(), traitMeanRankScore=col_double()))
   setDT(gt)
   setnames(gt, old=c("geneIdgTdl"), new=c("TDL"))
   #
@@ -135,11 +135,11 @@ dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d ; studies: %d; publicati
 #
 ###
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
-axes <- c("Effect", "Evidence")
+#axes <- c("Effect", "Evidence")
 #
 #############################################################################
 HelpHtm <- function() {
-  htm <- ("<P><B>TIGA</B>, Target Illumination by GWAS Analytics, facilitates drug target illumination by 
+  htm <- ("<P><B>TIGA</B>, Target Illumination GWAS Analytics, facilitates drug target illumination by 
 scoring and ranking protein-coding genes associated with traits from genome-wide association studies
 (GWAS). Similarly, <B>TIGA</B> can score and rank traits with the same gene-trait association metrics. 
 Rather than a comprehensive analysis of GWAS for all biological implications and insights, this
@@ -157,26 +157,25 @@ as simple, rational measure of effect evidence and confidence (but not magnitude
 </UL>
 <B>Datatypes:</B>
 <UL>
-  <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting trait-gene association.
-  <LI><B>OR<SUP>*</SUP></B>: median(odds ratio, inverted if &lt;1) supporting trait-gene association (computed as one if missing).
-  <LI><B>N_beta<SUP>*</SUP></B>: simple count of beta values with 95% confidence intervals supporting trait-gene association.
-  <LI><B>N_snp<SUP>*</SUP></B>: SNPs involved with trait-gene association.
-  <LI><B>N_snpw<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
   <LI><B>N_study<SUP>*</SUP></B>: studies supporting trait-gene association.
-  <LI><B>study_N<SUP>*</SUP></B>: mean(SAMPLE_SIZE) supporting trait-gene association.
+  <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting trait-gene association.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
-  <LI><B>geneNtrait<SUP>**</SUP></B>: total traits associated with gene.
-  <LI><B>traitNgene<SUP>**</SUP></B>: total genes associated with trait.
-  <LI><B>muScore</B>: For a given query trait, genes are scored and ranked, or for a given gene, traits are scored and ranked. 
+  <LI><B>OR</B>: median(odds ratio, inverted if &lt;1) supporting trait-gene association (computed as one if missing).
+  <LI><B>N_beta</B>: simple count of beta values with 95% confidence intervals supporting trait-gene association.
+  <LI><B>N_snp</B>: SNPs involved with trait-gene association.
+  <LI><B>N_snpw</B>: N_snp weighted by distance inverse exponential.
+  <LI><B>study_N</B>: mean(SAMPLE_SIZE) supporting trait-gene association.
+  <LI><B>geneNtrait</B>: total traits associated with gene.
+  <LI><B>traitNgene</B>: total genes associated with trait.
+  <LI><B>meanRank</B>: For a given query trait, genes are ranked, or for a given gene, traits are ranked, based on selected variables, determined by benchmarking versus gold standard curated disease-gene associations.
+  <LI><B>meanRankScore</B>: 1/meanRank, for normalization (0,1] and visualization.
 </UL>
-<SUP>*</SUP>Variable used in <B>muScore</B>.
-<SUP>**</SUP>Variable inverse used in <B>muScore</B>.
+<SUP>*</SUP>Variable used in <B>meanRank</B>.
 <BR/>
-Hits are filtered and ranked based on non-parametric multivariate &mu; scores
-(Wittkowski, 2008).
+Hits are ranked based on meanRankScore
 <BR/>
 <B>UI:</B>
-Scatterplot axes are Effect (OR or beta) vs. Evidence as measured by <B>muScore</B>.
+Scatterplot axes are Effect (OR or beta) vs. Evidence as measured by <B>meanRankScore</B>.
 Odds ratio (OR) is the median, beta is a count of non-zero beta values, hence a
 measure of effect-evidence but not magnitude. Nonexistent ORs plotted as zero.
 <UL>
@@ -218,7 +217,7 @@ This work was supported by the National Institutes of Health grant U24-CA224370.
 ##########################################################################################
 ui <- fluidPage(
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
-  titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: Target Illumination by GWAS Analytics", APPNAME),tags$img(height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog based app (BETA)")), windowTitle=APPNAME),
+  titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: Target Illumination GWAS Analytics", APPNAME),tags$img(height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog based app (BETA)")), windowTitle=APPNAME),
   fluidRow(
     column(3, 
       wellPanel(
@@ -229,7 +228,7 @@ ui <- fluidPage(
 	dqshiny::autocomplete_input("geneQry", div("Gene"), options=as.list(c(gene_menu, filtered_gene_menu)), max_options=10000, placeholder="Query gene..."),
         sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
 	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "nBeta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T),
-		checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
+#		checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
         radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS", "None"), choiceValues=c("n_study", "rcras", NA), selected="n_study", inline=T)
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
@@ -396,21 +395,21 @@ server <- function(input, output, session) {
     if (hitType()=="trait") {
       gt_this <- gt[ensemblId==qryIds()$gene]
       if (nrow(gt_this)==0) { return(NULL) }
-      gt_this <- gt_this[, .(efoId, trait, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, n_beta, rcras, traitMuScore, traitMuRank)]
-      setnames(gt_this, old=c("traitMuScore", "traitMuRank"), new=c("muScore", "muRank"))
-      gt_this[, ok := (is.na(muRank) | as.logical(muRank<=input$maxHits))] #1-hit situation problematic.
-      setorder(gt_this, muRank)
+      gt_this <- gt_this[, .(efoId, trait, n_study, pvalue_mlog_median, rcras, traitMeanRank, traitMeanRankScore, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
+      setnames(gt_this, old=c("traitMeanRank", "traitMeanRankScore"), new=c("meanRank", "meanRankScore"))
+      gt_this[, ok := (is.na(meanRank) | as.logical(meanRank<=input$maxHits))] #1-hit situation problematic.
+      setorder(gt_this, -meanRankScore)
     } else if (hitType()=="gene") {
       gt_this <- gt[efoId==qryIds()$trait]
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
-      gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, n_beta, rcras, geneMuScore, geneMuRank)]
-      setnames(gt_this, old=c("geneMuScore", "geneMuRank"), new=c("muScore", "muRank"))
-      gt_this[, ok := (is.na(muRank) | as.logical(muRank<=input$maxHits))] #1-hit situation problematic.
-      setorder(gt_this, muRank)
+      gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_median, rcras, geneMeanRank, geneMeanRankScore, study_N_mean, n_snp, n_snpw, geneNtrait, or_median, n_beta)]
+      setnames(gt_this, old=c("geneMeanRank", "geneMeanRankScore"), new=c("meanRank", "meanRankScore"))
+      gt_this[, ok := (is.na(meanRankScore) | as.logical(meanRankScore<=input$maxHits))] #1-hit situation problematic.
+      setorder(gt_this, -meanRankScore)
     } else { #hitType=="genetrait"
       gt_this <- gt[ensemblId==qryIds()$gene & efoId==qryIds()$trait]
-      gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, n_beta, rcras)]
+      gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_median, rcras, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
       gt_this[, ok := T]
     }
     if (hitType() %in% c("trait", "gene") & input$yAxis=="auto") { #auto-set yAxis
@@ -473,7 +472,7 @@ server <- function(input, output, session) {
       showTab("tabset", "hits")
       hideTab("tabset", "detail")
       updateTabsetPanel(session, "tabset", selected="plot")
-    } else if (qryType() == "genetrait") {
+    } else if (qryType()=="genetrait") {
       hideTab("tabset", "plot")
       hideTab("tabset", "hits")
       showTab("tabset", "detail")
@@ -490,8 +489,6 @@ server <- function(input, output, session) {
     }
     return(htm)
   })
-
-
 
   output$logHtm <- reactive({
     htm <- dbHtm
@@ -525,8 +522,8 @@ server <- function(input, output, session) {
     paste0("<br>Fam:", Hits()[(ok)]$geneFamily),
     paste0(", TDL:", Hits()[(ok)]$TDL),
     paste0("; N_trait = ", Hits()[(ok)]$geneNtrait),
-    ";<br>muScore = ", Hits()[(ok)]$muScore,
-    "; muRank = ", Hits()[(ok)]$muRank,
+    ";<br>meanRank = ", round(Hits()[(ok)]$meanRank, digits=3),
+    ";meanRankScore = ", round(Hits()[(ok)]$meanRankScore, digits=3),
     ";<br>N_study = ", Hits()[(ok)]$n_study,
     "; study_N = ", Hits()[(ok)]$study_N_mean, 
     "; N_snp = ", Hits()[(ok)]$n_snp,
@@ -542,8 +539,8 @@ server <- function(input, output, session) {
     paste0("<b>", Hits()[(ok)]$efoId, "</b>"), 
     paste0("<br><b>", Hits()[(ok)]$trait, "</b>"),
     paste0("; N_gene = ", Hits()[(ok)]$traitNgene),
-    ";<br>muScore = ", Hits()[(ok)]$muScore,
-    "; muRank = ", Hits()[(ok)]$muRank,
+    ";<br>meanRank = ", round(Hits()[(ok)]$meanRank, digits=3),
+    ";meanRankScore = ", round(Hits()[(ok)]$meanRankScore, digits=3),
     ";<br>N_study = ", Hits()[(ok)]$n_study,
     "; study_N = ", Hits()[(ok)]$study_N_mean, 
     "; N_snp = ", Hits()[(ok)]$n_snp,
@@ -556,8 +553,9 @@ server <- function(input, output, session) {
   })
 
   output$tigaPlot <- renderPlotly({
-    xaxis <- list(title="Evidence (muScore)", type="normal", zeroline=F, showline=F)
-    yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
+    xaxis <- list(title="Evidence (meanRankScore)", type="normal", zeroline=F, showline=F)
+    #yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
+    yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type="normal")
     axis_none <- list(zeroline=F, showline=F, showgrid=F, showticklabels=F)
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
       title <- "<I>(No query.)</I>"
@@ -577,11 +575,11 @@ server <- function(input, output, session) {
     
     if (hitType()=="gene") {
       if (input$yAxis=="n_beta")
-        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~muScore, y=~n_beta,
+        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~meanRankScore, y=~n_beta,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
       else # or_median or auto
-        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~muScore, y=~or_median,
+        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~meanRankScore, y=~or_median,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
@@ -593,10 +591,10 @@ server <- function(input, output, session) {
       add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits()[(ok)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
     } else if (hitType()=="trait") {
       if (input$yAxis=="n_beta")
-        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~muScore, y=~n_beta,
+        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~meanRankScore, y=~n_beta,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
       else # or_median or auto
-        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~muScore, y=~or_median,
+        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~meanRankScore, y=~or_median,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
           title=paste0(geneQryName(), "<br>", "(", qryType(), ":", qryIds()$gene, ")"),
@@ -613,13 +611,13 @@ server <- function(input, output, session) {
   })
 
   #DT numbers cols from 0.
-  #"ensemblId","geneSymbol","geneName","geneFamily","TDL","n_study","study_N_mean","n_snp","n_snpw","geneNtrait","pvalue_mlog_median","or_median","rcras","muScore","muRank"
+  #"ensemblId","geneSymbol","geneName","geneFamily","TDL","n_study","pvalue_mlog_median","rcras","meanRank","meanRankScore","study_N_mean","n_snp","n_snpw","geneNtrait","or_median","n_beta"
   output$hitrows <- DT::renderDataTable({
     if (is.null(Hits())) return(NULL)
     if (hitType()=="gene") {
       return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
           	selection=list(target="row", mode="multiple", selected=NULL),
-		colnames=c("Provenance", "ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "study_N", "N_snp", "N_snpw", "N_trait", "pVal_mlog", "OR", "N_beta", "RCRAS", "muScore", "muRank", "ok"),
+		colnames=c("Provenance", "ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_trait", "OR", "N_beta", "ok"),
           	options=list(
 			autoWidth=T, dom='tip',
 			columnDefs=list(
@@ -627,11 +625,11 @@ server <- function(input, output, session) {
           	               list(visible=F, targets=c(1, ncol(HitsWithHtm())-1)) #Hide EnsemblId
 				)
 			)
-	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw"), digits=2))
+	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRank", "meanRankScore"), digits=2))
   } else if (hitType()=="trait") {
       return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
 		selection=list(target="row", mode="multiple", selected=NULL),
-		colnames=c("Provenance", "efoId", "trait", "N_study", "study_N", "N_snp", "N_snpw", "N_gene", "pVal_mlog", "OR", "N_beta", "RCRAS", "muScore", "muRank", "ok"),
+		colnames=c("Provenance", "efoId", "trait", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_gene", "OR", "N_beta", "ok"),
 		options=list(
 			autoWidth=T, dom='tip',
 			columnDefs=list(
@@ -639,7 +637,7 @@ server <- function(input, output, session) {
 				list(visible=F, targets=c(ncol(HitsWithHtm())-1))
 				)
 			)
-	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw"), digits=2)) 
+	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRank", "meanRankScore"), digits=2)) 
   }
   }, server=T)
 
@@ -695,11 +693,11 @@ server <- function(input, output, session) {
     if (hitType()=="gene") {
       hits_out[["efoId"]] <- qryIds()$trait
       hits_out[["trait"]] <- traitQryName()
-      hits_out <- hits_out[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, study_N_mean, n_snp, n_snpw, geneNtrait, pvalue_mlog_median, or_median, n_beta, rcras, muScore, muRank)]
+      hits_out <- hits_out[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_median, rcras, meanRank, meanRankScore, study_N_mean, n_snp, n_snpw, geneNtrait, or_median, n_beta)]
     } else if (hitType()=="trait") {
       hits_out[["ensemblId"]] <- qryIds()$gene
       hits_out[["geneName"]] <- geneQryName()
-      hits_out <- hits_out[, .(ensemblId, geneName, efoId, trait, n_study, study_N_mean, n_snp, n_snpw, traitNgene, pvalue_mlog_median, or_median, n_beta, rcras, muScore, muRank)]
+      hits_out <- hits_out[, .(ensemblId, geneName, efoId, trait, n_study, pvalue_mlog_median, rcras, meanRank, meanRankScore, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
     }
     return(hits_out)
   })
