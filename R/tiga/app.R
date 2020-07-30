@@ -305,10 +305,6 @@ server <- function(input, output, session) {
     sprintf("%s%s", urlBase(), session$clientData$url_search)
   })
  
-  observeEvent(input$goSubmit, {
-    session$reload()
-  })
-    
   observeEvent(input$goReset, {
     dqshiny::update_autocomplete_input(session, "traitQry", value="")
     dqshiny::update_autocomplete_input(session, "geneQry", value="")
@@ -331,13 +327,13 @@ server <- function(input, output, session) {
   
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
     htm <- "<h3>Provenance and details</h3>\n"
-    htm <- paste(htm, sprintf("<b>TRAIT:</b><tt>%s</tt> &harr; <b>GENE:</b><tt>%s</tt>\n<br/>", efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this)), "\n")
+    htm <- paste(htm, sprintf("<b>TRAIT:</b> <tt>%s</tt> &harr; <b>GENE:</b> <tt>%s</tt>\n<br/>", efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this)), "\n")
     if (nrow(Hits())==0) {
       htm <- paste(htm, "<B>NO ASSOCIATIONS FOUND.</B>")
     } else {
       for (tag in names(Hits()))
-        if (tag != "ok")
-          htm <- paste(htm, sprintf("<b>%s:</b><tt>%s</tt>", tag, Hits()[[tag]][1]), sep=" &#8226; ")
+        if (tag != "ok2plot")
+          htm <- paste(htm, sprintf("<b>%s:</b> <tt>%s</tt>", tag, Hits()[[tag]][1]), sep=" &#8226; ")
     }
     return(htm)
   }
@@ -353,6 +349,7 @@ server <- function(input, output, session) {
 
   # Returns both input fields as a list(gene = ***, trait = ***)
   qryIds <- reactive({
+    input$goSubmit #trigger with goSubmit button?
     ids <- list(trait = NA, gene = NA)
     if (i_query==0 & length(names(httpQstr()))>0) { processUrlParams() } #1st query may be via URL http param.
     i_query <<- i_query + 1  # Must assign to up-scoped variable.
@@ -395,20 +392,20 @@ server <- function(input, output, session) {
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this <- gt_this[, .(efoId, trait, n_study, pvalue_mlog_median, rcras, traitMeanRank, traitMeanRankScore, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
       setnames(gt_this, old=c("traitMeanRank", "traitMeanRankScore"), new=c("meanRank", "meanRankScore"))
-      gt_this[, ok := (is.na(meanRank) | as.logical(meanRank<=input$maxHits))] #1-hit situation problematic.
       setorder(gt_this, -meanRankScore)
+      gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
     } else if (hitType()=="gene") {
       gt_this <- gt[efoId==qryIds()$trait]
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
       gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_median, rcras, geneMeanRank, geneMeanRankScore, study_N_mean, n_snp, n_snpw, geneNtrait, or_median, n_beta)]
       setnames(gt_this, old=c("geneMeanRank", "geneMeanRankScore"), new=c("meanRank", "meanRankScore"))
-      gt_this[, ok := (is.na(meanRankScore) | as.logical(meanRankScore<=input$maxHits))] #1-hit situation problematic.
       setorder(gt_this, -meanRankScore)
+      gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
     } else { #hitType=="genetrait"
       gt_this <- gt[ensemblId==qryIds()$gene & efoId==qryIds()$trait]
       gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_median, rcras, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
-      gt_this[, ok := T]
+      gt_this[, ok2plot := T]
     }
     if (hitType() %in% c("trait", "gene") & input$yAxis=="auto") { #auto-set yAxis
       n_or <- gt_this[!is.na(or_median), .N]
@@ -421,8 +418,8 @@ server <- function(input, output, session) {
 
   output$hitCount <- renderText({ as.character(nrow(Hits())) })
   
-  output$plotTabTxt <- renderText({ ifelse(is.null(Hits()), "Plot", sprintf("Plot (%ss)", hitType())) })
-  output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d %ss)", Hits()[(ok), .N], hitType()), "Hits (0)") })
+  output$plotTabTxt <- renderText({ ifelse(is.null(Hits()), "Plot", sprintf("Plot (%d %ss)", Hits()[(ok2plot), .N], hitType())) })
+  output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d %ss)", Hits()[, .N], hitType()), "Hits (0)") })
 
   output$traitFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(trait_table), ncol(trait_table)) })
   output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table), ncol(gene_table)) })
@@ -432,13 +429,11 @@ server <- function(input, output, session) {
 
   #Hits table has links to tiga:trait+gene, and to external resources EFO and Pharos.
   HitsWithHtm <- reactive({
-    hwh <- data.table(Hits()[(ok)]) #copy
+    hwh <- data.table(Hits()) #copy
     if (hitType() == "trait") {
       hwh <- hwh[, efoId := sprintf("%s<a href=\"%s?trait=%s&gene=%s\"><i class=\"fa fa-search\"></i></a><a href=\"%s\" target=\"_blank\"><i class=\"fa fa-external-link\"></i></a>", efoId, urlBase(), efoId, qryIds()$gene, sapply(efoId, efoId2Uri))]
-      #setcolorder(hwh, c(ncol(hwh), 1:(ncol(hwh)-1))) #Move Provenance to 1st col.
     } else if (hitType() == "gene") {
       hwh <- hwh[, geneSymbol := sprintf("%s<a href=\"%s?trait=%s&gene=%s\"><i class=\"fa fa-search\"></i></a><a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\"><i class=\"fa fa-external-link\"></i></a>", geneSymbol, urlBase(), qryIds()$trait, ensemblId, geneSymbol)]
-      #setcolorder(hwh, c(ncol(hwh), 1:(ncol(hwh)-1))) #Move Provenance to 1st col.
     }
     return(hwh)
   })
@@ -475,7 +470,7 @@ server <- function(input, output, session) {
       updateTabsetPanel(session, "tabset", selected="detail")
     }
     if (!is.null(Hits())) {
-      htm <- paste0(htm, sprintf("; N_%s: %d shown (%d total)", hitType(), Hits()[(ok), .N], Hits()[, .N]))
+      htm <- paste0(htm, sprintf("; N_%s: %d plotted (%d total)", hitType(), Hits()[(ok2plot), .N], Hits()[, .N]))
       if (!is.null(Hits()[["or_median"]]) & !is.null(Hits()[["n_beta"]]))
         htm <- paste0(htm, sprintf("; ORs: %d; N_betas>0: %d", Hits()[or_median>0, .N], Hits()[n_beta>0, .N]))
     } else if (qryIds()$gene %in% filtered$id) {
@@ -491,66 +486,65 @@ server <- function(input, output, session) {
     return(htm)
   })
   
-  #ERRORS here to be fixed.
+  #Errors here?
   markerSize <- reactive({
     if (input$markerSizeBy=="n_study") {
-      message(sprintf("DEBUG: markerSizeBy: %s", input$markerSizeBy))
-      size <- 10*Hits()[(ok), n_study]
+      size <- 5*Hits()[(ok2plot), n_study]
     } else if (input$markerSizeBy=="rcras") {
-      message(sprintf("DEBUG: markerSizeBy: %s", input$markerSizeBy))
-      size <- 10*Hits()[(ok), rcras]
+      size <- 5*Hits()[(ok2plot), rcras]
     } else { #NA
-      message(sprintf("DEBUG: markerSizeBy: %s", as.character(input$markerSizeBy)))
-      size <- rep(10, nrow(Hits()[(ok)]))
+      size <- rep(10, nrow(Hits()[(ok2plot)]))
     }
-    message(sprintf("DEBUG: nrow(Hits()): %d", nrow(Hits()[(ok)])))
-    message(sprintf("DEBUG: length(markerSize): %d", length(size)))
-    size <- pmax(size, rep(10, nrow(Hits()[(ok)]))) #min
-    size <- pmin(size, rep(80, nrow(Hits()[(ok)]))) #max
+    size <- pmax(size, rep(10, nrow(Hits()[(ok2plot)]))) #min
+    size <- pmin(size, rep(80, nrow(Hits()[(ok2plot)]))) #max
+    message(sprintf("DEBUG: markerSizeBy: %s", as.character(input$markerSizeBy)))
+    message(sprintf("DEBUG: nrow(Hits()[(ok2plot)]): %d", nrow(Hits()[(ok2plot)])))
     message(sprintf("DEBUG: length(markerSize): %d", length(size)))
     return(size)
   })
 
   markerTextGenes <- reactive({
-    text=paste0(
-    paste0("<b>", Hits()[(ok)]$geneSymbol, "</b> (", Hits()[(ok)]$ensemblId, ")"), 
-    paste0("<br><b>", Hits()[(ok)]$geneName, "</b>"),
-    paste0("<br>Fam:", Hits()[(ok)]$geneFamily),
-    paste0(", TDL:", Hits()[(ok)]$TDL),
-    paste0("; N_trait = ", Hits()[(ok)]$geneNtrait),
-    ";<br>meanRank = ", round(Hits()[(ok)]$meanRank, digits=3),
-    ";meanRankScore = ", round(Hits()[(ok)]$meanRankScore, digits=3),
-    ";<br>N_study = ", Hits()[(ok)]$n_study,
-    "; study_N = ", Hits()[(ok)]$study_N_mean, 
-    "; N_snp = ", Hits()[(ok)]$n_snp,
-    ";<br>N_snpw = ", Hits()[(ok)]$n_snpw,
-    "; OR = ", round(Hits()[(ok)]$or_median, digits=2), 
-    "; N_beta = ", Hits()[(ok)]$n_beta,
-    "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok)]$pvalue_mlog_median)),
-    "; RCRAS = ", round(Hits()[(ok)]$rcras, digits=2))
+    text <- paste0(
+    paste0("<b>", Hits()[(ok2plot), geneSymbol], "</b> (", Hits()[(ok2plot), ensemblId], ")"), 
+    paste0("<br><b>", Hits()[(ok2plot), geneName], "</b>"),
+    paste0("<br>Fam:", Hits()[(ok2plot), geneFamily]),
+    paste0(", TDL:", Hits()[(ok2plot), TDL]),
+    paste0("; N_trait = ", Hits()[(ok2plot), geneNtrait]),
+    ";<br>meanRank = ", round(Hits()[(ok2plot), meanRank], digits=3),
+    "; meanRankScore = ", round(Hits()[(ok2plot), meanRankScore], digits=3),
+    ";<br>N_study = ", Hits()[(ok2plot), n_study],
+    "; study_N = ", Hits()[(ok2plot), study_N_mean], 
+    "; N_snp = ", Hits()[(ok2plot), n_snp],
+    ";<br>N_snpw = ", Hits()[(ok2plot), n_snpw],
+    "; OR = ", round(Hits()[(ok2plot), or_median], digits=2), 
+    "; N_beta = ", Hits()[(ok2plot), n_beta],
+    "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok2plot), pvalue_mlog_median])),
+    "; RCRAS = ", round(Hits()[(ok2plot), rcras], digits=2),
+    ";<br>DEBUG: .I = ", Hits()[(ok2plot), .I]
+      )
+    message(sprintf("DEBUG: length(markerTextGenes): %d", length(text)))
     return(text)
   })
   markerTextTraits <- reactive({
-    text=paste0(
-    paste0("<b>", Hits()[(ok)]$efoId, "</b>"), 
-    paste0("<br><b>", Hits()[(ok)]$trait, "</b>"),
-    paste0("; N_gene = ", Hits()[(ok)]$traitNgene),
-    ";<br>meanRank = ", round(Hits()[(ok)]$meanRank, digits=3),
-    ";meanRankScore = ", round(Hits()[(ok)]$meanRankScore, digits=3),
-    ";<br>N_study = ", Hits()[(ok)]$n_study,
-    "; study_N = ", Hits()[(ok)]$study_N_mean, 
-    "; N_snp = ", Hits()[(ok)]$n_snp,
-    ";<br>N_snpw = ", Hits()[(ok)]$n_snpw,
-    "; OR = ", round(Hits()[(ok)]$or_median, digits=2), 
-    "; N_beta = ", Hits()[(ok)]$n_beta,
-    "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok)]$pvalue_mlog_median)),
-    "; RCRAS = ", round(Hits()[(ok)]$rcras, digits=2))
+    text <- paste0(
+    paste0("<b>", Hits()[(ok2plot), efoId], "</b>"), 
+    paste0("<br><b>", Hits()[(ok2plot), trait], "</b>"),
+    paste0("; N_gene = ", Hits()[(ok2plot), traitNgene]),
+    ";<br>meanRank = ", round(Hits()[(ok2plot), meanRank], digits=3),
+    "; meanRankScore = ", round(Hits()[(ok2plot), meanRankScore], digits=3),
+    ";<br>N_study = ", Hits()[(ok2plot), n_study],
+    "; study_N = ", Hits()[(ok2plot), study_N_mean], 
+    "; N_snp = ", Hits()[(ok2plot), n_snp],
+    ";<br>N_snpw = ", Hits()[(ok2plot), n_snpw],
+    "; OR = ", round(Hits()[(ok2plot), or_median], digits=2), 
+    "; N_beta = ", Hits()[(ok2plot), n_beta],
+    "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok2plot), pvalue_mlog_median])),
+    "; RCRAS = ", round(Hits()[(ok2plot), rcras], digits=2))
     return(text)
   })
 
   output$tigaPlot <- renderPlotly({
     xaxis <- list(title="Evidence (meanRankScore)", type="normal", zeroline=F, showline=F)
-    #yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type=ifelse("Effect" %in% input$logaxes, "log", "normal"))
     yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type="normal")
     axis_none <- list(zeroline=F, showline=F, showgrid=F, showticklabels=F)
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
@@ -565,17 +559,25 @@ server <- function(input, output, session) {
     }
     
     #if (qryType()=="trait")
-    #  message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok)]$geneSymbol, as.character(markerSize()), sep=":"))))
+    #  message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok2plot)]$geneSymbol, as.character(markerSize()), sep=":"))))
     #else if (qryType()=="gene")
-    #  message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok)]$efoId, as.character(markerSize()), sep=":"))))
+    #  message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok2plot)]$efoId, as.character(markerSize()), sep=":"))))
     
     if (hitType()=="gene") {
       if (input$yAxis=="n_beta")
-        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~meanRankScore, y=~n_beta,
+        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok2plot)], 
+          #x=~meanRankScore, 
+          x = 100*jitter(Hits()[(ok2plot), meanRankScore], 10),
+          #y=~n_beta,
+          y = jitter(Hits()[(ok2plot), n_beta], 10),
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
       else # or_median or auto
-        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~meanRankScore, y=~or_median,
+        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok2plot)], 
+          #x=~meanRankScore, 
+          x = 100*jitter(Hits()[(ok2plot), meanRankScore], 10),
+          #y=~or_median,
+          y = jitter(Hits()[(ok2plot), or_median], 10),
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
@@ -584,13 +586,13 @@ server <- function(input, output, session) {
 	  legend=list(x=1, y=1, traceorder="normal", orientation="h", xanchor="right", yanchor="auto", itemsizing="constant", borderwidth=1, bordercolor="gray"),
           font=list(family="monospace", size=16)
       ) %>%
-      add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits()[(ok)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
+      add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits()[(ok2plot)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
     } else if (hitType()=="trait") {
       if (input$yAxis=="n_beta")
-        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~meanRankScore, y=~n_beta,
+        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok2plot)], x=~meanRankScore, y=~n_beta,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
       else # or_median or auto
-        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok)], x=~meanRankScore, y=~or_median,
+        p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok2plot)], x=~meanRankScore, y=~or_median,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
           title=paste0(geneQryName(), "<br>", "(", qryType(), ":", qryIds()$gene, ")"),
@@ -598,7 +600,7 @@ server <- function(input, output, session) {
 	  legend=list(x=1, y=1, traceorder="normal", orientation="h", xanchor="right", yanchor="auto", itemsizing="constant", borderwidth=1, bordercolor="gray"),
           font=list(family="monospace", size=16)
       ) %>%
-      add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits()[(ok)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
+      add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits()[(ok2plot)]), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
     } else { # "genetrait"
       title <- "<I>(No plot in gene+trait mode.)</I>"
       p <- plot_ly(type="scatter", mode="markers") %>% config(displayModeBar=F) %>% layout(title=title, xaxis=axis_none, yaxis=axis_none, margin=list(t=120,b=20))
@@ -613,7 +615,7 @@ server <- function(input, output, session) {
     if (hitType()=="gene") {
       return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
           	selection=list(target="row", mode="multiple", selected=NULL),
-		colnames=c("ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_trait", "OR", "N_beta", "ok"),
+		colnames=c("ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_trait", "OR", "N_beta", "ok2plot"),
           	options=list(
 			autoWidth=T, dom='tip',
 			columnDefs=list(
@@ -630,7 +632,7 @@ server <- function(input, output, session) {
   } else if (hitType()=="trait") {
       return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
 		selection=list(target="row", mode="multiple", selected=NULL),
-		colnames=c("efoId", "trait", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_gene", "OR", "N_beta", "ok"),
+		colnames=c("efoId", "trait", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_gene", "OR", "N_beta", "ok2plot"),
 		options=list(
 			autoWidth=T, dom='tip',
 			columnDefs=list(
