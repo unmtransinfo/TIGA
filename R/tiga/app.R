@@ -1,5 +1,5 @@
 ########################################################################################
-### TIGA: Target Illumination by GWAS Analytics
+### TIGA: Target Illumination GWAS Analytics
 ### gt = gene-trait data
 ### Input files:
 ###  gt_stats.tsv.gz               (from tiga_gt_stats.R) 
@@ -52,6 +52,7 @@ efoId2Subclasses <- function(G, id_this) {
 }
 ########################################################################################
 APPNAME <- "TIGA"
+APPNAME_FULL <- "TIGA: Target Illumination GWAS Analytics"
 MIN_ASSN <- 1
 #
 t0 <- proc.time()
@@ -217,18 +218,17 @@ This work was supported by the National Institutes of Health grant U24-CA224370.
 ##########################################################################################
 ui <- fluidPage(
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
-  titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), sprintf("%s: Target Illumination GWAS Analytics", APPNAME),tags$img(height="40", valign="bottom", src="GWAS_Catalog_logo.png"), span(style="font-size:18px", "GWAS Catalog based app (BETA)")), windowTitle=APPNAME),
+  titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), APPNAME_FULL), windowTitle=APPNAME_FULL),
   fluidRow(
     column(3, 
       wellPanel(
-	dqshiny::autocomplete_input("traitQry", div("Trait",
-		#actionButton("randTraitQry", tags$img(height="28", valign="bottom", src="dice.png"), style='padding:0px; background-color:#DDDDDD'),
-		actionButton("goReset", tags$img(height="28", valign="bottom", src="refresh_icon.png"), style='padding:0px;background-color:#DDDDDD')),
-		options=trait_menu, max_options=1000, placeholder="Query trait..."),
+	dqshiny::autocomplete_input("traitQry", "Trait", options=trait_menu, max_options=1000, placeholder="Query trait..."),
 	dqshiny::autocomplete_input("geneQry", div("Gene"), options=as.list(c(gene_menu, filtered_gene_menu)), max_options=10000, placeholder="Query gene..."),
+        	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
+        	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
+      wellPanel(
         sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
 	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "nBeta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T),
-#		checkboxGroupInput("logaxes", "LogAxes", choices=axes, selected=NULL, inline=T),
         radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS", "None"), choiceValues=c("n_study", "rcras", NA), selected="n_study", inline=T)
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
@@ -257,7 +257,7 @@ ui <- fluidPage(
         tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
         " and ",
         tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png"))),
-        " built upon ",
+        " built from ",
         tags$a(href="https://www.ebi.ac.uk/gwas/", target="_blank", span("GWAS Catalog", tags$img(id="gwas_catalog_logo", height="50", valign="bottom", src="GWAS_Catalog_logo.png"))),
         " and ",
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
@@ -305,6 +305,10 @@ server <- function(input, output, session) {
     sprintf("%s%s", urlBase(), session$clientData$url_search)
   })
  
+  observeEvent(input$goSubmit, {
+    session$reload()
+  })
+    
   observeEvent(input$goReset, {
     dqshiny::update_autocomplete_input(session, "traitQry", value="")
     dqshiny::update_autocomplete_input(session, "geneQry", value="")
@@ -346,12 +350,6 @@ server <- function(input, output, session) {
     if ("gene" %in% names(qStr))
       dqshiny::update_autocomplete_input(session, "geneQry", value=sprintf("%s:%s", ensemblId2Symbol(qStr[["gene"]]), ensemblId2Name(qStr[["gene"]])))
   }
-
-#    if (input$randTraitQry>traitQryRand_count) {
-#      traitQryRand_count <<- input$randTraitQry # Must assign to up-scoped variable.
-#      traitQryRand_new <- sample(trait_menu, 1)
-#      dqshiny::update_autocomplete_input(session, "traitQry", value=as.character(names(traitQryRand_new)))
-#    }
 
   # Returns both input fields as a list(gene = ***, trait = ***)
   qryIds <- reactive({
@@ -436,13 +434,11 @@ server <- function(input, output, session) {
   HitsWithHtm <- reactive({
     hwh <- data.table(Hits()[(ok)]) #copy
     if (hitType() == "trait") {
-      hwh <- hwh[, Provenance := sprintf("<a href=\"%s?trait=%s&gene=%s\">%s</a><i class=\"fa fa-search\"></i>", urlBase(), efoId, qryIds()$gene, efoId)]
-      hwh <- hwh[, efoId := sprintf("<a href=\"%s\" target=\"_blank\">%s</a><i class=\"fa fa-external-link\"></i>", sapply(efoId, efoId2Uri), efoId)]
-      setcolorder(hwh, c(ncol(hwh), 1:(ncol(hwh)-1))) #Move Provenance to 1st col.
+      hwh <- hwh[, efoId := sprintf("%s<a href=\"%s?trait=%s&gene=%s\"><i class=\"fa fa-search\"></i></a><a href=\"%s\" target=\"_blank\"><i class=\"fa fa-external-link\"></i></a>", efoId, urlBase(), efoId, qryIds()$gene, sapply(efoId, efoId2Uri))]
+      #setcolorder(hwh, c(ncol(hwh), 1:(ncol(hwh)-1))) #Move Provenance to 1st col.
     } else if (hitType() == "gene") {
-      hwh <- hwh[, Provenance := sprintf("<a href=\"%s?trait=%s&gene=%s\">%s</a><i class=\"fa fa-search\"></i>", urlBase(), qryIds()$trait, ensemblId, geneSymbol)]
-      hwh <- hwh[, geneSymbol := sprintf("<a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\">%s</a><i class=\"fa fa-external-link\"></i>", geneSymbol, geneSymbol)]
-      setcolorder(hwh, c(ncol(hwh), 1:(ncol(hwh)-1))) #Move Provenance to 1st col.
+      hwh <- hwh[, geneSymbol := sprintf("%s<a href=\"%s?trait=%s&gene=%s\"><i class=\"fa fa-search\"></i></a><a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\"><i class=\"fa fa-external-link\"></i></a>", geneSymbol, urlBase(), qryIds()$trait, ensemblId, geneSymbol)]
+      #setcolorder(hwh, c(ncol(hwh), 1:(ncol(hwh)-1))) #Move Provenance to 1st col.
     }
     return(hwh)
   })
@@ -617,19 +613,24 @@ server <- function(input, output, session) {
     if (hitType()=="gene") {
       return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
           	selection=list(target="row", mode="multiple", selected=NULL),
-		colnames=c("Provenance", "ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_trait", "OR", "N_beta", "ok"),
+		colnames=c("ENSG", "GSYMB", "GeneName", "idgFam", "idgTDL", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_trait", "OR", "N_beta", "ok"),
           	options=list(
 			autoWidth=T, dom='tip',
 			columnDefs=list(
-          	               list(className='dt-center', targets=c(0, 1, 4:(ncol(HitsWithHtm())-2))),
-          	               list(visible=F, targets=c(1, ncol(HitsWithHtm())-1)) #Hide EnsemblId
+          	               list(className='dt-center', targets=c(0, 1, 3:(ncol(HitsWithHtm())-2))),
+          	               list(visible=F, targets=c(0, ncol(HitsWithHtm())-1)) #Hide EnsemblId
 				)
 			)
-	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRank", "meanRankScore"), digits=2))
+	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRank", "meanRankScore"), digits=2)
+    %>% DT::formatStyle(c("n_study", "pvalue_mlog_median", "rcras"), backgroundColor="skyblue", fontWeight="bold")
+    %>% DT::formatStyle(c("meanRank", "meanRankScore"), color="black", backgroundColor="orange", fontWeight="bold")
+    %>% DT::formatStyle("TDL", backgroundColor=styleEqual(c("Tclin", "Tchem", "Tbio", "Tdark"), c("#4444DD", "#11EE11", "#EE1111", "gray"))
+  )
+        )
   } else if (hitType()=="trait") {
       return(DT::datatable(data=HitsWithHtm(), escape=F, rownames=F, class="cell-border stripe", style="bootstrap",
 		selection=list(target="row", mode="multiple", selected=NULL),
-		colnames=c("Provenance", "efoId", "trait", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_gene", "OR", "N_beta", "ok"),
+		colnames=c("efoId", "trait", "N_study", "pVal_mlog", "RCRAS", "meanRank", "meanRankScore", "study_N", "N_snp", "N_snpw", "N_gene", "OR", "N_beta", "ok"),
 		options=list(
 			autoWidth=T, dom='tip',
 			columnDefs=list(
@@ -637,7 +638,10 @@ server <- function(input, output, session) {
 				list(visible=F, targets=c(ncol(HitsWithHtm())-1))
 				)
 			)
-	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRank", "meanRankScore"), digits=2)) 
+	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRank", "meanRankScore"), digits=2)
+    %>% DT::formatStyle(c("n_study", "pvalue_mlog_median", "rcras"), backgroundColor="skyblue", fontWeight="bold")
+    %>% DT::formatStyle(c("meanRank", "meanRankScore"), color="black", backgroundColor="orange", fontWeight="bold")
+	) 
   }
   }, server=T)
 
