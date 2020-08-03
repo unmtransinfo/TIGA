@@ -10,8 +10,8 @@ if (length(args)==2) {
   (ifile <- args[1])
   (ofile <- args[2])
 } else if (length(args)==0) {
-  #ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
-  ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
+  #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
+  ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
   ofile <- "data/gwascat_gwas.tsv.gz"
 } else {
   message("ERROR: Syntax: gwascat_gwas.R GWASFILE OFILE\n\t...or no args for defaults.")
@@ -27,10 +27,10 @@ setnames(gwas, gsub("[ \\./]", "_", colnames(gwas)))
 setnames(gwas, gsub("__", "_", colnames(gwas)))
 setnames(gwas, gsub("_$", "", colnames(gwas)))
 
-#Convert special chars.
+#Clean: convert special chars.
 for (tag in colnames(gwas)) {
   if (typeof(gwas[[tag]])=="character") {
-    message(sprintf("NOTE: cleaning: %s", tag))
+    #message(sprintf("NOTE: cleaning: %s", tag))
     gwas[[tag]] <- iconv(gwas[[tag]], from="latin1", to="UTF-8")
   }
 }
@@ -42,9 +42,15 @@ message(sprintf("PUBMEDIDs: %d (%.1f%% of studies)", gwas[!is.na(PUBMEDID), .N],
 message(sprintf("Unique PUBMEDIDs: %d (%f per study)", gwas[!is.na(PUBMEDID), uniqueN(PUBMEDID)], gwas[!is.na(PUBMEDID), uniqueN(PUBMEDID)]/gwas[!is.na(STUDY_ACCESSION), uniqueN(STUDY_ACCESSION)]))
 # DATE is publication date.
 pmid2gwas_counts <- gwas[, .(n_study = uniqueN(STUDY_ACCESSION)), by=c("PUBMEDID", "FIRST_AUTHOR", "JOURNAL", "DATE")]
-setorder(pmid2gwas_counts, -n_study)
+setorder(pmid2gwas_counts, n_study)
 for (n in unique(pmid2gwas_counts$n_study)) {
+  if (n<=10) {
   message(sprintf("%4d publications contain %2d studies.", pmid2gwas_counts[n_study==n, .N], n))
+  } else {
+    message(sprintf("%4d publications contain [%2d-%d] studies.",
+	pmid2gwas_counts[n_study>n, sum(.N)], n, max(pmid2gwas_counts$n_study)))
+    break
+  }
 }
 gwas2pmid_counts <- gwas[, .(n_pub = uniqueN(PUBMEDID)), by="STUDY_ACCESSION"]
 message(sprintf("Studies with multiple publications: %d", gwas2pmid_counts[n_pub>1, uniqueN(STUDY_ACCESSION)]))
@@ -61,7 +67,11 @@ gwas[, study_N := sub("\t$", "", study_N)]
 gwas[, study_N := gsub("\t", "+", study_N)]
 gwas[, study_N := sapply(sapply(study_N, str2lang), eval)]
 gwas[, study_N := as.integer(study_N)]
-writeLines(sprintf("UNPARSED INITIAL_SAMPLE_SIZE: %s", gwas[is.na(study_N), INITIAL_SAMPLE_SIZE]))
+if (nrow(gwas[is.na(study_N)])>0) {
+  writeLines(sprintf("UNPARSED INITIAL_SAMPLE_SIZE: \"%s\"", gwas[is.na(study_N), INITIAL_SAMPLE_SIZE]))
+} else {
+  message(sprintf("UNPARSED INITIAL_SAMPLE_SIZE: (None)"))
+}
 
 message(sprintf("Total gwas count: %6d", nrow(gwas)))
 

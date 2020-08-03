@@ -19,26 +19,13 @@ association is evaluated for confidence and relevance, with scores solely derive
 from aggregated statistics, linking a protein-coding gene and phenotype. Applicability
 and thresholds will depend on use cases.
 
-* Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) v1.0.2, Sept 30, 2018.
+* Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) format v1.0.2, July 15, 2020.
 * Workflow designed for integration with TCRD & Pharos
 * RCRAS, Relative Citation Ratio (RCR) Aggregated Score based on iCite-RCR.
 * Confidence higher (and provenance/accountability) for `mapped` over `reported` SNP-gene associations.
+* BETA not comparable for different units, thus using N_beta counts for TIGA.
 * Ensembl IDs (from API) used rather than gene symbols for more accurate gene mapping.
 * Prototype RShiny app: <http://unmtid-shinyapps.net/tiga/>
-
-Issues:
-
-* BETA not comparable for different units, thus currently only OR used for TIGA.
-* Can disease-gene associations be enriched by tissue-specificity via methods such as [NetWAS](https://hb.flatironinstitute.org/netwas)? If yes, should such a method be integrated with TIGA or perhaps supported as a post-processing step? Or/and is POSTGAP (Ensembl) already considering such sources.
-* If a trait is a disease or syndrome, and so polygenic as to be poorly addressed by GWAS, can this be 
-inferred by some score? Perhaps simply the N\_gene count (mapped) for a trait.
-(E.g. "intelligence" N\_gene ~ 600, "schizophrenia" N\_gene ~ 800).
-
-To-do:
-
-* Confidence scoring for SNP-gene mappings, based on up/down-stream distance; include in &mu; scores.
-* EFO+DOID semantic subclass related studies, linking, aggregation, scoring.
-* Polygenic diseases/traits: Filter if less suitable for GWAS-based drug target discovery use cases.
 
 ## About NHGRI-EBI GWAS Catalog
 
@@ -46,7 +33,7 @@ GWAS Catalog (<http://www.ebi.ac.uk/gwas/>) studies each have a `study_accession
 Also are associated with a publication (PubMedID), but not uniquely.
 See <https://www.ebi.ac.uk/gwas/docs/fileheaders>.
 
-Some key definitions:
+Key definitions:
 
 	`MAPPED GENE(S)`: Gene(s) mapped to the strongest SNP. If the SNP is located
 	within a gene, that gene is listed. If the SNP is intergenic, the upstream
@@ -70,10 +57,7 @@ Some key definitions:
 	`GENOTYPING_TECHNOLOGY`: Genotyping technology/ies used in this study, with
 	additional array information (ex. Immunochip or Exome array) in brackets.
 
-* Welter D, MacArthur J, Morales J, Burdett T, Hall P, Junkins H,
-Klemm A, Flicek P, Manolio T, Hindorff L, and Parkinson H. The NHGRI
-GWAS Catalog, a curated resource of SNP-trait associations. Nucleic
-Acids Research, 2014, Vol. 42 (Database issue): D1001-D1006.
+*  Buniello A, MacArthur JAL, Cerezo M, Harris LW, Hayhurst J, Malangone C, et al. The NHGRI-EBI GWAS Catalog of published genome-wide association studies, targeted arrays and summary statistics 2019. Nucleic Acids Res. 2019;47: D1005–D1012.
 
 
 ```{r echo=FALSE}
@@ -92,7 +76,7 @@ library(plotly, quietly=T)
 From GWAS Catalog, TCRD, and EFO.
 
 ```{r}
-ifile_gwas <- "data/gwascat_gwas.tsv.gz"
+ifile_gwas <- "data/gwascat_gwas.tsv"
 ifile_assn <- "data/gwascat_assn.tsv"
 ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
 ifile_trait <- "data/gwascat_trait.tsv"
@@ -136,7 +120,7 @@ plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="Not Reported",
   add_trace(y = ~Affymetrix, name="Affymetrix") %>%
   add_trace(y = ~Illumina, name="Illumina") %>%
   layout(title = 'GWAS counts by year &amp; vendor',
-         xaxis = list(title="", showgrid=F, range=c(2005, 2017), dtick=1, tickangle=45),
+         xaxis = list(title="", showgrid=F, range=c(2005, 2019), dtick=1, tickangle=45),
          yaxis = list(title="", showgrid=F),
          margin = list(t=100, l=100),
          font = list(family="monospace", size=18),
@@ -152,10 +136,10 @@ Sample size box plots by year.
 ```{r}
 plot_ly(gwas, x=~YEAR, y=~study_N, type="box") %>%
     layout(title="GWAS sample sizes",
-         xaxis=list(title="", tickangle=45), yaxis=list(title="N_Study", type="log"),
+         xaxis=list(title="", tickangle=45), yaxis=list(title="Study_N", type="log"),
          margin = list(t=100, l=100),
          font = list(family="monospace", size=18)) %>%
-  add_annotations(text=sprintf("median:%d  mean:%d  range:[%d-%d]", median(gwas$study_N), round(mean(gwas$study_N)), min(gwas$study_N), max(gwas$study_N)), showarrow=F, x=0.5, y=1, xref="paper", yref="paper")
+  add_annotations(text=sprintf("median:%d  mean:%d  range:[%d-%.2g]", median(gwas$study_N, na.rm=T), round(mean(gwas$study_N, na.rm=T)), min(gwas$study_N, na.rm=T), max(gwas$study_N, na.rm=T)), showarrow=F, x=0.5, y=1, xref="paper", yref="paper")
 ```
 
 
@@ -205,18 +189,19 @@ plot_ly(gwas_icite, x=~relative_citation_ratio, type="histogram", marker=list(co
   add_annotations(text=paste0(anns, collapse="<br>"), showarrow=F, x=0.5, y=.9, xref="paper", yref="paper")
 ```
 
+RCR for top GWAS journals by paper count
+
 ```{r warning=FALSE}
-gwas_icite[!(journal %in% gwas_icite[, .N, by=journal][order(-N)][1:12, journal]), journal := "Other"]
+gwas_icite[!(journal %in% gwas_icite[, .N, by=journal][order(-N)][1:10, journal]), journal := "Other"]
 wordwrap <- function(v, len) sapply(sapply(v, strwrap, len), paste, collapse="<br>")
 plot_ly(gwas_icite, 
-      #  x=~year, 
-      x=~journal,
+        x=~year, 
         y=~relative_citation_ratio, 
-      #  color = ~journal, 
+        color = ~journal, 
         type="box",
         text=sprintf("%s: %s, <i>%s</i> (%d)", gwas_icite$PUBMEDID, wordwrap(gwas_icite$title, 40), gwas_icite$journal, gwas_icite$year)) %>%
-  layout(title = 'iCite Relative Citation Ratio<br>GWAS Publications',
-         xaxis = list(title="", range=c(2012, 2016), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
+  layout(title = 'iCite Relative Citation Ratio<br>Top journals by GWAS Publication count',
+         xaxis = list(title="", range=c(2015, 2019), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
          yaxis = list(title="RCR", range=c(0,25), showgrid=T),
          margin = list(t=100, l=100, r=100),
          font = list(family="monospace", size=18),
@@ -497,19 +482,20 @@ knitr::kable(trait_top[order(-N_genes), .(TRAIT, N_study, N_genes)][1:18], capti
 
 # Prototype TIGA web app.
 
-TIGA = Target Illumination by GWAS Analytics
+TIGA: Target Illumination GWAS Analytics
 
 ## Plot single trait with all associated genes.
 
 * X-axis: Evidence (`n_study`)
 * Y-axis: Effect (`median(OR)`)
 * Other variables used in &mu; scores:
- * `1/N_trait` - traits associated with gene
+ * `N_trait` - traits associated with gene
  * `N_snp` - # SNPs implicating gene
  * `OR` - median of trait-SNP ORs
+ * `N_beta` - # supporting beta values
  * `pVal` - median of trait-SNP pValues
  * `RCRAS` - Relative Citation Ratio Aggregated Score 
- * `1/N_gene` - # genes associated with trait
+ * `N_gene` - # genes associated with trait
  * `N_sample` - mean of sample sizes
 
 
@@ -540,16 +526,16 @@ query_trait <- gt[efoId==trait_id, first(trait)]
 sprintf("%s: (%s) %s", trait_id, query_uri, query_trait)
 ```
 
-### Rank and filter based on &mu; score.
+### Rank and filter based on meanRank score.
 
 ```{r}
 t2g <- gt[efoId==trait_id]
 t2g <- t2g[!is.na(ensemblId)]
 t2g <- t2g[!is.na(or_median)]
 NMAX_PLOT <- 100
-t2g[, ok := as.logical(traitMuRank<=NMAX_PLOT)]
-setorder(t2g, traitMuRank)
-message(sprintf("&mu;_filter result: %d / %d", sum(t2g[, ok]), nrow(t2g)))
+t2g[, ok2plot := as.logical(traitMeanRank<=NMAX_PLOT)]
+setorder(t2g, traitMeanRank)
+message(sprintf("meanRankScore_filter result: %d / %d", sum(t2g[, ok2plot]), nrow(t2g)))
 ```
 
 ### Plot
@@ -561,22 +547,22 @@ t2g[, markersize := 10*n_study]
 t2g[, text := paste0("<b>", geneSymbol, "</b> (", ensemblId, ")<br><b>", geneName, "</b><br>", "Family: ", geneFamily, "<br>", "TDL: ", geneIdgTdl, "<br>", "N_traits=", geneNtrait, " ; N_snp=", n_snp, " ; N_study=", n_study, "study_N = ",
 "OR = ", or_median, "; ",  study_N_mean, "; ",
 " ; pVal=", sprintf("%.2g",10^(-pvalue_mlog_median)), "RCRAS = ", rcras, "; ", 
-"muScore = ", geneMuScore, "; ","muRank = ", geneMuRank, "; ")]
-plot_ly(type='scatter', mode='markers', data=t2g[(ok)], 
+"meanRankScore = ", geneMeanRankScore, "; ","meanRank = ", geneMeanRank, "; ")]
+plot_ly(type='scatter', mode='markers', data=t2g[(ok2plot)], 
   color=~geneIdgTdl, colors=c("blue", "green", "red", "black", "gray"),
-	x=~geneMuScore,
+	x=~geneMeanRankScore,
 	y=~or_median, marker=list(symbol="circle", size=~markersize), text=~text) %>%
-  layout(xaxis=list(title="Evidence (muScore)", zeroline=F, showline=F), 
+  layout(xaxis=list(title="Evidence (meanRankScore)", zeroline=F, showline=F), 
          yaxis=list(title="Effect (OddsRatio)"), 
         title=paste0("TIGA: ", query_trait, "<br>(", trait_id, ")"),
         margin=list(t=100,r=50,b=60,l=60), legend=list(orientation="h", x=1, y=1, xanchor="right"), showlegend=T, font=list(family="monospace", size=18)) %>%
-  add_annotations(text=sprintf("N: %d (%d shown)", nrow(t2g), sum(t2g$ok)), showarrow=F, x=0, y=1.0, xref="paper", yref="paper")
+  add_annotations(text=sprintf("N: %d (%d shown)", nrow(t2g), sum(t2g$ok2plot)), showarrow=F, x=0, y=1.0, xref="paper", yref="paper")
 ```
 
 Top hits:
 
 ```{r}
-setorder(t2g, geneMuRank)
-knitr::kable(t2g[(ok)][1:10][, .(GSYMB=geneSymbol, name=geneName, family=geneFamily, geneIdgTdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, geneMuScore, geneMuRank)], caption=sprintf("TIGA: %s, top hits", query_trait))
+setorder(t2g, geneMeanRank)
+knitr::kable(t2g[1:10][, .(GSYMB=geneSymbol, name=geneName, family=geneFamily, geneIdgTdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, geneMeanRankScore, geneMeanRank)], caption=sprintf("TIGA: %s, top hits", query_trait))
 ```
 

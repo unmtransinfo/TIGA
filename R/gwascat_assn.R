@@ -24,8 +24,8 @@ if (length(args)==2) {
   (ifile <- args[1])
   (ofile <- args[2])
 } else if (length(args)==0) {
-  #ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv")
-  ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv")
+  #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv")
+  ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv")
   ofile <- "data/gwascat_assn.tsv"
 } else {
   message("ERROR: Syntax: gwascat_assn.R ASSNFILE OFILE\n\t...or no args for defaults.")
@@ -43,10 +43,10 @@ setnames(assn, gsub("_$" ,"", colnames(assn)))
 
 assn <- assn[complete.cases(assn[, .(STUDY_ACCESSION, SNPS, DISEASE_TRAIT)]), ]
 
-#Convert special chars.
+#Clean: convert special chars.
 for (tag in colnames(assn)) {
   if (typeof(assn[[tag]])=="character") {
-    message(sprintf("NOTE: cleaning: %s", tag))
+    #message(sprintf("NOTE: cleaning: %s", tag))
     assn[[tag]] <- iconv(assn[[tag]], from="latin1", to="UTF-8")
   }
 }
@@ -96,8 +96,17 @@ writeLines(sprintf("Studies with both values <=1 and >1: %d", n_both))
 ###
 
 # CONTEXT aka functionalClass (via API)
-tbl <- sort(table(assn$CONTEXT), decreasing = T)
-writeLines(sprintf("%d. (N=%d) %s", 1:100, tbl[1:100], names(tbl)[1:100]))
+fix_context <- function(context) {
+  paste(sort(unique(unlist(strsplit(context, '\\s*;\\s*')))), collapse = "; ")
+}
+assn[, CONTEXT := sapply(CONTEXT, fix_context)]
+context_counts <- assn[, .(.N), by="CONTEXT"][order(-N)]
+for (i in 1:nrow(context_counts)) {
+  if (!grepl(" [;x] ", context_counts[i]$CONTEXT))
+    writeLines(sprintf("%d. (N=%d) %s", i, context_counts[i]$N, context_counts[i]$CONTEXT))
+}
+writeLines(sprintf("Combo/ambiguous: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
+
 
 ###
 # Also see GENOTYPING_TECHNOLOGY
@@ -114,3 +123,4 @@ writeLines(sprintf("Associations with MAPPED_GENE and (UP|DOWN)STREAM_GENE_DISTA
 ###
 # Write file:
 write_delim(assn, ofile, delim="\t")
+

@@ -7,30 +7,30 @@
 ### efoId parsed from MAPPED_TRAIT_URI. Note that "Orphanet_2445" is a valid efoId,
 ### since EFO includes other ontologies.
 ##########################################################################################
+### Also create efo_sub_gwas.tsv with subclasses for GWAS/EFO traits.
+##########################################################################################
 library(readr)
-require(data.table, quietly=T)
+library(data.table, quietly=T)
 
-#ifile_default <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
-ifile_default <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
-
+#ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
+ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
 efofile_default <- "data/efo.tsv"
-
 ofile_default <- "data/gwascat_trait.tsv"
+ofile_subclass_default <- "data/efo_sub_gwas.tsv"
 
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)==2) {
-  (ifile <- args[1])
-  (efofile <- args[2])
-} else if (length(args)==3) {
+if (length(args)==4) {
   (ifile <- args[1])
   (efofile <- args[2])
   (ofile <- args[3])
+  (ofile_subclass_default <- args[4])
 } else if (length(args)==0) {
   ifile <- ifile_default
   efofile <- efofile_default
   ofile <- ofile_default
+  ofile_subclass <- ofile_subclass_default
 } else {
-  message("ERROR: Syntax: gwascat_trait.R GWASFILE EFOFILE [OFILE]")
+  message("ERROR: Syntax: gwascat_trait.R GWASFILE EFOFILE OFILE OFILE_SUBCLASS")
   quit()
 }
 writeLines(sprintf("Input: %s", ifile))
@@ -98,14 +98,14 @@ for (i in 1:max(trait_study_counts$N_study)) {
 #
 efo <- read_delim(efofile, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
-efo <- efo[node_or_edge == "node"]
-efo[, `:=`(node_or_edge = NULL, source = NULL, target = NULL)]
-efo[['ontology']] <- as.factor(sub("_.*$", "", efo$id))
-efo_counts <- efo[, .N, by="ontology"][order(-N)]
+efo_node <- efo[node_or_edge == "node"]
+efo_node[, `:=`(node_or_edge = NULL, source = NULL, target = NULL)]
+efo_node[['ontology']] <- as.factor(sub("_.*$", "", efo_node$id))
+efo_counts <- efo_node[, .N, by="ontology"][order(-N)]
 message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", efo_counts$ontology, efo_counts$N, sum(efo_counts$N), 100*efo_counts$N/sum(efo_counts$N)))
-efo[, ontology := NULL]
+efo_node[, ontology := NULL]
 
-trait <- merge(trait, efo[, .(id, efo_label = label)], by.x="efoId", by.y="id", all.x=T, all.y=F)
+trait <- merge(trait, efo_node[, .(id, efo_label = label)], by.x="efoId", by.y="id", all.x=T, all.y=F)
 
 trait_unmapped <- trait[is.na(efo_label), .(efoId, MAPPED_TRAIT)]
 n_trait_mapped <- nrow(trait[!is.na(efo_label)])
@@ -113,5 +113,19 @@ message(sprintf("EFO+ IDs mapped to efo.owl: %d / %d (%.1f%%)", n_trait_mapped,
                 n_trait_mapped + uniqueN(trait_unmapped$efoId),
                 100 * (n_trait_mapped / (n_trait_mapped + uniqueN(trait_unmapped$efoId)))))
 #
-#
 write_delim(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT, efoId, efo_label)], ofile, "\t")
+#
+###
+# Subclass file, of study pairs with subclass-related traits:
+efo_sub <- efo[node_or_edge == "edge" & label=="has_subclass"]
+efo_sub[, `:=`(node_or_edge = NULL, id = NULL, label = NULL, uri = NULL, comment = NULL)]
+setnames(efo_sub, old=c("source", "target"), new=c("trait_uri", "subclass_uri"))
+efo_sub <- efo_sub[trait_uri %in% trait$MAPPED_TRAIT_URI & subclass_uri %in% trait$MAPPED_TRAIT_URI]
+efo_sub <- merge(efo_sub, efo_node[, .(trait_uri = uri, trait = label)], by="trait_uri")
+efo_sub <- merge(efo_sub, efo_node[, .(subclass_uri = uri, subclass_trait = label)], by="subclass_uri")
+efo_sub <- merge(efo_sub, unique(trait[, .(study_accession = STUDY_ACCESSION, trait_uri = MAPPED_TRAIT_URI)]), by="trait_uri", allow.cartesian = T)
+efo_sub <- merge(efo_sub, unique(trait[, .(study_accession_subclass = STUDY_ACCESSION, subclass_uri = MAPPED_TRAIT_URI)]), by="subclass_uri", allow.cartesian = T)
+
+efo_sub <- unique(efo_sub[, .(study_accession, trait, trait_uri, study_accession_subclass, subclass_trait, subclass_uri)])
+
+write_delim(efo_sub, ofile_subclass, "\t")

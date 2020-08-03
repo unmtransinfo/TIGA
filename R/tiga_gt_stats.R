@@ -108,7 +108,7 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
   gt_stats[ensemblId==ensemblId_this]$traitMeanRank <- ranks_this$meanRank
 }
 ###
-gt_stats[, `:=`(geneMeanRankScore = 1/geneMeanRank, traitMeanRankScore = 1/traitMeanRank)]
+gt_stats[, `:=`(geneMeanRankScore = 100/geneMeanRank, traitMeanRankScore = 100/traitMeanRank)]
 #
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
