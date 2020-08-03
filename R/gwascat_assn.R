@@ -24,7 +24,8 @@ if (length(args)==2) {
   (ifile <- args[1])
   (ofile <- args[2])
 } else if (length(args)==0) {
-  ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv")
+  #ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv")
+  ifile <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv")
   ofile <- "data/gwascat_assn.tsv"
 } else {
   message("ERROR: Syntax: gwascat_assn.R ASSNFILE OFILE\n\t...or no args for defaults.")

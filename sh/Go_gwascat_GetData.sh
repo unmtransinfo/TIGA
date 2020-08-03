@@ -10,17 +10,21 @@
 ### Also it appears beta and OR values are separated better.
 #############################################################################
 #
+set -e
+#
 cwd=$(pwd)
 #
-SRCDATADIR="/home/data/gwascatalog/data"
+SRCDATADIR="$HOME/../data/gwascatalog/data"
 DATADIR="${cwd}/data"
 #
 #Source files:
 #gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.1-studies_r2017-10-10.tsv"
-gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv"
+#gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv"
+gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv"
 #
 #assnfile="${SRCDATADIR}/gwas_catalog_v1.0.1-associations_e90_r2017-10-10.tsv"
-assnfile="${SRCDATADIR}/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv"
+#assnfile="${SRCDATADIR}/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv"
+assnfile="${SRCDATADIR}/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv"
 ###
 #Output files:
 tsvfile_gwas="${DATADIR}/gwascat_gwas.tsv"
@@ -164,7 +168,7 @@ gzip -f $DATADIR/gwascat_Snps_EnsemblInfo.tsv
 #
 ###
 # tcrd_targets.tsv from:
-# python3 -m BioClients.idg.tcrd.Client listTargets --dbname "tcrd610" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw=""
+# python3 -m BioClients.idg.tcrd.Client listTargets --dbname "tcrd660" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw=""
 #############################################################################
 # Gene-trait statistics, and provenance (STUDY_ACCESSION and PUBMEDID):
 # tiga_gt_stats.R: INPUT: 9 files; OUTPUT: gt_stats.tsv.gz, gt_provenance.tsv.gz

@@ -10,7 +10,9 @@
 library(readr)
 require(data.table, quietly=T)
 
-ifile_default <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
+#ifile_default <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
+ifile_default <- paste0(Sys.getenv("HOME"), "/../data/gwascatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
+
 efofile_default <- "data/efo.tsv"
 
 ofile_default <- "data/gwascat_trait.tsv"
@@ -70,7 +72,7 @@ trait[['ontology']] <- as.factor(sub("_.*$", "", trait$efoId))
 trait <- unique(trait)
 
 ###
-#v1.0.2 counts:
+#v1.0.2 (2018) counts:
 #EFO: 1794
 #GO: 69
 #HP: 49
