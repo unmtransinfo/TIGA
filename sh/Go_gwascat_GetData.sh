@@ -194,7 +194,7 @@ python3 -m BioClients.idg.tcrd.Client listTargets \
 # Gene-trait statistics, and provenance (STUDY_ACCESSION and PUBMEDID):
 # tiga_gt_stats.R: INPUT: 9 files; OUTPUT: gt_stats.tsv.gz, gt_provenance.tsv.gz
 #
-${cwd}/R/tiga_gt_stats.R \
+${cwd}/R/tiga_gt_variables.R \
 	$DATADIR/gwascat_gwas.tsv \
 	$DATADIR/gwascat_counts.tsv \
 	$DATADIR/gwascat_assn.tsv \
@@ -204,6 +204,10 @@ ${cwd}/R/tiga_gt_stats.R \
 	$DATADIR/gwascat_Snps.tsv.gz \
 	$DATADIR/gwascat_Snps_EnsemblInfo.tsv.gz \
 	$DATADIR/tcrd_targets.tsv \
-	$DATADIR/gt_stats.tsv.gz \
-	$DATADIR/gt_prov.tsv.gz
+	$DATADIR/gt_variables.tsv.gz \
+	$DATADIR/gt_provenance.tsv.gz
+#
+${cwd}/R/tiga_gt_stats.R \
+	$DATADIR/gt_variables.tsv.gz \
+	$DATADIR/gt_stats.tsv.gz
 #

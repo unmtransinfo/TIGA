@@ -36,7 +36,7 @@ if (length(args)==5) {
   (ofile	<- args[10])
   (ofile_prov	<- args[11])
 } else if (length(args)==0) {
-  ifile_gwas <- "data/gwascat_gwas.tsv.gz"	#gwascat_gwas.R
+  ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
   ifile_counts <- "data/gwascat_counts.tsv"	#gwascat_counts.R
   ifile_assn <- "data/gwascat_assn.tsv"	#gwascat_assn.R
   ifile_snp2gene <- "data/gwascat_snp2gene.tsv" #snp2gene_mapped.pl, snp2gene_reported.pl
