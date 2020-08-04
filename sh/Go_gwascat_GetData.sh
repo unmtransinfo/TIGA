@@ -50,7 +50,7 @@ ${cwd}/R/gwascat_assn.R $assnfile $tsvfile_assn
 #############################################################################
 ### TRAITS:
 #
-traitfile="${DATADIR}/gwascat_trait.tsv"
+tsvfile_trait="${DATADIR}/gwascat_trait.tsv"
 ###
 # EFO:
 EFO_DIR="$HOME/../data/EFO/data"
@@ -65,8 +65,9 @@ efofile="${DATADIR}/efo.tsv"
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 	-ifile_ont ${OWLFILE} -vv -ont2tsv -o ${efofile}
 #
+tsvfile_trait_sub="${DATADIR}/efo_sub_gwas.tsv"
 ###
-${cwd}/R/gwascat_trait.R $gwasfile $efofile $traitfile
+${cwd}/R/gwascat_trait.R $gwasfile $efofile $tsvfile_trait $tsvfile_trait_sub
 #
 #############################################################################
 ### GENES:

@@ -13,7 +13,9 @@ library(readr)
 library(data.table, quietly=T)
 
 #ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
-ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
+#ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
+ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/07/15/gwas-catalog-studies_ontology-annotated.tsv")
+
 efofile_default <- "data/efo.tsv"
 ofile_default <- "data/gwascat_trait.tsv"
 ofile_subclass_default <- "data/efo_sub_gwas.tsv"
@@ -23,7 +25,7 @@ if (length(args)==4) {
   (ifile <- args[1])
   (efofile <- args[2])
   (ofile <- args[3])
-  (ofile_subclass_default <- args[4])
+  (ofile_subclass <- args[4])
 } else if (length(args)==0) {
   ifile <- ifile_default
   efofile <- efofile_default
@@ -81,15 +83,18 @@ trait <- unique(trait)
 #PATO: 1
 ###
 
-trait_ont <- trait[, .N, by="ontology"][order(-N)]
-message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", trait_ont$ontology, trait_ont$N, sum(trait_ont$N), 100*trait_ont$N/sum(trait_ont$N)))
+trait_ont <- trait[, .(N_trait = .N), by="ontology"][order(-N_trait)]
+message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", trait_ont$ontology, trait_ont$N_trait, sum(trait_ont$N_trait), 100*trait_ont$N_trait/sum(trait_ont$N_trait)))
 
 trait_study_counts <- trait[, .(N_study = uniqueN(STUDY_ACCESSION)), by="MAPPED_TRAIT_URI"][order(-N_study)]
-for (i in 1:max(trait_study_counts$N_study)) {
+for (i in 1:10) {
   if (i %in% trait_study_counts$N_study) {
-    message(sprintf("N_study=%d: N_trait=%d", i, trait_study_counts[N_study==i, uniqueN(MAPPED_TRAIT_URI)]))
+    message(sprintf("%d traits involve %d studies", trait_study_counts[N_study==i, uniqueN(MAPPED_TRAIT_URI)], i))
   }
 }
+message(sprintf("%d traits involve [%d,%d] studies", trait_study_counts[N_study>10, uniqueN(MAPPED_TRAIT_URI)], 11, max(trait_study_counts$N_study)))
+
+
 
 ###
 # Here we could consider parentage. For a given query trait, perhaps all child traits should be
@@ -101,8 +106,9 @@ setDT(efo)
 efo_node <- efo[node_or_edge == "node"]
 efo_node[, `:=`(node_or_edge = NULL, source = NULL, target = NULL)]
 efo_node[['ontology']] <- as.factor(sub("_.*$", "", efo_node$id))
-efo_counts <- efo_node[, .N, by="ontology"][order(-N)]
-message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", efo_counts$ontology, efo_counts$N, sum(efo_counts$N), 100*efo_counts$N/sum(efo_counts$N)))
+efo_counts <- efo_node[, .(N_trait = .N), by="ontology"][order(-N_trait)]
+print(efo_counts[1:10])
+print(sprintf("Other ontologies (total=%d): %d", uniqueN(efo_counts$ontology), efo_counts[11:nrow(efo_counts), sum(N_trait)]))
 efo_node[, ontology := NULL]
 
 trait <- merge(trait, efo_node[, .(id, efo_label = label)], by.x="efoId", by.y="id", all.x=T, all.y=F)
