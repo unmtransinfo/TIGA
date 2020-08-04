@@ -186,7 +186,7 @@ print(sprintf("Genes without and with OR filter: %d -> %d (-%d; -%.1f%%)",
 #reason_txt <- "Missing OR"
 badrows <- (is.na(g2t$oddsratio) & is.na(g2t$beta))
 reason_txt <- "Missing both OR and beta"
-print(sprintf("badrows: %d", sum(badrows)))
+print(sprintf("%s: rows: %d", reason_txt, sum(badrows)))
 ###
 # Write files accounting for filtered studies, traits and genes.
 filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows]$STUDY_ACCESSION, g2t[!badrows]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
@@ -227,6 +227,7 @@ message(sprintf("DEBUG: with OR, g2t: %d ; genes: %d ; traits: %d",
 	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)])))
 ###
 # GENE-TRAIT provenance
+message("Generating provenance file for each gene-trait pair.")
 gt_prov <- NULL
 i_row_prov <- 0
 #
@@ -304,8 +305,8 @@ for (ensg in unique(g2t$ensemblId)) {
     #
     rcras <- 0.0
     for (stacc in unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
+      if (nrow(gwas_counts[study_accession==stacc])==0) { next; }
       grc <- gwas_counts[study_accession==stacc, gene_r_count]
-      if (is.na(grc) | length(grc)==0 | grc==0) { next; }
       rcras_study <- 0.0
       for (pmid_this in icite_gwas[STUDY_ACCESSION==stacc, pmid]) {
         spp <- icite_gwas[STUDY_ACCESSION==stacc & pmid==pmid_this, study_perpmid_count]
