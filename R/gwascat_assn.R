@@ -25,7 +25,8 @@ if (length(args)==2) {
   (ofile <- args[2])
 } else if (length(args)==0) {
   #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv")
-  ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv")
+  #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv")
+  ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/07/15/gwas-catalog-associations_ontology-annotated.tsv")
   ofile <- "data/gwascat_assn.tsv"
 } else {
   message("ERROR: Syntax: gwascat_assn.R ASSNFILE OFILE\n\t...or no args for defaults.")
@@ -97,7 +98,7 @@ writeLines(sprintf("Studies with both values <=1 and >1: %d", n_both))
 
 # CONTEXT aka functionalClass (via API)
 fix_context <- function(context) {
-  paste(sort(unique(unlist(strsplit(context, '\\s*;\\s*')))), collapse = "; ")
+  paste(sort(unique(unlist(strsplit(context, '\\s*;\\s*')))), collapse = " ; ")
 }
 assn[, CONTEXT := sapply(CONTEXT, fix_context)]
 context_counts <- assn[, .(.N), by="CONTEXT"][order(-N)]
@@ -106,7 +107,6 @@ for (i in 1:nrow(context_counts)) {
     writeLines(sprintf("%d. (N=%d) %s", i, context_counts[i]$N, context_counts[i]$CONTEXT))
 }
 writeLines(sprintf("Combo/ambiguous: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
-
 
 ###
 # Also see GENOTYPING_TECHNOLOGY
