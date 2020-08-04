@@ -74,7 +74,7 @@ if (nrow(gwas[is.na(study_N)])>0) {
   message(sprintf("UNPARSED INITIAL_SAMPLE_SIZE: (None)"))
 }
 
-message(sprintf("Total gwas count: %6d", nrow(gwas)))
+message(sprintf("Total gwas count: %6d", gwas[, uniqueN(STUDY_ACCESSION)]))
 
 write_delim(gwas, ofile, delim="\t")
 ###

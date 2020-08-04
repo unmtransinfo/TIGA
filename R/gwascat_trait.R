@@ -35,9 +35,9 @@ if (length(args)==4) {
   message("ERROR: Syntax: gwascat_trait.R GWASFILE EFOFILE OFILE OFILE_SUBCLASS")
   quit()
 }
-writeLines(sprintf("Input: %s", ifile))
-writeLines(sprintf("Input EFO: %s", efofile))
-writeLines(sprintf("Output: %s", ofile))
+message(sprintf("Input: %s", ifile))
+message(sprintf("Input EFO: %s", efofile))
+message(sprintf("Output: %s", ofile))
 
 trait <- read_delim(ifile, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
@@ -55,6 +55,7 @@ system("gzip -f data/filtered_studies_trait.tsv")
 
 trait <- unique(trait[!is.na(MAPPED_TRAIT_URI)])
 
+###
 # Split comma separated vals.
 trait_multi <- trait[grepl(",", MAPPED_TRAIT_URI)]
 trait <- trait[!is.na(MAPPED_TRAIT_URI) & !grepl(",", MAPPED_TRAIT_URI)]
@@ -70,52 +71,45 @@ for (i in 1:nrow(trait_multi)) {
 }
 
 trait[['efoId']] <- as.factor(sub("^.*/", "", trait$MAPPED_TRAIT_URI)) 
-trait[['ontology']] <- as.factor(sub("_.*$", "", trait$efoId))
+trait[['EFO_prefix']] <- as.factor(sub("_.*$", "", trait$efoId))
 trait <- unique(trait)
 
-###
-#v1.0.2 (2018) counts:
-#EFO: 1794
-#GO: 69
-#HP: 49
-#Orphanet: 43
-#CHEBI: 2
-#PATO: 1
-###
+message(sprintf("Total trait unique ID count (MAPPED_TRAIT_URI): %d", trait[, uniqueN(MAPPED_TRAIT_URI)]))
+message(sprintf("Total trait instance count (MAPPED_TRAIT_URI): %d", trait[!is.na(MAPPED_TRAIT_URI), .N]))
 
-trait_ont <- trait[, .(N_trait = .N), by="ontology"][order(-N_trait)]
-message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", trait_ont$ontology, trait_ont$N_trait, sum(trait_ont$N_trait), 100*trait_ont$N_trait/sum(trait_ont$N_trait)))
-
+###
+#
+###
+trait_prefix <- trait[, .(N_trait = .N), by="EFO_prefix"][order(-N_trait)]
+message(sprintf("%12s: %4d / %4d (%4.1f%%)\n", trait_prefix$EFO_prefix, trait_prefix$N_trait, sum(trait_prefix$N_trait), 100*trait_prefix$N_trait/sum(trait_prefix$N_trait)))
+#
 trait_study_counts <- trait[, .(N_study = uniqueN(STUDY_ACCESSION)), by="MAPPED_TRAIT_URI"][order(-N_study)]
 for (i in 1:10) {
   if (i %in% trait_study_counts$N_study) {
-    message(sprintf("%d traits involve %d studies", trait_study_counts[N_study==i, uniqueN(MAPPED_TRAIT_URI)], i))
+    message(sprintf("%4d traits involve %3d studies", trait_study_counts[N_study==i, uniqueN(MAPPED_TRAIT_URI)], i))
   }
 }
-message(sprintf("%d traits involve [%d,%d] studies", trait_study_counts[N_study>10, uniqueN(MAPPED_TRAIT_URI)], 11, max(trait_study_counts$N_study)))
-
+message(sprintf("%4d traits involve [%d,%d] studies", trait_study_counts[N_study>10, uniqueN(MAPPED_TRAIT_URI)], 11, max(trait_study_counts$N_study)))
 
 
 ###
-# Here we could consider parentage. For a given query trait, perhaps all child traits should be
-# included in the associated genes. But then which query traits are allowed? How high level?
-# Need statistics mapping all EFO to GWAS Catalog with parentage considered.
+# EFO (full ontology)
 #
 efo <- read_delim(efofile, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo_node <- efo[node_or_edge == "node"]
 efo_node[, `:=`(node_or_edge = NULL, source = NULL, target = NULL)]
-efo_node[['ontology']] <- as.factor(sub("_.*$", "", efo_node$id))
-efo_counts <- efo_node[, .(N_trait = .N), by="ontology"][order(-N_trait)]
+efo_node[['EFO_prefix']] <- as.factor(sub("_.*$", "", efo_node$id))
+efo_counts <- efo_node[, .(N_class = .N), by="EFO_prefix"][order(-N_class)]
 print(efo_counts[1:10])
-print(sprintf("Other ontologies (total=%d): %d", uniqueN(efo_counts$ontology), efo_counts[11:nrow(efo_counts), sum(N_trait)]))
-efo_node[, ontology := NULL]
+message(sprintf("Other prefix (total=%d): %d", uniqueN(efo_counts$EFO_prefix), efo_counts[11:nrow(efo_counts), sum(N_class)]))
+efo_node[, EFO_prefix := NULL]
 
 trait <- merge(trait, efo_node[, .(id, efo_label = label)], by.x="efoId", by.y="id", all.x=T, all.y=F)
 
 trait_unmapped <- trait[is.na(efo_label), .(efoId, MAPPED_TRAIT)]
 n_trait_mapped <- nrow(trait[!is.na(efo_label)])
-message(sprintf("EFO+ IDs mapped to efo.owl: %d / %d (%.1f%%)", n_trait_mapped, 
+message(sprintf("Trait IDs mapped to EFO: %d / %d (%.1f%%)", n_trait_mapped, 
                 n_trait_mapped + uniqueN(trait_unmapped$efoId),
                 100 * (n_trait_mapped / (n_trait_mapped + uniqueN(trait_unmapped$efoId)))))
 #

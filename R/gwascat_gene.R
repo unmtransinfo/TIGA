@@ -59,8 +59,6 @@ gene_m <- gene_m[, list(GENE=unlist(strsplit(GENE, "[ ,;@\\-]"))), by=STUDY_ACCE
 gene_m <- gene_m[!(is.na(gene_m$GENE) | (gene_m$GENE=="")),]
 gene_m[['MAPPED_OR_REPORTED']] <- 'M'
 #
-print(gene_m[GENE == "CDK1"]) #DEBUG
-#
 setkey(gene_r, "STUDY_ACCESSION")
 gene_r <- gene_r[, list(GENE=unlist(strsplit(GENE, "[ ,;@\\-]"))), by=STUDY_ACCESSION]
 gene_r <- gene_r[!(is.na(gene_r$GENE) | (gene_r$GENE=="")),]
@@ -74,7 +72,6 @@ gene_r <- gene_r[GENE != "intergenic",]
 #
 gene <- rbindlist(list(gene_r, gene_m))
 setorder(gene, "STUDY_ACCESSION")
-print(gene[GENE == "CDK1"]) #DEBUG
 
 # Suspicious 1-char gene symbols:
 writeLines(sprintf("Suspicious 1-char gene symbols (N=%d): '%s'", uniqueN(gene$GENE[!(nchar(gene$GENE)>1)]),

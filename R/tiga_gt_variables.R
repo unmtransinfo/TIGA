@@ -79,6 +79,11 @@ assn <- read_delim(ifile_assn, "\t",
 	DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
 	SNP_ID_CURRENT=col_character()))
 setDT(assn)
+###
+# Aha!? MAPPED_GENE missing (UP|DOWN)STREAM_GENE_DISTANCE, implies intragenic, distances are zero!
+# Needed for Gene-distance weighting function, GDistWt.
+assn[(!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)), `:=`(UPSTREAM_GENE_DISTANCE=0, DOWNSTREAM_GENE_DISTANCE=0)]
+###
 #
 snp2gene <- read_delim(ifile_snp2gene, "\t", 
 	col_types=cols(.default=col_character(),

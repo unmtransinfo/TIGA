@@ -42,7 +42,12 @@ setnames(assn, gsub("[ \\./]" ,"_", colnames(assn)))
 setnames(assn, gsub("__" ,"_", colnames(assn)))
 setnames(assn, gsub("_$" ,"", colnames(assn)))
 
+message(sprintf("Studies in raw associations file: %6d", assn[, uniqueN(STUDY_ACCESSION)]))
+
 assn <- assn[complete.cases(assn[, .(STUDY_ACCESSION, SNPS, DISEASE_TRAIT)]), ]
+
+message(sprintf("Studies with SNPS and DISEASE_TRAIT: %6d", assn[, uniqueN(STUDY_ACCESSION)]))
+
 
 #Clean: convert special chars.
 for (tag in colnames(assn)) {
@@ -65,7 +70,7 @@ assn$oddsratio <- as.numeric(NA)
 assn$beta <- as.numeric(NA)
 
 staccs <- sort(unique(assn[, STUDY_ACCESSION]))
-writeLines(sprintf("Studies, total: %6d", length(staccs)))
+#
 i <- 0
 n_all_or <- 0
 n_all_beta <- 0
@@ -86,9 +91,12 @@ for (stacc in staccs) {
     n_both <- n_both + 1
   }
 }
-writeLines(sprintf("Studies with all values >1 (OR?): %d", n_all_or))
-writeLines(sprintf("Studies with all values<=1 (BETA?): %d", n_all_beta))
-writeLines(sprintf("Studies with both values <=1 and >1: %d", n_both))
+message(sprintf("Studies with all values >1 (OR?): %d", n_all_or))
+message(sprintf("Studies with all values<=1 (BETA?): %d", n_all_beta))
+message(sprintf("Studies with both values <=1 and >1: %d", n_both))
+
+message(sprintf("Studies with associations and effect size (OR or beta): %6d", assn[(!is.na(oddsratio) | !is.na(beta)), uniqueN(STUDY_ACCESSION)]))
+
 #
 
 ###
