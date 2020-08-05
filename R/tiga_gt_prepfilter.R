@@ -30,7 +30,7 @@ if (length(args)==10) {
   (ofile	<- args[10])
 } else if (length(args)==0) {
   ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
-  ifile_counts <- "data/gwascat_counts.tsv"	#gwascat_counts.R
+  ifile_counts <- "data/gwascat_counts.tsv"	#Go_gwascat_DbCreate.sh
   ifile_assn <- "data/gwascat_assn.tsv"	#gwascat_assn.R
   ifile_snp2gene <- "data/gwascat_snp2gene.tsv" #snp2gene_mapped.pl, snp2gene_reported.pl
   ifile_trait <- "data/gwascat_trait.tsv"	#gwascat_trait.R

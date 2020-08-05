@@ -7,6 +7,7 @@
 #iCite annotations via iCite API
 #############################################################################
 library(readr)
+library(data.table)
 library(RMySQL, quietly = T)
 library(dplyr, quietly = T)
 library(plotly, quietly = T)
@@ -15,61 +16,36 @@ library(webshot, quietly=T)
 t0 <- proc.time()
 
 ###
-#gwascat <- read_delim("~/projects/idg/gwas/data/gwascat_gwas.tsv", "\t", col_types = cols(DATE = col_date(format = "%Y-%m-%d"), DATE_ADDED_TO_CATALOG = col_date(format = "%Y-%m-%d")))
-#gwascat_assn <- read_delim("~/projects/idg/gwas/data/gwascat_assn.tsv", "\t", col_types = cols(DATE = col_date(format = "%Y-%m-%d"), DATE_ADDED_TO_CATALOG = col_date(format = "%Y-%m-%d")))
-#gwascat_snp2gene <- read_delim("~/projects/idg/gwas/data/gwascat_snp2gene.tsv", "\t", col_types = cols(reported_or_mapped = col_factor(c("r","m","md","mu"))))
-#gwascat_trait <- read_delim("~/projects/idg/gwas/data/gwascat_trait.tsv", "\t")
-#gwascat_icite <- read_csv("~/projects/idg/gwas/data/gwascat_icite.csv", col_types = cols(is_research_article = col_character()))
+gwas <- read_delim("data/gwascat_gwas.tsv", "\t", col_types=cols(.default=col_character(), DATE=col_date(), ASSOCIATION_COUNT=col_integer(), DATE_ADDED_TO_CATALOG=col_date(), study_N=col_integer()))
+assn <- read_delim("data/gwascat_assn.tsv", "\t", col_types=cols(.default=col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), oddsratio=col_double(), beta=col_double())
+snp2gene <- read_delim("data/gwascat_snp2gene.tsv", "\t", col_types=cols(.default=col_character(), reported_or_mapped = col_factor()))
+trait <- read_delim("data/gwascat_trait.tsv", "\t", col_types=cols(.default=col_character())
+icite <- read_delim("data/gwascat_icite.tsv", col_types=cols(.default=col_character())
 ###
-gwascat <- read.delim("~/projects/idg/gwas/data/gwascat_gwas.tsv", sep="\t")
-gwascat$DATE <- as.Date(gwascat$DATE, format="%Y-%m-%d")
-gwascat$DATE_ADDED_TO_CATALOG <- as.Date(gwascat$DATE_ADDED_TO_CATALOG, format="%Y-%m-%d")
-gwascat_assn <- read.delim("~/projects/idg/gwas/data/gwascat_assn.tsv", sep="\t")
-gwascat_assn$DATE <- as.Date(gwascat_assn$DATE, format="%Y-%m-%d")
-gwascat_assn$DATE_ADDED_TO_CATALOG <- as.Date(gwascat_assn$DATE_ADDED_TO_CATALOG, format="%Y-%m-%d")
-gwascat_snp2gene <- read.delim("~/projects/idg/gwas/data/gwascat_snp2gene.tsv", sep="\t")
-gwascat_snp2gene$reported_or_mapped <- as.factor(gwascat_snp2gene$reported_or_mapped)
-gwascat_trait <- read.delim("~/projects/idg/gwas/data/gwascat_trait.tsv", sep="\t")
-gwascat_icite <- read.csv("~/projects/idg/gwas/data/gwascat_icite.csv")
-gwascat_icite$is_research_article <- as.character(gwascat_icite$is_research_article)
+setDT(gwas)
+setDT(assn)
+setDT(snp2gene)
+setDT(trait)
+setDT(icite)
 ###
-colnames(gwascat) <- tolower(colnames(gwascat))
-colnames(gwascat_assn) <- tolower(colnames(gwascat_assn))
-colnames(gwascat_trait) <- tolower(colnames(gwascat_trait))
-#
-#
-###
-n_total <- nrow(gwascat)
-n_gwas <- length(unique(gwascat$study_accession))
+n_total <- nrow(gwas)
+n_gwas <- length(unique(gwas$study_accession))
 print(sprintf("Total GWAS Catalog rows: %d\n", n_total))
 print(sprintf("Total GWAS Catalog unique study accessions: %d\n", n_gwas))
-print(sprintf("Total GWAS Catalog unique PubMedIDs: %d\n", length(unique(gwascat$pubmedid))))
+print(sprintf("Total GWAS Catalog unique PubMedIDs: %d\n", length(unique(gwas$PUBMEDID))))
 #
 ###
 print(sprintf("Highest RCR GWAS publications:\n"))
 for (i in 1:30)
 {
   print(sprintf("%d. RCR = %.1f ; C/yr = %.1f ; C_count = %d ; nih_pctl = %.1f, (%d) %s: %s\n",
-	i, gwascat_icite$relative_citation_ratio[i], gwascat_icite$citations_per_year[i],
-	gwascat_icite$citation_count[i], gwascat_icite$nih_percentile[i],
-	gwascat_icite$year[i], gwascat_icite$journal[i], gwascat_icite$title[i]))
+	i, icite$relative_citation_ratio[i], icite$citations_per_year[i],
+	icite$citation_count[i], icite$nih_percentile[i],
+	icite$year[i], icite$journal[i], icite$title[i]))
 }
 
 ###
-#Clean & transform:
-gwascat$snps_passing_qc <- as.integer(sub("^.*\\[[^[0-9]*([0-9]*)\\].*$", "\\1", gwascat$`platform_.snps_passing_qc.`))
-gwascat$snps_passing_qc_rel <- sub("^.*\\[([^[0-9]*)[0-9]*\\].*$", "\\1", gwascat$`platform_.snps_passing_qc.`)
-gwascat$snps_passing_qc_rel[gwascat$snps_passing_qc_rel == ''] <- NA
-gwascat_trait <- gwascat_trait[!is.na(gwascat_trait$trait_uri),]
-
-gwascat$sample_size <- gsub(' +', '+', gsub('^ *(.*[^ ]) *$', '\\1', gsub('[^0-9 ]', '', gwascat$initial_sample_size)))
-for (i in 1:nrow(gwascat))
-{
-  gwascat$sample_size[i] <- eval(parse(text = gwascat$sample_size[i]))
-}
-
-###
-#gwascat_counts table via SQL in Go_gwascat_DbCreate.sh (~30min):
+#gwas_counts table via SQL in Go_gwascat_DbCreate.sh (~30min):
 # study_accession
 # trait_count: traits per study
 # assn_count: associations per study
@@ -79,20 +55,19 @@ for (i in 1:nrow(gwascat))
 # study_count: studies per publication
 ###
 dbcon <- dbConnect(MySQL(), host="localhost", dbname="gwascatalog")
-gwascat_counts <- dbGetQuery(dbcon, "SELECT * FROM gwas_counts")
+gwas_counts <- dbGetQuery(dbcon, "SELECT * FROM gwas_counts")
 ok <- dbDisconnect(dbcon)
 ###
-write.csv(gwascat_counts, file="data/gwascat_counts.csv", row.names=F)
 #
-gwascat_counts <- merge(gwascat_counts, gwascat[,c("study_accession", "pubmedid", "sample_size")], all.x = T, all.y = F,  by = "study_accession")
+gwas_counts <- merge(gwas_counts, gwas[,c("study_accession", "pubmedid", "sample_size")], all.x = T, all.y = F,  by = "study_accession")
 
-t <- table(gwascat$journal)
+t <- table(gwas$journal)
 v <- as.vector(t)
 names(v) <- names(t)
 v <- sort(v, decreasing = T)
 
 p1 <- subplot(nrows=2, margin=0.1,
-  plot_ly(x=as.numeric(format(gwascat$date, "%Y")), type="histogram"),
+  plot_ly(x=as.numeric(format(gwas$date, "%Y")), type="histogram"),
   plot_ly(type="bar", orientation="h", y=names(v[1:10]), x=v[1:10]) %>%
     layout(yaxis=list(tickfont=list(size=11)))
   ) %>%
@@ -106,11 +81,11 @@ p1 <- subplot(nrows=2, margin=0.1,
          margin=list(t=100, l=160), showlegend=F) %>%
   add_annotations(text=format(Sys.time(), "%Y-%m-%d %H:%M:%S"), showarrow=F, x=1.0, y=1.2, xref="paper", yref="paper")
 p1
-export(p=p1, file="data/gwascat_counts_p1.png")
+export(p=p1, file="data/gwas_counts.png")
 ###
 #Platform and year.  Fractional counts for multi-platform studies.
-plat_year <- data.frame(year = as.numeric(format(gwascat$date, "%Y")), 
-                platform = as.character(sub(' \\[.*$', '', gwascat$`platform_.snps_passing_qc.`)))
+plat_year <- data.frame(year = as.numeric(format(gwas$date, "%Y")), 
+                platform = as.character(sub(' \\[.*$', '', gwas$`platform_.snps_passing_qc.`)))
 
 plat_year_multi <- plat_year[grepl(',', plat_year$platform), ]
 plat_year <- plat_year[!grepl(',', plat_year$platform), ]
@@ -157,23 +132,23 @@ p2 <- plot_ly(plat_year_fcount, x = ~year, y = ~NR, name = "NR",
          showlegend = T) %>%
   add_annotations(text=format(Sys.time(), "%Y-%m-%d\n%H:%M:%S"), showarrow=F, x=1.0, y=1.2, xref="paper", yref="paper")
 p2
-export(p=p2, file="data/gwascat_counts_p2.png")
+export(p=p2, file="data/gwas_counts.png")
 ###
 
-max_snp_count <- max(gwascat_counts$snp_count)
-max_gene_count <- max(gwascat_counts$gene_r_count)
-max_assn_count <- max(gwascat_counts$assn_count)
-max_trait_count <- max(gwascat_counts$trait_count)
-max_study_perpmid_count <- max(gwascat_counts$study_perpmid_count)
+max_snp_count <- max(gwas_counts$snp_count)
+max_gene_count <- max(gwas_counts$gene_r_count)
+max_assn_count <- max(gwas_counts$assn_count)
+max_trait_count <- max(gwas_counts$trait_count)
+max_study_perpmid_count <- max(gwas_counts$study_perpmid_count)
 
 #Merge icite metadata
-gwascat_counts <- merge(gwascat_counts, gwascat_icite, all.x=T, all.y=F, by.x="pubmedid", by.y="pmid")
+gwas_counts <- merge(gwas_counts, icite, all.x=T, all.y=F, by.x="pubmedid", by.y="pmid")
 
 p3 <- subplot(nrows = 2,
-  plot_ly(type = "histogram", x = gwascat_counts$snp_count),
-  plot_ly(type = "histogram", x = gwascat_counts$gene_r_count),
-  plot_ly(type = "histogram", x = gwascat_counts$assn_count),
-  plot_ly(type = "histogram", x = gwascat_counts$trait_count)) %>%
+  plot_ly(type = "histogram", x = gwas_counts$snp_count),
+  plot_ly(type = "histogram", x = gwas_counts$gene_r_count),
+  plot_ly(type = "histogram", x = gwas_counts$assn_count),
+  plot_ly(type = "histogram", x = gwas_counts$trait_count)) %>%
   layout(title = paste0("GWAS Catalog: per-study counts<BR> (N_gwas = ", n_gwas, ")"),
 	annotations = list(x = c(0.1, 0.6, 0.1, 0.6), y = c(0.9, 0.9, 0.4, 0.4),
           xanchor = "left", xref = "paper", yref = "paper", showarrow = F,
@@ -183,14 +158,15 @@ p3 <- subplot(nrows = 2,
   add_annotations(text=format(Sys.time(), "%Y-%m-%d\n%H:%M:%S"), showarrow=F, x=1.0, y=1.0, xref="paper", yref="paper")
 #
 p3
-export(p=p3, file="data/gwascat_counts_p3.png")
+export(p=p3, file="data/gwas_counts.png")
 #
 p4 <- subplot(nrows = 2, margin = 0.08,
-  plot_ly(type = "histogram", x = gwascat_icite$citation_count),
-  plot_ly(type = "histogram", x = gwascat_icite$nih_percentile),
-  plot_ly(type = "histogram", x = gwascat_icite$citations_per_year),
-  plot_ly(type = "histogram", x = gwascat_icite$relative_citation_ratio)) %>%
-  layout(title = paste0("GWAS Catalog: publication iCite stats<BR> (N_pubs = ", nrow(gwascat_icite), " ; N_gwas = ", n_gwas, ")"),
+  plot_ly(type = "histogram", x = icite$citation_count),
+  plot_ly(type = "histogram", x = icite$nih_percentile),
+  plot_ly(type = "histogram", x = icite$citations_per_year),
+  plot_ly(type = "histogram", x = icite$relative_citation_ratio)) %>%
+  layout(title = paste0("GWAS Catalog: publication iCite stats<BR> (N_pubs = ",
+nrow(icite), " ; N_gwas = ", n_gwas, ")"),
 	annotations = list(x = c(0.1, 0.7, 0.1, 0.7), y = c(0.9, 0.9, 0.3, 0.3),
           xanchor = "left", xref = "paper", yref = "paper", showarrow = F,
           text = c("citation_count", "nih_percentile", "citations_per_year", "relative_citation_ratio")),
@@ -199,20 +175,20 @@ p4 <- subplot(nrows = 2, margin = 0.08,
   add_annotations(text=format(Sys.time(), "%Y-%m-%d %H:%M:%S"), showarrow=F, x=1.0, y=1.2, xref="paper", yref="paper")
 #
 p4
-export(p=p4, file="data/gwascat_counts_p4.png")
+export(p=p4, file="data/gwas_counts.png")
 #
 ### ROC showing cumulative associations 
 ### Add hline for top 1% of studies.
-gwascat_counts <- gwascat_counts[order(gwascat_counts$assn_count, decreasing=T),]
-gwascat_counts$assn_count_cum <- cumsum(gwascat_counts$assn_count)
-n_assn_total <- sum(gwascat_counts$assn_count)
-i_study_50 <- which.min(abs(gwascat_counts$assn_count_cum - n_assn_total/2))
-n_assn_cum_50 <- gwascat_counts$assn_count_cum[i_study_50]
-i_study_90 <- which.min(abs(gwascat_counts$assn_count_cum - n_assn_total*.9))
-n_assn_cum_90 <- gwascat_counts$assn_count_cum[i_study_90]
+gwas_counts <- gwas_counts[order(gwas_counts$assn_count, decreasing=T),]
+gwas_counts$assn_count_cum <- cumsum(gwas_counts$assn_count)
+n_assn_total <- sum(gwas_counts$assn_count)
+i_study_50 <- which.min(abs(gwas_counts$assn_count_cum - n_assn_total/2))
+n_assn_cum_50 <- gwas_counts$assn_count_cum[i_study_50]
+i_study_90 <- which.min(abs(gwas_counts$assn_count_cum - n_assn_total*.9))
+n_assn_cum_90 <- gwas_counts$assn_count_cum[i_study_90]
 
 p5 <- plot_ly() %>%
-  add_trace(x = 1:nrow(gwascat_counts), y = gwascat_counts$assn_count_cum, 
+  add_trace(x = 1:nrow(gwas_counts), y = gwas_counts$assn_count_cum, 
 	 type = 'scatter', mode = 'lines', line = list(color = 'rgb(205, 12, 24)', width = 4)) %>%
 	add_annotations(x = n_gwas, y = n_assn_total*.8, xanchor = "right", showarrow = F, text = paste0("N_gwas = ", n_gwas)) %>%
   add_trace(x = c(0,n_gwas), y = c(n_assn_total/2, n_assn_total/2), type = 'scatter', mode = "lines", line = list(dash = "dot")) %>%
@@ -231,27 +207,27 @@ p5 <- plot_ly() %>%
   add_annotations(text=format(Sys.time(), "%Y-%m-%d\n%H:%M:%S"), showarrow=F, x=1.0, y=1.2, xref="paper", yref="paper")
 #
 p5
-export(p=p5, file="data/gwascat_counts_p5.png")
+export(p=p5, file="data/gwas_counts.png")
 #
 ###
 
 
 ###
 #Below not counts, maybe separate file?
-gwascat_snp2gene <- gwascat_snp2gene[!(gwascat_snp2gene$gsymb %in% c("intergenic", "Unknown")), ]
+snp2gene <- snp2gene[!(snp2gene$gsymb %in% c("intergenic", "Unknown")), ]
 
-t1 <- table(gwascat_trait$trait_uri)
+t1 <- table(trait$trait_uri)
 t1 <- t1[order(t1, decreasing = T)]
 print("MOST COMMON GWAS TRAITS:\n")
 for (i in 1:20)
 {
   uri <- names(t1)[i]
-  trait <- gwascat_trait$trait[gwascat_trait$trait_uri == uri][1]
-  print(sprintf("%2d. (N_study = %3d) [%s] \"%s\"\n", i, t1[i], sub("^.*/", "", uri), substr(trait, 1, 44)))
+  trait_this <- trait$trait[trait$trait_uri == uri][1]
+  print(sprintf("%2d. (N_study = %3d) [%s] \"%s\"\n", i, t1[i], sub("^.*/", "", uri), substr(trait_this, 1, 44)))
 }
-gwascat_trait$ontology <- sub('^.*/([^_]+).*$','\\1',gwascat_trait$trait_uri)
+trait$ontology <- sub('^.*/([^_]+).*$','\\1',trait$trait_uri)
 #Pie chart of trait ontologies.
-tbl <- table(gwascat_trait$ontology)
+tbl <- table(trait$ontology)
 ax0 <- list(showline = F, zeroline = F, showticklabels = F, showgrid = F)
 p6 <- plot_ly(type = "pie", hole = 0.5, values = tbl[names(tbl)],
        labels = paste0(names(tbl), " (", tbl[names(tbl)], ")") ) %>%
@@ -259,25 +235,15 @@ p6 <- plot_ly(type = "pie", hole = 0.5, values = tbl[names(tbl)],
          xaxis = ax0, yaxis = ax0, showlegend = T, margin = list(t=120), legend = list(x=0.4,y=0.5),
          font = list(family = "Arial", size = 12))
 p6
-export(p=p6, file="data/gwascat_counts_p6.png")
+export(p=p6, file="data/gwas_counts.png")
 ###
-dbcon <- dbConnect(MySQL(), host="juniper.health.unm.edu", dbname="tcrd")
-sql <- "SELECT
-  t.id AS \"tcrd_tid\",  t.name,  t.tdl,  t.fam,  t.idg2,
-  p.id AS \"tcrd_pid\",  p.sym AS \"protein_sym\",  p.geneid AS \"protein_geneid\"
-FROM
-  target t
-JOIN t2tc ON t.id = t2tc.target_id
-JOIN protein p ON t2tc.protein_id = p.id
-WHERE
-  p.sym IS NOT NULL"
-tcrd <- dbGetQuery(dbcon,sql)
-ok <- dbDisconnect(dbcon)
+tcrd <- read_delim("data/tcrd_targets.tsv", "\t")
+setDT(tcrd)
 
 gsyms_tcrd <- unique(tcrd$protein_sym)
 print(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
 
-gsyms_gwascat <- unique(gwascat_snp2gene$gsymb)
+gsyms_gwascat <- unique(snp2gene$gsymb)
 writeLines(sprintf("GWASCat Unique gene symbols: %d",length(gsyms_gwascat)))
 writeLines(sprintf("GWASCat gene symbols in TCRD: %d", length(intersect(gsyms_gwascat, gsyms_tcrd))))
 writeLines(sprintf("GWASCat gene symbols NOT in TCRD: %d", length(setdiff(gsyms_gwascat, gsyms_tcrd))))
@@ -291,7 +257,7 @@ print(sprintf("%s: %d\n", names(t2), t2))
 
 ###
 
-gwascat_gene <- unique(gwascat_snp2gene[,c("study_accession", "gsymb")])
+gwascat_gene <- unique(snp2gene[,c("study_accession", "gsymb")])
 gwascat_gene <- merge(gwascat_gene, tcrd[,c("protein_sym","name","idg2")], all.x=T, all.y=F,
 	by.x="gsymb", by.y="protein_sym")
 t1 <- table(gwascat_gene$gsymb)
