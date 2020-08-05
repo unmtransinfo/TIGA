@@ -40,21 +40,24 @@ message(sprintf("Input traits: %d", uniqueN(g2t$TRAIT_URI)))
 message(sprintf("Input GT (gene-trait) pairs: %d", n_gt_pairs))
 ###
 # GENE-TRAIT provenance
-message("Generating provenance for each gene-trait pair.")
+message("Finding existing provenance (if any) for each gene-trait pair.")
 gt_prov <- NULL
-i_row_prov <- 0
-# gene-loop:
 i <- 0
+i_with_prov <- 0
+# gene-loop:
 for (ensg in unique(g2t$ensemblId)) {
   geneNstudy <- g2t[ensemblId==ensg, uniqueN(STUDY_ACCESSION)]
   # trait-loop:
   for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
     i <- i + 1
-    if ((i%%1000)==0) {
-      message(sprintf("%d / %d (%.1f%%) GT pairs; %s, elapsed: %s", i, n_gt_pairs, 100*i/n_gt_pairs, Sys.time(), ((Sys.time()-t_start))))
-    }
     studies_this <- unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(STUDY_ACCESSION, PUBMEDID)])
-      gt_prov_this <- data.table(ensemblId=rep(ensg, nrow(studies_this)), TRAIT_URI=rep(trait_uri, nrow(studies_this)), STUDY_ACCESSION=studies_this[, STUDY_ACCESSION], PUBMEDID=studies_this[, PUBMEDID])
+    if (nrow(studies_this)==0) { next }
+    i_with_prov <- i_with_prov + 1 
+    if ((i%%10000)==0) {
+      t_elapsed <- (Sys.time()-t_start)
+      message(sprintf("%d / %d (with provenance) / %d (%.1f%%) GT pairs; %s, elapsed: %.2f %s", i, i_with_prov, n_gt_pairs, 100*i/n_gt_pairs, Sys.time(), t_elapsed, attr(t_elapsed, "units")))
+    }
+    gt_prov_this <- data.table(ensemblId=rep(ensg, nrow(studies_this)), TRAIT_URI=rep(trait_uri, nrow(studies_this)), STUDY_ACCESSION=studies_this[, STUDY_ACCESSION], PUBMEDID=studies_this[, PUBMEDID])
     if (is.null(gt_prov)) {
       gt_prov <- gt_prov_this
     } else {
