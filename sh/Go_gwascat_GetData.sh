@@ -26,12 +26,10 @@ SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/07/15"
 DATADIR="${cwd}/data"
 #
 #Source files:
-#gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.1-studies_r2017-10-10.tsv"
 #gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv"
 #gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv"
 gwasfile="${SRCDATADIR}/gwas-catalog-studies_ontology-annotated.tsv"
 #
-#assnfile="${SRCDATADIR}/gwas_catalog_v1.0.1-associations_e90_r2017-10-10.tsv"
 #assnfile="${SRCDATADIR}/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv"
 #assnfile="${SRCDATADIR}/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv"
 assnfile="${SRCDATADIR}/gwas-catalog-associations_ontology-annotated.tsv"
@@ -195,7 +193,7 @@ python3 -m BioClients.idg.tcrd.Client listTargets \
 # Gene-trait statistics, and provenance (STUDY_ACCESSION and PUBMEDID):
 # tiga_gt_stats.R: INPUT: 9 files; OUTPUT: gt_stats.tsv.gz, gt_provenance.tsv.gz
 #
-${cwd}/R/tiga_gt_variables.R \
+${cwd}/R/tiga_gt_prepfilter.R \
 	$DATADIR/gwascat_gwas.tsv \
 	$DATADIR/gwascat_counts.tsv \
 	$DATADIR/gwascat_assn.tsv \
@@ -205,8 +203,15 @@ ${cwd}/R/tiga_gt_variables.R \
 	$DATADIR/gwascat_Snps.tsv.gz \
 	$DATADIR/gwascat_Snps_EnsemblInfo.tsv.gz \
 	$DATADIR/tcrd_targets.tsv \
-	$DATADIR/gt_variables.tsv.gz \
+	$DATADIR/gt_prepfilter.Rdata \
+#
+${cwd}/R/tiga_gt_provenance.R \
+	$DATADIR/gt_prepfilter.Rdata \
 	$DATADIR/gt_provenance.tsv.gz
+#
+${cwd}/R/tiga_gt_variables.R \
+	$DATADIR/gt_prepfilter.Rdata \
+	$DATADIR/gt_variables.tsv.gz
 #
 ${cwd}/R/tiga_gt_stats.R \
 	$DATADIR/gt_variables.tsv.gz \
