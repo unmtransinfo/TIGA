@@ -17,7 +17,6 @@
 library(readr, quietly=T)
 library(data.table, quietly=T)
 #
-t0 <- proc.time()
 t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
@@ -70,30 +69,31 @@ gt_stats <- data.table(ensemblId=rep(NA, NROW),
 #
 message(sprintf("Initialized rows to be populated: nrow(gt_stats) = %d", nrow(gt_stats)))
 #
-i_row <- 0 #gt_stats populated row count
+i_gt <- 0 #gt_stats populated row count (gene-trait pairs)
 # gene-loop:
 for (ensg in unique(g2t$ensemblId)) {
   geneNstudy <- g2t[ensemblId==ensg, uniqueN(STUDY_ACCESSION)]
   # trait-loop:
   for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
-    if ((i_row%%10000)==0) {
-      message(sprintf("i_row: %d / %d (%.1f%%) ; %s, elapsed: %.1fs", i_row, NROW, 100*i_row/NROW, Sys.time(), (proc.time()-t0)[3]))
+    if ((i_gt%%10000)==0) {
+      t_elapsed <- (Sys.time()-t_start)
+      message(sprintf("i_gt: %d / %d (%.1f%%) ; %s, elapsed: %.2f %s", i_gt, NROW, 100*i_gt/NROW, Sys.time(), t_elapsed, attr(t_elapsed, "units")))
     }
-    i_row <- i_row + 1
+    i_gt <- i_gt + 1
     #
-    gt_stats$ensemblId[i_row] <- ensg
-    gt_stats$efoId[i_row] <- sub("^.*/", "", trait_uri)
-    gt_stats$geneNstudy[i_row] <- geneNstudy
-    gt_stats$trait[i_row] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri, TRAIT][1]
-    gt_stats$traitNstudy[i_row] <- g2t[TRAIT_URI==trait_uri, traitNstudy][1]
-    gt_stats$n_study[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])
-    gt_stats$pvalue_mlog_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
-    gt_stats$or_median[i_row] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, oddsratio], na.rm=T) #NA if no ORs
-    gt_stats$n_beta[i_row] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri & !is.na(beta), .N] #0 if no betas
-    gt_stats$study_N_mean[i_row] <- round(mean(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, study_N], na.rm=T), 1)
-    gt_stats$n_snp[i_row] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, SNP])
+    gt_stats$ensemblId[i_gt] <- ensg
+    gt_stats$efoId[i_gt] <- sub("^.*/", "", trait_uri)
+    gt_stats$geneNstudy[i_gt] <- geneNstudy
+    gt_stats$trait[i_gt] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri, TRAIT][1]
+    gt_stats$traitNstudy[i_gt] <- g2t[TRAIT_URI==trait_uri, traitNstudy][1]
+    gt_stats$n_study[i_gt] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])
+    gt_stats$pvalue_mlog_median[i_gt] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
+    gt_stats$or_median[i_gt] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, oddsratio], na.rm=T) #NA if no ORs
+    gt_stats$n_beta[i_gt] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri & !is.na(beta), .N] #0 if no betas
+    gt_stats$study_N_mean[i_gt] <- round(mean(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, study_N], na.rm=T), 1)
+    gt_stats$n_snp[i_gt] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, SNP])
     # Deduplicate (group-by) SNPs for `n_snpw` computation. 
-    gt_stats$n_snpw[i_row] <- sum(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt, na.rm=T)), by="SNP"][, GDistWt], na.rm=T)
+    gt_stats$n_snpw[i_gt] <- sum(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt, na.rm=T)), by="SNP"][, GDistWt], na.rm=T)
     #
     rcras <- 0
     for (stacc in unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
@@ -107,7 +107,7 @@ for (ensg in unique(g2t$ensemblId)) {
       }
       rcras <- rcras + rcras_study
     }
-    gt_stats$rcras[i_row] <- rcras
+    gt_stats$rcras[i_gt] <- rcras
   }
 }
 gt_stats[, traitNgene := .N, by="efoId"]
@@ -118,7 +118,7 @@ gt_stats$pvalue_mlog_median <- round(as.double(gt_stats$pvalue_mlog_median), 3)
 gt_stats$rcras <- round(as.double(gt_stats$rcras), 3)
 gt_stats$n_snpw <- round(as.double(gt_stats$n_snpw), 3)
 #
-message(sprintf("%s, elapsed: %.1fs", Sys.time(), (proc.time()-t0)[3]))
+message(sprintf("%s, elapsed time: %.2f %s", Sys.time(), t_elapsed, attr(t_elapsed, "units")))
 message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
 message(sprintf("gene (ensemblId) count: %d", uniqueN(gt_stats$ensemblId)))
 message(sprintf("trait (efoId) count: %d", uniqueN(gt_stats$efoId)))
@@ -152,4 +152,4 @@ write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
 #
 t_elapsed <- (Sys.time()-t_start)
-message(sprintf("Elapsed time: %.2fs (%.2f %s)", (proc.time()-t0)[3], t_elapsed, attr(t_elapsed, "units")))
+message(sprintf("Elapsed time: %.2f %s", t_elapsed, attr(t_elapsed, "units")))
