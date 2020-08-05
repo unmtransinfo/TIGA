@@ -203,7 +203,7 @@ ${cwd}/R/tiga_gt_prepfilter.R \
 	$DATADIR/gwascat_Snps.tsv.gz \
 	$DATADIR/gwascat_Snps_EnsemblInfo.tsv.gz \
 	$DATADIR/tcrd_targets.tsv \
-	$DATADIR/gt_prepfilter.Rdata \
+	$DATADIR/gt_prepfilter.Rdata
 #
 ${cwd}/R/tiga_gt_provenance.R \
 	$DATADIR/gt_prepfilter.Rdata \

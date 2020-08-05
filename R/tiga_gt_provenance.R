@@ -13,7 +13,6 @@
 library(readr, quietly=T)
 library(data.table, quietly=T)
 #
-t0 <- proc.time()
 t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
@@ -28,26 +27,34 @@ if (length(args)==2) {
   message("ERROR: Syntax: tiga_gt_provenance.R GT_PREPFILTER_FILE OFILE\n...or... no args for defaults")
   quit()
 }
-writeLines(sprintf("Input prepfilter file: %s", ifile_gt))
+writeLines(sprintf("Input prepfilter file: %s", ifile))
 writeLines(sprintf("Output provenance file: %s", ofile))
 #
 ###
 load(ifile)
 #
+#
+n_gt_pairs <- uniqueN(g2t$ensemblId) * uniqueN(g2t$TRAIT_URI)
+message(sprintf("Input genes: %d", uniqueN(g2t$ensemblId)))
+message(sprintf("Input traits: %d", uniqueN(g2t$TRAIT_URI)))
+message(sprintf("Input GT (gene-trait) pairs: %d", n_gt_pairs))
 ###
 # GENE-TRAIT provenance
-message("Generating provenance file for each gene-trait pair.")
+message("Generating provenance for each gene-trait pair.")
 gt_prov <- NULL
 i_row_prov <- 0
-#
 # gene-loop:
+i <- 0
 for (ensg in unique(g2t$ensemblId)) {
   geneNstudy <- g2t[ensemblId==ensg, uniqueN(STUDY_ACCESSION)]
   # trait-loop:
   for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
+    i <- i + 1
+    if ((i%%1000)==0) {
+      message(sprintf("%d / %d (%.1f%%) GT pairs; %s, elapsed: %s", i, n_gt_pairs, 100*i/n_gt_pairs, Sys.time(), ((Sys.time()-t_start))))
+    }
     studies_this <- unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(STUDY_ACCESSION, PUBMEDID)])
-      gt_prov_this <- data.table(ensemblId=rep(ensg, nrow(studies_this)), TRAIT_URI=rep(trait_uri, nrow(studies_this)),
-		  STUDY_ACCESSION=studies_this[, STUDY_ACCESSION], PUBMEDID=studies_this[, PUBMEDID])
+      gt_prov_this <- data.table(ensemblId=rep(ensg, nrow(studies_this)), TRAIT_URI=rep(trait_uri, nrow(studies_this)), STUDY_ACCESSION=studies_this[, STUDY_ACCESSION], PUBMEDID=studies_this[, PUBMEDID])
     if (is.null(gt_prov)) {
       gt_prov <- gt_prov_this
     } else {
@@ -59,13 +66,13 @@ for (ensg in unique(g2t$ensemblId)) {
 gt_prov[, efoId := sub("^.*/", "", TRAIT_URI)]
 #
 ###
-message(sprintf("Genes (ensemblIDs): %d", uniqueN(gt_prov$ensemblId)))
-message(sprintf("Traits (efoIds): %d", uniqueN(gt_prov$efoId)))
-message(sprintf("G-T associations in dataset: %d", nrow(unique(gt_prov[, .(ensemblId, efoId)]))))
+message(sprintf("Provenance genes (ensemblIDs): %d", uniqueN(gt_prov$ensemblId)))
+message(sprintf("Provenance traits (efoIds): %d", uniqueN(gt_prov$efoId)))
+message(sprintf("Provenance G-T associations: %d", nrow(unique(gt_prov[, .(ensemblId, efoId)]))))
 #
 # Save to file.
 write_delim(gt_prov, ofile, delim="\t")
 writeLines(sprintf("Output provenance file written: %s", ofile))
 #
 t_elapsed <- (Sys.time()-t_start)
-message(sprintf("Elapsed time: %.2fs (%.2f %s)", (proc.time()-t0)[3], t_elapsed, attr(t_elapsed, "units")))
+message(sprintf("Elapsed time: %.2f %s", t_elapsed, attr(t_elapsed, "units")))
