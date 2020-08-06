@@ -8,7 +8,7 @@
 ###  filtered_traits.tsv.gz        (from tiga_gt_stats.R)
 ###  filtered_genes.tsv.gz         (from tiga_gt_stats.R)
 ###  filtered_studies_trait.tsv.gz (from gwascat_trait.R)
-###  gwascat_gwas.tsv.gz           (from gwascat_gwas.R)
+###  gwascat_gwas.tsv              (from gwascat_gwas.R)
 ###  efo_graph.graphml.gz          (from efo_graph.R)
 ########################################################################################
 ### Requires dqshiny dev version late 2019, via https://github.com/daqana/dqshiny
@@ -59,7 +59,7 @@ t0 <- proc.time()
 DEBUG <- F
 if (!file.exists("tiga.Rdata") | DEBUG) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
-  gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(), geneMeanRank=col_double(), geneMeanRankScore=col_double(), traitMeanRank=col_double(), traitMeanRankScore=col_double()))
+  gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), n_beta=col_double(), study_N_mean=col_double(), rcras=col_double(), geneMeanRank=col_double(), geneMeanRankScore=col_double(), traitMeanRank=col_double(), traitMeanRankScore=col_double()))
   setDT(gt)
   setnames(gt, old=c("geneIdgTdl"), new=c("TDL"))
   #
@@ -100,7 +100,7 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   trait_menu <- as.list(trait_menu)
   gene_menu <- as.list(gene_menu)
   #
-  study_table <- read_delim("data/gwascat_gwas.tsv.gz", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
+  study_table <- read_delim("data/gwascat_gwas.tsv", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
   setDT(study_table)
   study_table <- study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED = DATE, DATE_ADDED_TO_CATALOG)][order(DATE_PUBLISHED)]
   #
@@ -567,17 +567,17 @@ server <- function(input, output, session) {
       if (input$yAxis=="n_beta")
         p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok2plot)], 
           #x=~meanRankScore, 
-          x = 100*jitter(Hits()[(ok2plot), meanRankScore], 10),
+          x = jitter(Hits()[(ok2plot), meanRankScore], 10),
           #y=~n_beta,
-          y = jitter(Hits()[(ok2plot), n_beta], 10),
+          y = abs(jitter(Hits()[(ok2plot), n_beta], 1)),
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
       else # or_median or auto
         p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok2plot)], 
           #x=~meanRankScore, 
-          x = 100*jitter(Hits()[(ok2plot), meanRankScore], 10),
+          x = jitter(Hits()[(ok2plot), meanRankScore], 10),
           #y=~or_median,
-          y = jitter(Hits()[(ok2plot), or_median], 10),
+          y = jitter(Hits()[(ok2plot), or_median], 1),
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
