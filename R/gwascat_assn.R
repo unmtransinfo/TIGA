@@ -12,9 +12,8 @@
 #############################################################################
 ### Also get UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE for mapping
 ### confidence scoring. Also get CONTEXT, functionalClass in API. 
-### INTERGENIC? "RISK ALLELE FREQUENCY"?  MERGED?
 #############################################################################
-### Output file next processed by tiga_gt_stats.R
+### No filtering by this code.
 #############################################################################
 library(readr)
 library(data.table)
@@ -24,8 +23,6 @@ if (length(args)==2) {
   (ifile <- args[1])
   (ofile <- args[2])
 } else if (length(args)==0) {
-  #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv")
-  #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv")
   ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/07/15/gwas-catalog-associations_ontology-annotated.tsv")
   ofile <- "data/gwascat_assn.tsv"
 } else {
@@ -42,33 +39,32 @@ setnames(assn, gsub("[ \\./]" ,"_", colnames(assn)))
 setnames(assn, gsub("__" ,"_", colnames(assn)))
 setnames(assn, gsub("_$" ,"", colnames(assn)))
 
-message(sprintf("Studies in raw associations file: %6d", assn[, uniqueN(STUDY_ACCESSION)]))
-
-assn <- assn[complete.cases(assn[, .(STUDY_ACCESSION, SNPS, DISEASE_TRAIT)]), ]
-
-message(sprintf("Studies with SNPS and DISEASE_TRAIT: %6d", assn[, uniqueN(STUDY_ACCESSION)]))
-
-
 #Clean: convert special chars.
 for (tag in colnames(assn)) {
   if (typeof(assn[[tag]])=="character") {
-    #message(sprintf("NOTE: cleaning: %s", tag))
     assn[[tag]] <- iconv(assn[[tag]], from="latin1", to="UTF-8")
   }
 }
 
-message(sprintf("Total assn count: %6d", nrow(assn)))
-message(sprintf("OR_or_BETA MISSING: %6d", nrow(assn[is.na(assn$OR_or_BETA),])))
-message(sprintf("OR_or_BETA values: %6d", nrow(assn[!is.na(assn$OR_or_BETA),])))
+message(sprintf("Association studies in raw file: %d", assn[, uniqueN(STUDY_ACCESSION)]))
+message(sprintf("Association studies with SNPS: %d", assn[!is.na(SNPS), uniqueN(STUDY_ACCESSION)]))
+message(sprintf("Association studies with DISEASE_TRAIT: %d", assn[!is.na(DISEASE_TRAIT), uniqueN(STUDY_ACCESSION)]))
+message(sprintf("Association studies with OR_or_BETA: %d", assn[!is.na(OR_or_BETA), uniqueN(STUDY_ACCESSION)]))
+message(sprintf("Association studies with SNPS and DISEASE_TRAIT and OR_or_BETA: %d", assn[(!is.na(DISEASE_TRAIT) & !is.na(SNPS) & !is.na(OR_or_BETA)), uniqueN(STUDY_ACCESSION)]))
 
+message(sprintf("Associations: %d", nrow(assn)))
+message(sprintf("Associations with OR_or_BETA values: %d (%.1f%%)", nrow(assn[!is.na(OR_or_BETA)]), 100*nrow(assn[!is.na(OR_or_BETA)])/nrow(assn)))
+
+###
+# Parsing oddsratio and beta from OR_or_BETA
 tag="OR_or_BETA"
 assn[[tag]] <- as.numeric(assn[[tag]])
 qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
-writeLines(sprintf("%s %4s-ile: %9.1f", tag,names(qs), qs))
-
-assn$oddsratio <- as.numeric(NA)
-assn$beta <- as.numeric(NA)
-
+writeLines(sprintf("%s %4s-ile: %9.1f", tag, names(qs), qs))
+#
+###
+assn[, oddsratio := as.numeric(NA)]
+assn[, beta := as.numeric(NA)]
 staccs <- sort(unique(assn[, STUDY_ACCESSION]))
 #
 i <- 0
@@ -97,14 +93,13 @@ message(sprintf("Studies with both values <=1 and >1: %d", n_both))
 
 message(sprintf("Studies with associations and effect size (OR or beta): %6d", assn[(!is.na(oddsratio) | !is.na(beta)), uniqueN(STUDY_ACCESSION)]))
 
-#
-
 ###
 # Descriptive only, no more changes to assn.
 # See also: gwascat_beta.R
 ###
 
-# CONTEXT aka functionalClass (via API)
+# CONTEXT (aka functionalClass, and cleaner, via API)
+# Multiple values correspond with multiple MAPPED_GENE values.
 fix_context <- function(context) {
   paste(sort(unique(unlist(strsplit(context, '\\s*;\\s*')))), collapse = " ; ")
 }
@@ -114,14 +109,12 @@ for (i in 1:nrow(context_counts)) {
   if (!grepl(" [;x] ", context_counts[i]$CONTEXT))
     writeLines(sprintf("%d. (N=%d) %s", i, context_counts[i]$N, context_counts[i]$CONTEXT))
 }
-writeLines(sprintf("Combo/ambiguous: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
+writeLines(sprintf("Multiple: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
 
 ###
-# Also see GENOTYPING_TECHNOLOGY
-tbl <- as.data.frame(table(assn$GENOTYPING_TECHNOLOGY))
-colnames(tbl) <- c("GENOTYPING_TECHNOLOGY", "Freq")
-tbl <- tbl[order(-tbl$Freq),]
-writeLines(sprintf("%5d: %s", tbl$Freq, tbl$GENOTYPING_TECHNOLOGY))
+# GENOTYPING_TECHNOLOGY
+tech_counts <- assn[, .(N_study = uniqueN(STUDY_ACCESSION)), by="GENOTYPING_TECHNOLOGY"][order(-N_study)]
+print(tech_counts)
 
 ###
 # Many missing (UP|DOWN)STREM_GENE_DISTANCE.

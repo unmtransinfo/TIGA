@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### Clean studies file.
+### Clean studies file. No filtering by this code.
 #############################################################################
 library(readr)
 library(data.table)
@@ -10,8 +10,6 @@ if (length(args)==2) {
   (ifile <- args[1])
   (ofile <- args[2])
 } else if (length(args)==0) {
-  #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
-  #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
   ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/07/15/gwas-catalog-studies_ontology-annotated.tsv")
   ofile <- "data/gwascat_gwas.tsv.gz"
 } else {
@@ -31,7 +29,6 @@ setnames(gwas, gsub("_$", "", colnames(gwas)))
 #Clean: convert special chars.
 for (tag in colnames(gwas)) {
   if (typeof(gwas[[tag]])=="character") {
-    #message(sprintf("NOTE: cleaning: %s", tag))
     gwas[[tag]] <- iconv(gwas[[tag]], from="latin1", to="UTF-8")
   }
 }

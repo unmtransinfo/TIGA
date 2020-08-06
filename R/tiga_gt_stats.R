@@ -18,7 +18,7 @@ t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
-if (length(args)==5) {
+if (length(args)==2) {
   (ifile	<- args[1])
   (ofile	<- args[2])
 } else if (length(args)==0) {
@@ -114,4 +114,4 @@ write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
 #
 t_elapsed <- (Sys.time()-t_start)
-message(sprintf("Elapsed time: %.2f %s", t_elapsed, attr(t_elapsed, "units")))
+message(sprintf("%s, elapsed time: %.2f %s", Sys.time(), t_elapsed, attr(t_elapsed, "units")))

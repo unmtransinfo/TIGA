@@ -1,19 +1,19 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### GENE-TRAIT prepfilter
+### GENE-TRAIT PREPFILTER - preprocess and filter
 ### 
 ### (1) tiga_gt_prepfilter.R - Merge input files, preprocess and filter.
 ### (2a) tiga_gt_provenance.R - Produce gt_provenance.tsv.gz, for TIGA app.
 ### (2b) tiga_gt_variables.R - Produce gt_variables.tsv.gz
 ### (3) tiga_gt_stats.R, to produce gt_stats.tsv.gz, for TIGA app.
 #############################################################################
-### SEE FOR ALL INPUT WORKFLOWS: Go_gwascat_GetData.sh
+### SEE FOR FULL WORKFLOW: Go_gwascat_GetData.sh
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
 #
-t0 <- proc.time()
 t_start <- Sys.time()
+message(t_start)
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
@@ -54,21 +54,12 @@ writeLines(sprintf("Input Ensembl file: %s", ifile_ensembl))
 writeLines(sprintf("Output prepfilter file: %s", ofile))
 #
 ###
-gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
-	DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
-	ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
+gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"), ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
 setDT(gwas)
-gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), 
-	study_accession=col_character()))
+gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), study_accession=col_character()))
 setDT(gwas_counts)
 #
-assn <- read_delim(ifile_assn, "\t", 
-	col_types=cols(.default=col_character(),
-	               UPSTREAM_GENE_DISTANCE=col_integer(),
-	               DOWNSTREAM_GENE_DISTANCE=col_integer(),
-	DATE=col_date(format="%Y-%m-%d"),
-	DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
-	SNP_ID_CURRENT=col_character()))
+assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"), SNP_ID_CURRENT=col_character()))
 setDT(assn)
 ###
 # Aha!? MAPPED_GENE missing (UP|DOWN)STREAM_GENE_DISTANCE, implies intragenic, distances are zero!
@@ -76,9 +67,7 @@ setDT(assn)
 assn[(!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)), `:=`(UPSTREAM_GENE_DISTANCE=0, DOWNSTREAM_GENE_DISTANCE=0)]
 ###
 #
-snp2gene <- read_delim(ifile_snp2gene, "\t", 
-	col_types=cols(.default=col_character(),
-	REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
+snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(), REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
 setDT(snp2gene)
 snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED!="r"]) #Ignore reported.
 #
@@ -93,13 +82,13 @@ trait <- trait[!is.na(trait$TRAIT_URI)]
 trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
 #
 ###
-# Estimate RCR prior for new publications as median.
-icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
-	relative_citation_ratio=col_double(), field_citation_rate=col_double(), citation_count=col_integer(),
-	nih_percentile=col_double(), expected_citations_per_year=col_double(), citations_per_year=col_double(), year=col_integer()), na=c("", "NA", "None"))
+# Estimate RCR for new publications as median.
+icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(), relative_citation_ratio=col_double(), field_citation_rate=col_double(), citation_count=col_integer(), nih_percentile=col_double(), expected_citations_per_year=col_double(), citations_per_year=col_double(), year=col_integer()), na=c("", "NA", "None"))
 setDT(icite)
 rcr_median <- median(icite$relative_citation_ratio, na.rm=T)
-icite[is.na(relative_citation_ratio) & (as.integer(format(Sys.time(), "%Y"))-year<2) , relative_citation_ratio := rcr_median]
+year_this <- as.integer(format(Sys.time(), "%Y"))
+message(sprintf("Estimating undefined RCR for new publications [%d-%d] as global median.", year_this-1, year_this))
+icite[is.na(relative_citation_ratio) & (year>=year_this-1) , relative_citation_ratio := rcr_median]
 #
 icite_gwas <- merge(icite[, .(pmid, relative_citation_ratio, year)], gwas[, .(PUBMEDID, STUDY_ACCESSION)], by.x="pmid", by.y="PUBMEDID", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, gwas_counts[, .(study_accession, trait_count, gene_r_count, gene_m_count)], by.x="STUDY_ACCESSION", by.y="study_accession", all.x=T, all.y=T)
@@ -131,7 +120,7 @@ setDT(tcrd)
 
 ###
 # Counts:
-writeLines(sprintf("Studies: %d", uniqueN(assn$STUDY_ACCESSION)))
+writeLines(sprintf("Association studies: %d", uniqueN(assn$STUDY_ACCESSION)))
 #
 ###
 # Reported genes ignored by TIGA.
@@ -145,8 +134,7 @@ ensgs_tiga <- unique(snp2gene$ensemblId)
 ensgs_common <- intersect(ensgs_tiga, ensgs_tcrd)
 writeLines(sprintf("EnsemblIds mapped to TCRD: %d", length(ensgs_common)))
 #
-tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=rep(T, length(ensgs_tiga))),
-	by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
+tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=T), by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd[, in_gwascat := !is.na(in_gwascat)]
 writeLines(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwascat), .N]))
 #
@@ -158,27 +146,12 @@ g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian
 #
 ###
 # Initially, we required OR and ignored BETA.
-# This filtered many studies, traits, and genes.
-print(sprintf("Studies without and with OR filter: %d -> %d (-%d; -%.1f%%)", 
-  g2t[, uniqueN(STUDY_ACCESSION)], g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)],
-  g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)],
-  100*(g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)])/g2t[, uniqueN(STUDY_ACCESSION)]
-))
-
-print(sprintf("Traits without and with OR filter: %d -> %d (-%d; -%.1f%%)", 
-  g2t[, uniqueN(TRAIT_URI)], g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)],
-  g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)],
-  100*(g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)])/g2t[, uniqueN(TRAIT_URI)]
-  ))
-
-print(sprintf("Genes without and with OR filter: %d -> %d (-%d; -%.1f%%)", 
-  g2t[, uniqueN(ensemblId)], g2t[!is.na(oddsratio), uniqueN(ensemblId)],
-  g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)],
-  100*(g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)])/g2t[, uniqueN(ensemblId)]
-  ))
-#
-#badrows <- is.na(g2t$oddsratio)
-#reason_txt <- "Missing OR"
+# This filtered too many studies, traits, and genes.
+#message(sprintf("Studies OR-filter: %d -> %d (-%d; -%.1f%%)", g2t[, uniqueN(STUDY_ACCESSION)], g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)], 100*(g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)])/g2t[, uniqueN(STUDY_ACCESSION)]))
+#message(sprintf("Traits OR-filter: %d -> %d (-%d; -%.1f%%)", g2t[, uniqueN(TRAIT_URI)], g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)], g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)], 100*(g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)])/g2t[, uniqueN(TRAIT_URI)]))
+#message(sprintf("Genes OR-filter: %d -> %d (-%d; -%.1f%%)", g2t[, uniqueN(ensemblId)], g2t[!is.na(oddsratio), uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)], 100*(g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)])/g2t[, uniqueN(ensemblId)]))
+###
+# Effect size filter: either OR or beta required.
 badrows <- (is.na(g2t$oddsratio) & is.na(g2t$beta))
 reason_txt <- "Missing both OR and beta"
 print(sprintf("%s: rows: %d", reason_txt, sum(badrows)))
@@ -186,38 +159,28 @@ print(sprintf("%s: rows: %d", reason_txt, sum(badrows)))
 # Write files accounting for filtered studies, traits and genes.
 filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows]$STUDY_ACCESSION, g2t[!badrows]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
 filtered_studies[, reason := reason_txt]
-print(sprintf("Studies removed by filter (%s): %d", reason_txt, filtered_studies[, uniqueN(STUDY_ACCESSION)]))
+message(sprintf("Filtered studies (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)]-filtered_studies[, uniqueN(STUDY_ACCESSION)], filtered_studies[, uniqueN(STUDY_ACCESSION)], 100*filtered_studies[, uniqueN(STUDY_ACCESSION)]/g2t[, uniqueN(STUDY_ACCESSION)]))
 write_delim(filtered_studies, "data/filtered_studies.tsv.gz", delim="\t")
 #
 filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows]$TRAIT_URI, g2t[!badrows]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
 filtered_traits[, reason := reason_txt]
-print(sprintf("Traits removed by filter (%s): %d", reason_txt, filtered_traits[, uniqueN(TRAIT_URI)]))
+message(sprintf("Filtered traits (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(TRAIT_URI)], g2t[, uniqueN(TRAIT_URI)]-filtered_traits[, uniqueN(TRAIT_URI)], filtered_traits[, uniqueN(TRAIT_URI)], 100*filtered_traits[, uniqueN(TRAIT_URI)]/g2t[, uniqueN(TRAIT_URI)]))
 write_delim(filtered_traits, "data/filtered_traits.tsv.gz", delim="\t")
 #
 filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows]$ensemblId, g2t[!badrows]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
 filtered_genes[, reason := reason_txt]
-print(sprintf("Genes removed by filter (%s): %d", reason_txt, filtered_genes[, uniqueN(ensemblId)]))
+message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes[, uniqueN(ensemblId)], filtered_genes[, uniqueN(ensemblId)], 100*filtered_genes[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
 filtered_genes <- merge(filtered_genes, tcrd[, .(ensemblGeneId, geneName=tcrdTargetName, geneFamily=tcrdTargetFamily, TDL)], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
 filtered_genes <- filtered_genes[, .(ensemblId, ensemblSymb, geneName, geneFamily, TDL, reason)]
 write_delim(filtered_genes, "data/filtered_genes.tsv.gz", delim="\t")
 #
-message(sprintf("Filtering assocations (%s): %d", reason_txt, sum(badrows)))
+message(sprintf("Filtered associations (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, nrow(g2t), nrow(g2t)-sum(badrows), sum(badrows), 100*sum(badrows)/nrow(g2t)))
 g2t <- g2t[!badrows] #Many filtered.
 #
 ###
 #
-message(sprintf("DEBUG: with pvalue_mlog, g2t: %d ; genes: %d ; traits: %d",
-	 nrow(g2t[!is.na(g2t$PVALUE_MLOG),]),
-	 uniqueN(g2t$ensemblId[!is.na(g2t$PVALUE_MLOG)]),
-	 uniqueN(g2t$TRAIT[!is.na(g2t$PVALUE_MLOG)])))
-message(sprintf("DEBUG: with OR, g2t: %d ; genes: %d ; traits: %d",
-	 nrow(g2t[!is.na(g2t$oddsratio),]),
-	 uniqueN(g2t$ensemblId[!is.na(g2t$oddsratio)]),
-	 uniqueN(g2t$TRAIT[!is.na(g2t$oddsratio)])))
-###
-#
 message(sprintf("Final: nrow(g2t) = %d", nrow(g2t)))
-message(sprintf("G-T associations in dataset: %d", nrow(g2t)))
+message(sprintf("G-T associations in dataset: %d", nrow(unique(g2t[, .(ensemblId, efoId)]))))
 message(sprintf("Gene (ensemblId) count: %d", uniqueN(g2t$ensemblId)))
 message(sprintf("Trait (efoId) count: %d", uniqueN(g2t$efoId)))
 #
@@ -227,4 +190,4 @@ save(g2t, tcrd, icite_gwas, file=ofile)
 writeLines(sprintf("Output Rdata file written: %s", ofile))
 #
 t_elapsed <- (Sys.time()-t_start)
-message(sprintf("Elapsed time: %.2fs (%.2f %s)", (proc.time()-t0)[3], t_elapsed, attr(t_elapsed, "units")))
+message(sprintf("%s, elapsed time: %.2f %s", Sys.time(), t_elapsed, attr(t_elapsed, "units")))

@@ -189,10 +189,11 @@ python3 -m BioClients.idg.tcrd.Client listTargets \
 	--dbname "tcrd660" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
 	--o $DATADIR/tcrd_targets.tsv
 #
-#############################################################################
-# Gene-trait statistics, and provenance (STUDY_ACCESSION and PUBMEDID):
-# tiga_gt_stats.R: INPUT: 9 files; OUTPUT: gt_stats.tsv.gz, gt_provenance.tsv.gz
-#
+###
+# gwascat_counts.tsv from Go_gwascat_DbCreate.sh
+###
+# Pre-process and filter. Studies, genes and traits may be removed
+# due to insufficient evidence.
 ${cwd}/R/tiga_gt_prepfilter.R \
 	$DATADIR/gwascat_gwas.tsv \
 	$DATADIR/gwascat_counts.tsv \
@@ -204,15 +205,18 @@ ${cwd}/R/tiga_gt_prepfilter.R \
 	$DATADIR/gwascat_Snps_EnsemblInfo.tsv.gz \
 	$DATADIR/tcrd_targets.tsv \
 	$DATADIR/gt_prepfilter.Rdata
-#
+###
+# Provenance for gene-trait pairs (STUDY_ACCESSION, PUBMEDID).
 ${cwd}/R/tiga_gt_provenance.R \
 	$DATADIR/gt_prepfilter.Rdata \
 	$DATADIR/gt_provenance.tsv.gz
-#
+###
+# Generates variables, statistics, evidence features for gene-trait pairs.
 ${cwd}/R/tiga_gt_variables.R \
 	$DATADIR/gt_prepfilter.Rdata \
 	$DATADIR/gt_variables.tsv.gz
-#
+###
+# Scores and ranks gene-trait pairs based on selected variables.
 ${cwd}/R/tiga_gt_stats.R \
 	$DATADIR/gt_variables.tsv.gz \
 	$DATADIR/gt_stats.tsv.gz
