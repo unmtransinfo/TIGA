@@ -3,10 +3,10 @@
 ### gt = gene-trait data
 ### Input files:
 ###  gt_stats.tsv.gz               (from tiga_gt_stats.R) 
-###  gt_provenance.tsv.gz          (from tiga_gt_stats.R)
-###  filtered_studies.tsv.gz       (from tiga_gt_stats.R)
-###  filtered_traits.tsv.gz        (from tiga_gt_stats.R)
-###  filtered_genes.tsv.gz         (from tiga_gt_stats.R)
+###  gt_provenance.tsv.gz          (from tiga_gt_provenance.  R)
+###  filtered_studies.tsv.gz       (from tiga_gt_prepfilter.R)
+###  filtered_traits.tsv.gz        (from tiga_gt_prepfilter.R)
+###  filtered_genes.tsv.gz         (from tiga_gt_prepfilter.R)
 ###  filtered_studies_trait.tsv.gz (from gwascat_trait.R)
 ###  gwascat_gwas.tsv              (from gwascat_gwas.R)
 ###  efo_graph.graphml.gz          (from efo_graph.R)
@@ -431,9 +431,9 @@ server <- function(input, output, session) {
   HitsWithHtm <- reactive({
     hwh <- data.table(Hits()) #copy
     if (hitType() == "trait") {
-      hwh <- hwh[, efoId := sprintf("%s<a href=\"%s?trait=%s&gene=%s\"><i class=\"fa fa-search\"></i></a><a href=\"%s\" target=\"_blank\"><i class=\"fa fa-external-link\"></i></a>", efoId, urlBase(), efoId, qryIds()$gene, sapply(efoId, efoId2Uri))]
+      hwh <- hwh[, efoId := sprintf("%s<br/><a href=\"%s?trait=%s&gene=%s\"><i class=\"fa fa-search\"></i></a> &nbsp; <a href=\"%s\" target=\"_blank\"><i class=\"fa fa-external-link\"></i></a>", efoId, urlBase(), efoId, qryIds()$gene, sapply(efoId, efoId2Uri))]
     } else if (hitType() == "gene") {
-      hwh <- hwh[, geneSymbol := sprintf("%s<a href=\"%s?trait=%s&gene=%s\"><i class=\"fa fa-search\"></i></a><a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\"><i class=\"fa fa-external-link\"></i></a>", geneSymbol, urlBase(), qryIds()$trait, ensemblId, geneSymbol)]
+      hwh <- hwh[, geneSymbol := sprintf("%s<br/><a href=\"%s?trait=%s&gene=%s\"><i class=\"fa fa-search\"></i></a> &nbsp; <a href=\"https://pharos.nih.gov/targets/%s\" target=\"_blank\"><i class=\"fa fa-external-link\"></i></a>", geneSymbol, urlBase(), qryIds()$trait, ensemblId, geneSymbol)]
     }
     return(hwh)
   })
@@ -472,7 +472,9 @@ server <- function(input, output, session) {
     if (!is.null(Hits())) {
       htm <- paste0(htm, sprintf("; N_%s: %d plotted (%d total)", hitType(), Hits()[(ok2plot), .N], Hits()[, .N]))
       if (!is.null(Hits()[["or_median"]]) & !is.null(Hits()[["n_beta"]]))
-        htm <- paste0(htm, sprintf("; ORs: %d; N_betas>0: %d", Hits()[or_median>0, .N], Hits()[n_beta>0, .N]))
+        message(sprintf("ORs: %d; N_betas>0: %d", Hits()[or_median>0, .N], Hits()[n_beta>0, .N]))
+    } else if (qryIds()$trait %in% filtered$id) {
+      htm <- paste0(htm, sprintf("; %s <B>%s: %s</B> filtered; reason: %s.", hitType(), qryIds()$trait, traitQryName(), filtered[id==qryIds()$trait, reason]))
     } else if (qryIds()$gene %in% filtered$id) {
       htm <- paste0(htm, sprintf("; %s <B>%s: %s</B> filtered; reason: %s.", hitType(), qryIds()$gene, geneQryName(), filtered[id==qryIds()$gene, reason]))
     } else {
