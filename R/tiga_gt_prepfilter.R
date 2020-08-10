@@ -145,12 +145,6 @@ g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, UPSTREAM_GENE_DIS
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
 #
 ###
-# Initially, we required OR and ignored BETA.
-# This filtered too many studies, traits, and genes.
-#message(sprintf("Studies OR-filter: %d -> %d (-%d; -%.1f%%)", g2t[, uniqueN(STUDY_ACCESSION)], g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)], 100*(g2t[, uniqueN(STUDY_ACCESSION)] - g2t[!is.na(oddsratio), uniqueN(STUDY_ACCESSION)])/g2t[, uniqueN(STUDY_ACCESSION)]))
-#message(sprintf("Traits OR-filter: %d -> %d (-%d; -%.1f%%)", g2t[, uniqueN(TRAIT_URI)], g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)], g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)], 100*(g2t[, uniqueN(TRAIT_URI)] - g2t[!is.na(oddsratio), uniqueN(TRAIT_URI)])/g2t[, uniqueN(TRAIT_URI)]))
-#message(sprintf("Genes OR-filter: %d -> %d (-%d; -%.1f%%)", g2t[, uniqueN(ensemblId)], g2t[!is.na(oddsratio), uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)], 100*(g2t[, uniqueN(ensemblId)] - g2t[!is.na(oddsratio), uniqueN(ensemblId)])/g2t[, uniqueN(ensemblId)]))
-###
 # Effect size filter: either OR or beta required.
 badrows <- (is.na(g2t$oddsratio) & is.na(g2t$beta))
 reason_txt <- "Missing both OR and beta"
@@ -161,6 +155,9 @@ filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrow
 filtered_studies[, reason := reason_txt]
 message(sprintf("Filtered studies (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)]-filtered_studies[, uniqueN(STUDY_ACCESSION)], filtered_studies[, uniqueN(STUDY_ACCESSION)], 100*filtered_studies[, uniqueN(STUDY_ACCESSION)]/g2t[, uniqueN(STUDY_ACCESSION)]))
 write_delim(filtered_studies, "data/filtered_studies.tsv.gz", delim="\t")
+#
+filtered_papers <- unique(merge(data.table(PUBMEDID = setdiff(g2t[badrows]$PUBMEDID, g2t[!badrows]$PUBMEDID)), gwas[, .(PUBMEDID, STUDY)], by="PUBMEDID", all.x=T, all.y=F))
+message(sprintf("Filtered papers (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(PUBMEDID)], g2t[, uniqueN(PUBMEDID)]-filtered_papers[, uniqueN(PUBMEDID)], filtered_papers[, uniqueN(PUBMEDID)], 100*filtered_papers[, uniqueN(PUBMEDID)]/g2t[, uniqueN(PUBMEDID)]))
 #
 filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows]$TRAIT_URI, g2t[!badrows]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
 filtered_traits[, reason := reason_txt]
@@ -181,6 +178,7 @@ g2t <- g2t[!badrows] #Many filtered.
 #
 message(sprintf("Final: nrow(g2t) = %d", nrow(g2t)))
 message(sprintf("G-T associations in dataset: %d", nrow(unique(g2t[, .(ensemblId, efoId)]))))
+message(sprintf("Study (STUDY_ACCESSION) count: %d", uniqueN(g2t$STUDY_ACCESSION)))
 message(sprintf("Gene (ensemblId) count: %d", uniqueN(g2t$ensemblId)))
 message(sprintf("Trait (efoId) count: %d", uniqueN(g2t$efoId)))
 #
