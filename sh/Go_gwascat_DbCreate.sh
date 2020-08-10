@@ -70,6 +70,7 @@ SELECT
 FROM
 	trait2study
 GROUP BY
+	mapped_trait_uri,
 	mapped_trait
 ORDER BY
 	n_study DESC
