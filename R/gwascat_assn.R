@@ -47,6 +47,7 @@ for (tag in colnames(assn)) {
   }
 }
 
+###
 message(sprintf("Studies in raw associations file: %d", assn[, uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Studies with SNPS: %d", assn[!is.na(SNPS), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Studies with DISEASE_TRAIT: %d", assn[!is.na(DISEASE_TRAIT), uniqueN(STUDY_ACCESSION)]))
@@ -54,17 +55,20 @@ message(sprintf("Studies with OR_or_BETA: %d", assn[!is.na(OR_or_BETA), uniqueN(
 message(sprintf("Studies with SNPS and DISEASE_TRAIT and OR_or_BETA: %d", assn[(!is.na(DISEASE_TRAIT) & !is.na(SNPS) & !is.na(OR_or_BETA)), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Associations with OR_or_BETA values: %d (%.1f%%)", nrow(assn[!is.na(OR_or_BETA)]), 100*nrow(assn[!is.na(OR_or_BETA)])/nrow(assn)))
 #
+###
 # PVALUE_MLOG (not `P-VALUE`) used for TIGA.
 message(sprintf("Studies with P-VALUE: %d", assn[!is.na(`P-VALUE`), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Associations with P-VALUE: %d; missing: %d", nrow(assn[!is.na(`P-VALUE`)]), nrow(assn[is.na(`P-VALUE`)])))
 message(sprintf("Studies with PVALUE_MLOG: %d", assn[!is.na(PVALUE_MLOG), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Associations with PVALUE_MLOG: %d; missing: %d", nrow(assn[!is.na(PVALUE_MLOG)]), nrow(assn[is.na(PVALUE_MLOG)])))
+message(sprintf("Studies with PVALUE_MLOG>=8: %d", assn[PVALUE_MLOG>8, uniqueN(STUDY_ACCESSION)]))
+message(sprintf("Associations with PVALUE_MLOG>=8: %d", nrow(assn[PVALUE_MLOG>8])))
 #
-
+###
 assn[, risk_allele_freq := sub(" (.*)$", "", RISK_ALLELE_FREQUENCY)]
 assn[risk_allele_freq=="NR", risk_allele_freq := NA]
 assn[, risk_allele_freq := as.double(risk_allele_freq)]
-
+#
 ###
 # Parsing oddsratio and beta from OR_or_BETA
 tag="OR_or_BETA"

@@ -2,14 +2,13 @@
 ### TIGA: Target Illumination GWAS Analytics
 ### gt = gene-trait data
 ### Input files:
-###  gt_stats.tsv.gz               (from tiga_gt_stats.R) 
-###  gt_provenance.tsv.gz          (from tiga_gt_provenance.  R)
-###  filtered_studies.tsv.gz       (from tiga_gt_prepfilter.R)
-###  filtered_traits.tsv.gz        (from tiga_gt_prepfilter.R)
-###  filtered_genes.tsv.gz         (from tiga_gt_prepfilter.R)
-###  filtered_studies_trait.tsv.gz (from gwascat_trait.R)
-###  gwascat_gwas.tsv              (from gwascat_gwas.R)
-###  efo_graph.graphml.gz          (from efo_graph.R)
+###  gt_stats.tsv.gz            (from tiga_gt_stats.R) 
+###  gt_provenance.tsv.gz       (from tiga_gt_provenance.  R)
+###  filtered_studies.tsv       (from tiga_gt_prepfilter.R)
+###  filtered_traits.tsv        (from tiga_gt_prepfilter.R)
+###  filtered_genes.tsv         (from tiga_gt_prepfilter.R)
+###  gwascat_gwas.tsv           (from gwascat_gwas.R)
+###  efo_graph.graphml.gz       (from efo_graph.R)
 ########################################################################################
 ### Requires dqshiny dev version late 2019, via https://github.com/daqana/dqshiny
 ### remotes::install_github("daqana/dqshiny")
@@ -66,16 +65,13 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   gt_prov <- read_delim("data/gt_provenance.tsv.gz", "\t", col_types=cols(.default=col_character()))
   setDT(gt_prov)
   #
-  filtered_studies <- read_delim("data/filtered_studies.tsv.gz", "\t")
+  filtered_studies <- read_delim("data/filtered_studies.tsv", "\t")
   setDT(filtered_studies)
-  filtered_studies_trait <- read_delim("data/filtered_studies_trait.tsv.gz", "\t")
-  setDT(filtered_studies_trait)
-  filtered_studies <- rbindlist(list(filtered_studies, filtered_studies_trait))
   filtered_studies[, type := "study"]
-  filtered_traits <- read_delim("data/filtered_traits.tsv.gz", "\t")
+  filtered_traits <- read_delim("data/filtered_traits.tsv", "\t")
   setDT(filtered_traits)
   filtered_traits[, type := "trait"]
-  filtered_genes <- read_delim("data/filtered_genes.tsv.gz", "\t")
+  filtered_genes <- read_delim("data/filtered_genes.tsv", "\t")
   setDT(filtered_genes)
   filtered_genes[, type := "gene"]
   filtered_gene_menu <- filtered_genes$ensemblId #named vector

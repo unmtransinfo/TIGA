@@ -12,8 +12,6 @@
 library(readr)
 library(data.table, quietly=T)
 
-#ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv")
-#ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/data/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv")
 ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/07/15/gwas-catalog-studies_ontology-annotated.tsv")
 
 efofile_default <- "data/efo.tsv"
@@ -47,18 +45,17 @@ trait <- unique(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT)])
 
 writeLines(sprintf("Studies missing MAPPED_TRAIT_URI: %d", trait[is.na(MAPPED_TRAIT_URI), uniqueN(STUDY_ACCESSION)]))
 
-filtered_studies <- merge(data.table(STUDY_ACCESSION = trait[is.na(MAPPED_TRAIT_URI), unique(STUDY_ACCESSION)]),
-                          study, by="STUDY_ACCESSION", all.x=T, all.y=F)
-filtered_studies[, reason := "missing MAPPED_TRAIT_URI"]
-write_delim(filtered_studies, "data/filtered_studies_trait.tsv", "\t")
-system("gzip -f data/filtered_studies_trait.tsv")
-
-trait <- unique(trait[!is.na(MAPPED_TRAIT_URI)])
+### MOVE FILTER TO tiga_gt_prepfilter.R
+#filtered_studies <- merge(data.table(STUDY_ACCESSION = trait[is.na(MAPPED_TRAIT_URI), unique(STUDY_ACCESSION)]), study, by="STUDY_ACCESSION", all.x=T, all.y=F)
+#filtered_studies[, reason := "Missing MAPPED_TRAIT_URI"]
+#write_delim(filtered_studies, "data/filtered_studies_trait.tsv", "\t")
+#trait <- unique(trait[!is.na(MAPPED_TRAIT_URI)])
+###
 
 ###
 # Split comma separated vals.
 trait_multi <- trait[grepl(",", MAPPED_TRAIT_URI)]
-trait <- trait[!is.na(MAPPED_TRAIT_URI) & !grepl(",", MAPPED_TRAIT_URI)]
+trait <- trait[!grepl(",", MAPPED_TRAIT_URI)]
 for (i in 1:nrow(trait_multi)) {
   uris <- strsplit(trait_multi$MAPPED_TRAIT_URI[i], ', ', perl=T)[[1]]
   traits <- strsplit(trait_multi$MAPPED_TRAIT[i], ', ', perl=T)[[1]]
