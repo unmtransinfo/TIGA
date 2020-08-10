@@ -36,7 +36,7 @@ if (length(args)==10) {
   ifile_trait <- "data/gwascat_trait.tsv"	#gwascat_trait.R
   ifile_icite <- "data/gwascat_icite.tsv" #BioClients.icite API
   ifile_snps <- "data/gwascat_Snps.tsv.gz" #BioClients.gwascatalog API (for addl data)
-  ifile_ensembl <- "data/gwascat_Snps_EnsemblInfo.tsv.gz" #BioClients.ensembl API
+  ifile_ensembl <- "data/gwascat_EnsemblInfo.tsv.gz" #BioClients.ensembl API
   ifile_tcrd <- "data/tcrd_targets.tsv" #BioClients.idg API
   ofile <- "data/gt_prepfilter.Rdata"
 } else {
@@ -105,8 +105,8 @@ icite_gwas[is.na(rcras_study), rcras_study := 0]
 icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_ratio, rcras_pmid, rcras_study, trait_count, gene_r_count, gene_m_count, study_perpmid_count)]
 setkey(icite_gwas, pmid, STUDY_ACCESSION)
 ###
-# Link to Ensembl via IDs from Catalog API.
-# (Switched to EnsemblIDs from gene symbols.)
+# Link to Ensembl via IDs from Catalog.
+# (In 2020 (not 2018), EnsemblIDs available in downloads, so API not required.)
 studySnps <- read_delim(ifile_snps, "\t", col_types=cols(.default=col_character(), merged=col_logical(), lastUpdateDate=col_datetime(),   genomicContext_isIntergenic = col_logical(), genomicContext_isUpstream = col_logical(), genomicContext_isDownstream = col_logical(), genomicContext_distance = col_double(), genomicContext_isClosestGene = col_logical(), loc_chromosomePosition = col_double()))
 setDT(studySnps)
 ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, ensemblSymb=display_name)][, protein_coding := T]
