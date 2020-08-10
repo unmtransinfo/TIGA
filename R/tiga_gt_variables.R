@@ -38,6 +38,37 @@ writeLines(sprintf("Output variables file: %s", ofile))
 load(ifile)
 #
 ###
+# Check file contents.
+message(sprintf("g2t rows: %d", nrow(g2t)))
+message(sprintf("g2t studies (STUDY_ACCESSION): %d", g2t[, uniqueN(STUDY_ACCESSION)]))
+message(sprintf("g2t papers (PUBMEDID): %d", g2t[, uniqueN(PUBMEDID)]))
+message(sprintf("g2t study_N (instances): %d (%.1f%%)", nrow(g2t[!is.na(study_N)]),
+                100 * nrow(g2t[!is.na(study_N)]) /nrow(g2t)))
+message(sprintf("g2t traitNstudy (instances): %d (%.1f%%)", nrow(g2t[!is.na(traitNstudy)]),
+                100 * nrow(g2t[!is.na(traitNstudy)]) /nrow(g2t)))
+message(sprintf("g2t PVALUE_MLOG (instances): %d (%.1f%%)", nrow(g2t[!is.na(PVALUE_MLOG)]),
+                100 * nrow(g2t[!is.na(PVALUE_MLOG)]) /nrow(g2t)))
+message(sprintf("g2t oddsratio (instances): %d (%.1f%%)", nrow(g2t[!is.na(oddsratio)]),
+                100 * nrow(g2t[!is.na(oddsratio)]) /nrow(g2t)))
+message(sprintf("g2t beta (instances): %d (%.1f%%)", nrow(g2t[!is.na(beta)]),
+                100 * nrow(g2t[!is.na(beta)]) /nrow(g2t)))
+#
+message(sprintf("icite_gwas rows: %d", nrow(icite_gwas)))
+message(sprintf("icite_gwas studies (STUDY_ACCESSION): %d", icite_gwas[, uniqueN(STUDY_ACCESSION)]))
+message(sprintf("icite_gwas relative_citation_ratio (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(relative_citation_ratio)]),
+                100 * nrow(icite_gwas[!is.na(relative_citation_ratio)]) /nrow(icite_gwas)))
+message(sprintf("icite_gwas study_perpmid_count (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(study_perpmid_count)]),
+                100 * nrow(icite_gwas[!is.na(study_perpmid_count)]) /nrow(icite_gwas)))
+message(sprintf("icite_gwas rcras_pmid (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(rcras_pmid)]),
+                100 * nrow(icite_gwas[!is.na(rcras_pmid)]) /nrow(icite_gwas)))
+message(sprintf("icite_gwas rcras_study (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(rcras_study)]),
+                100 * nrow(icite_gwas[!is.na(rcras_study)]) /nrow(icite_gwas)))
+message(sprintf("icite_gwas gene_m_count (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(gene_m_count)]),
+                100 * nrow(icite_gwas[!is.na(gene_m_count)]) /nrow(icite_gwas)))
+
+#
+message(sprintf("tcrd rows: %d", nrow(tcrd)))
+###
 # Gene-distance weighting function.
 g2t[, GDistWt := 2^(-pmin(g2t$UPSTREAM_GENE_DISTANCE, g2t$DOWNSTREAM_GENE_DISTANCE, na.rm=T)/5e4)]
 message(sprintf("DEBUG: GDistWt: count: %d / %d (%.1f%%)", 

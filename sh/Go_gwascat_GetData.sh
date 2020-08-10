@@ -21,17 +21,13 @@ set -e
 #
 cwd=$(pwd)
 #
-#SRCDATADIR="$HOME/../data/GWASCatalog/data"
 SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/07/15"
 DATADIR="${cwd}/data"
 #
 #Source files:
-#gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.2-studies_r2018-09-30.tsv"
-#gwasfile="${SRCDATADIR}/gwas_catalog_v1.0.2-studies_r2020-07-14.tsv"
 gwasfile="${SRCDATADIR}/gwas-catalog-studies_ontology-annotated.tsv"
 #
 #assnfile="${SRCDATADIR}/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv"
-#assnfile="${SRCDATADIR}/gwas_catalog_v1.0.2-associations_e100_r2020-07-14.tsv"
 assnfile="${SRCDATADIR}/gwas-catalog-associations_ontology-annotated.tsv"
 ###
 #Output files:

@@ -59,10 +59,14 @@ setDT(gwas)
 gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), study_accession=col_character()))
 setDT(gwas_counts)
 #
-assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"), SNP_ID_CURRENT=col_character()))
+assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), 
+	DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"), 
+	UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), 
+	oddsratio=col_double(), beta=col_double(), OR_or_BETA=col_double(), 
+	PVALUE_MLOG=col_double(), `P-VALUE`=col_double()))
 setDT(assn)
 ###
-# Aha!? MAPPED_GENE missing (UP|DOWN)STREAM_GENE_DISTANCE, implies intragenic, distances are zero!
+# Aha! MAPPED_GENE missing (UP|DOWN)STREAM_GENE_DISTANCE, implies intron_variant, thus distances are zero.
 # Needed for Gene-distance weighting function, GDistWt.
 assn[(!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)), `:=`(UPSTREAM_GENE_DISTANCE=0, DOWNSTREAM_GENE_DISTANCE=0)]
 ###
@@ -181,6 +185,9 @@ message(sprintf("G-T associations in dataset: %d", nrow(unique(g2t[, .(ensemblId
 message(sprintf("Study (STUDY_ACCESSION) count: %d", uniqueN(g2t$STUDY_ACCESSION)))
 message(sprintf("Gene (ensemblId) count: %d", uniqueN(g2t$ensemblId)))
 message(sprintf("Trait (efoId) count: %d", uniqueN(g2t$efoId)))
+message(sprintf("PVALUE_MLOG (instance) count: %d", nrow(g2t[!is.na(PVALUE_MLOG)])))
+message(sprintf("oddsratio (instance) count: %d", nrow(g2t[!is.na(oddsratio)])))
+message(sprintf("beta (instance) count: %d", nrow(g2t[!is.na(beta)])))
 #
 ###
 # Save to file.
