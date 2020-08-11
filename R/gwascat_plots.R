@@ -8,9 +8,7 @@
 #############################################################################
 library(readr)
 library(data.table)
-#library(dplyr, quietly = T)
 library(plotly, quietly = T)
-#library(webshot, quietly=T)
 
 ###
 gwas <- read_delim("data/gwascat_gwas.tsv", "\t", col_types=cols(.default=col_character(), DATE=col_date(), ASSOCIATION_COUNT=col_integer(), DATE_ADDED_TO_CATALOG=col_date(), study_N=col_integer()))
@@ -75,7 +73,7 @@ subplot(nrows=2, margin=0.1,
                             font=list(size=12)),
          margin=list(t=100, l=160), showlegend=F) %>%
   add_annotations(text=format(Sys.time(), "%Y-%m-%d %H:%M:%S"), showarrow=F, x=1.0, y=1.2, xref="paper", yref="paper")
-#export(p=p1, file="data/gwas_counts.png")
+#webshot::export(p=p1, file="data/gwas_counts.png")
 ###
 
 ###

@@ -66,12 +66,11 @@ assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(),
 	PVALUE_MLOG=col_double(), `P-VALUE`=col_double()))
 setDT(assn)
 ###
-# Aha! MAPPED_GENE missing (UP|DOWN)STREAM_GENE_DISTANCE, implies intron_variant, thus distances are zero.
-# Needed for Gene-distance weighting function, GDistWt.
+# Missing (UP|DOWN)STREAM_GENE_DISTANCE implies within MAPPED_GENE, thus distances zero for gene-distance weighting function, GDistWt.
 assn[(!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)), `:=`(UPSTREAM_GENE_DISTANCE=0, DOWNSTREAM_GENE_DISTANCE=0)]
 ###
 #
-snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(), REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
+snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(), REPORTED_OR_MAPPED=col_factor(c("r", "m", "md", "mu"))))
 setDT(snp2gene)
 snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED!="r"]) #Ignore reported.
 #

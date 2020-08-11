@@ -1,4 +1,4 @@
-### Input gwascat_assn.tsv, from gwascat_assn.R and gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv
+### Input gwascat_assn.tsv, from gwascat_assn.R
 chomp();
 @_=split(/\t/);
 @gsyms=split(/[,\s]+/,@_[13]);
