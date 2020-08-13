@@ -81,6 +81,7 @@ ifile_tcrd <- "data/tcrd_targets.tsv"
 ifile_efo <- "data/efo.tsv"
 ifile_efo2do <- "data/oxo_efo2doid.tsv"
 ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
+gt_provfile <- "data/gt_provenance.tsv.gz"
 gt_statsfile <- "data/gt_stats.tsv.gz"
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), 
     DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
@@ -89,7 +90,7 @@ setDT(gwas)
 assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), OR_or_BETA=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d")))
 setDT(assn)
 snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(),
-    REPORTED_OR_MAPPED=col_factor(c("r","m","md","mu"))))
+    REPORTED_OR_MAPPED=col_factor(c("r", "m", "md", "mu"))))
 setDT(snp2gene)
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
@@ -448,17 +449,17 @@ studies, for each gene-trait association.
 
 ```{r}
 gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
-n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(),
-mu_score=col_double(), nAbove=col_integer(), nBelow=col_integer(), mu_rank=col_integer()))
+n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(),
+or_median=col_double(), n_beta=col_integer(),
+meanRank=col_double(), meanRankScore=col_double()))
 setDT(gt)
 sprintf("nrow(gt) = %d", nrow(gt))
 ```
 
-### Multivariate non-parametric ranking via &mu; scores.
+### Multivariate non-parametric ranking via meanRankScore.
 
-Since weighting among variables of merit is subjective, ranking by &mu; scores is
-used, based on the concept of non-dominated solutions and Pareto -boundary/-front.
-See Wittkowski (2008) and R package `muStat` for details.
+Since weighting among variables of merit is subjective, ranking by *meanRankScore* is
+used. 
 
 ```{r}
 knitr::kable(gt[trait=="pathological myopia"], caption="Example: pathological myopia")
@@ -482,15 +483,18 @@ TIGA: Target Illumination GWAS Analytics
 
 ## Plot single trait with all associated genes.
 
-* X-axis: Evidence (`n_study`)
-* Y-axis: Effect (`median(OR)`)
-* Other variables used in &mu; scores:
+* X-axis: Evidence (`meanRankScore`)
+* Y-axis: Effect (`OR` or `N_beta`)
+* Variables used in `meanRankScore`:
+ * `pVal` - median of trait-SNP pValues
+ * `N_study` - # studies supporting association
+ * `RCRAS` - Relative Citation Ratio Aggregated Score 
+* Other variables:
  * `N_trait` - traits associated with gene
  * `N_snp` - # SNPs implicating gene
+ * `N_snpw` - # SNPs implicating gene, weighted by genomic distance
  * `OR` - median of trait-SNP ORs
  * `N_beta` - # supporting beta values
- * `pVal` - median of trait-SNP pValues
- * `RCRAS` - Relative Citation Ratio Aggregated Score 
  * `N_gene` - # genes associated with trait
  * `N_sample` - mean of sample sizes
 

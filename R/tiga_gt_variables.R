@@ -106,12 +106,11 @@ for (ensg in unique(g2t$ensemblId)) {
   geneNstudy <- g2t[ensemblId==ensg, uniqueN(STUDY_ACCESSION)]
   # trait-loop:
   for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
+    i_gt <- i_gt + 1
     if ((i_gt%%10000)==0) {
       t_elapsed <- (Sys.time()-t_start)
-      message(sprintf("i_gt: %d / %d (%.1f%%) ; %s, elapsed: %.2f %s", i_gt, NROW, 100*i_gt/NROW, Sys.time(), t_elapsed, attr(t_elapsed, "units")))
+      message(sprintf("%d / %d (%.1f%%) GTs; %s, elapsed: %.1f %s", i_gt, NROW, 100*i_gt/NROW, Sys.time(), t_elapsed, attr(t_elapsed, "units")))
     }
-    i_gt <- i_gt + 1
-    #
     gt_stats$ensemblId[i_gt] <- ensg
     gt_stats$efoId[i_gt] <- sub("^.*/", "", trait_uri)
     gt_stats$geneNstudy[i_gt] <- geneNstudy
@@ -175,7 +174,7 @@ gt_stats <- gt_stats[!is.na(geneIdgTdl)] #Non-protein-coding removed by IDG TDL 
 message(sprintf("Genes (ensemblIDs): %d", uniqueN(gt_stats$ensemblId)))
 message(sprintf("Genes (symbols): %d", uniqueN(gt_stats$geneSymbol)))
 message(sprintf("Traits in dataset: %d", uniqueN(gt_stats$efoId)))
-message(sprintf("G-T associations in dataset: %d", nrow(gt_stats)))
+message(sprintf("GT associations in dataset: %d", nrow(gt_stats)))
 ###
 
 # Save computed variables to file.

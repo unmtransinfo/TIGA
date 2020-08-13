@@ -36,7 +36,7 @@ load(ifile)
 n_gt_pairs <- nrow(unique(g2t[(!is.na(STUDY_ACCESSION) & !is.na(PUBMEDID)), .(ensemblId, TRAIT_URI)]))
 message(sprintf("Input genes: %d", uniqueN(g2t$ensemblId)))
 message(sprintf("Input traits: %d", uniqueN(g2t$TRAIT_URI)))
-message(sprintf("Input GT (gene-trait) pairs with provenance: %d", n_gt_pairs))
+message(sprintf("Input GTs (gene-trait pairs) with provenance: %d", n_gt_pairs))
 ###
 # GENE-TRAIT provenance
 message("Enumerating study & publication provenance for each gene-trait pair.")
@@ -49,9 +49,9 @@ for (ensg in unique(g2t$ensemblId)) {
   for (trait_uri in unique(g2t[ensemblId==ensg, TRAIT_URI])) {
     i <- i + 1
     studies_this <- unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(STUDY_ACCESSION, PUBMEDID)])
-    if ((i%%1000)==0) {
+    if ((i%%10000)==0) {
       t_elapsed <- (Sys.time()-t_start)
-      message(sprintf("%d / %d (%.1f%%) GT pairs; %s, elapsed: %.2f %s", i, n_gt_pairs, 100*i/n_gt_pairs, Sys.time(), t_elapsed, attr(t_elapsed, "units")))
+      message(sprintf("%d / %d (%.1f%%) GTs; %s, elapsed: %.1f %s", i, n_gt_pairs, 100*i/n_gt_pairs, Sys.time(), t_elapsed, attr(t_elapsed, "units")))
     }
     gt_prov_this <- data.table(ensemblId=rep(ensg, nrow(studies_this)), TRAIT_URI=rep(trait_uri, nrow(studies_this)), STUDY_ACCESSION=studies_this[, STUDY_ACCESSION], PUBMEDID=studies_this[, PUBMEDID])
     if (is.null(gt_prov)) {
@@ -67,7 +67,7 @@ gt_prov[, efoId := sub("^.*/", "", TRAIT_URI)]
 ###
 message(sprintf("Provenance genes (ensemblIDs): %d", uniqueN(gt_prov$ensemblId)))
 message(sprintf("Provenance traits (efoIds): %d", uniqueN(gt_prov$efoId)))
-message(sprintf("Provenance G-T associations: %d", nrow(unique(gt_prov[, .(ensemblId, efoId)]))))
+message(sprintf("Provenance GT associations: %d", nrow(unique(gt_prov[, .(ensemblId, efoId)]))))
 #
 # Save to file.
 write_delim(gt_prov, ofile, delim="\t")
