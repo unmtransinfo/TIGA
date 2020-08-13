@@ -29,7 +29,7 @@ if (length(args)==10) {
   (ifile_tcrd	<- args[9])
   (ofile	<- args[10])
 } else if (length(args)==0) {
-  ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
+  ifile_gwas <- "data/gwascat_gwas.tsv.gz"	#gwascat_gwas.R
   ifile_counts <- "data/gwascat_counts.tsv"	#Go_gwascat_DbCreate.sh
   ifile_assn <- "data/gwascat_assn.tsv"	#gwascat_assn.R
   ifile_snp2gene <- "data/gwascat_snp2gene.tsv" #snp2gene_mapped.pl, snp2gene_reported.pl
@@ -226,7 +226,7 @@ write_delim(filtered_genes, "data/filtered_genes.tsv", delim="\t")
 #
 badrows <- (badrows_traituri | badrows_pval | badrows_effect)
 message(sprintf("Filtered associations (total): %d -> %d (-%d; -%.1f%%)", nrow(g2t), nrow(g2t)-sum(badrows), sum(badrows), 100*sum(badrows)/nrow(g2t)))
-g2t <- g2t[badrows] #Many filtered.
+g2t <- g2t[!badrows] #Many filtered.
 #
 ###
 #

@@ -48,7 +48,10 @@ study_N_mean = col_double(),
 rcras = col_double(),
 geneIdgList = col_logical()))
 setDT(gt_stats)
-
+#
+gt_stats <- gt_stats[!is.na(efoId)] #Should be in tiga_gt_prepfilter.R
+gt_stats <- gt_stats[!is.na(pvalue_mlog_median)] #Should be in tiga_gt_prepfilter.R
+#
 ###
 # Mean-rank computation. For each variable in defined set, 
 # compute rank with ties having same rank, then compute mean of 

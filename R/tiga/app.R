@@ -3,11 +3,11 @@
 ### gt = gene-trait data
 ### Input files:
 ###  gt_stats.tsv.gz            (from tiga_gt_stats.R) 
-###  gt_provenance.tsv.gz       (from tiga_gt_provenance.  R)
+###  gt_provenance.tsv.gz       (from tiga_gt_provenance.R)
 ###  filtered_studies.tsv       (from tiga_gt_prepfilter.R)
 ###  filtered_traits.tsv        (from tiga_gt_prepfilter.R)
 ###  filtered_genes.tsv         (from tiga_gt_prepfilter.R)
-###  gwascat_gwas.tsv           (from gwascat_gwas.R)
+###  gwascat_gwas.tsv.gz        (from gwascat_gwas.R)
 ###  efo_graph.graphml.gz       (from efo_graph.R)
 ########################################################################################
 ### Requires dqshiny dev version late 2019, via https://github.com/daqana/dqshiny
@@ -15,6 +15,10 @@
 ########################################################################################
 ### Autosuggest is dependent on dqshiny and shiny versions and is fussy. shiny 1.4.0 is
 ### ok (but possibly not 1.4.0.2) with dqshiny 0.0.3.9000 and shinyBS 0.61.
+########################################################################################
+### To-do:
+### [ ] Missing genes/traits should show Plots tab and no Hits tab:
+###     http://unmtid-shinyapps.net/tiga_dev/?gene=ENSG00000007001
 ########################################################################################
 library(readr)
 library(data.table)
@@ -54,9 +58,7 @@ APPNAME <- "TIGA"
 APPNAME_FULL <- "TIGA: Target Illumination GWAS Analytics"
 MIN_ASSN <- 1
 #
-t0 <- proc.time()
-DEBUG <- F
-if (!file.exists("tiga.Rdata") | DEBUG) {
+if (!file.exists("tiga.Rdata")) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
   gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), n_beta=col_double(), study_N_mean=col_double(), rcras=col_double(), geneMeanRank=col_double(), geneMeanRankScore=col_double(), traitMeanRank=col_double(), traitMeanRankScore=col_double()))
   setDT(gt)
@@ -76,6 +78,14 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   filtered_genes[, type := "gene"]
   filtered_gene_menu <- filtered_genes$ensemblId #named vector
   names(filtered_gene_menu) <- sprintf("%s:%s", filtered_genes$ensemblSymb, filtered_genes$geneName)
+  #
+  for (ensemblId in filtered_genes$ensemblId) {
+    if (ensemblId %in% unique(gt$ensemblId)) {
+      message(sprintf("ERROR: filtered gene exists in dataset: \"%s\"", ensemblId))
+    }
+  }
+  filtered_genes <- filtered_genes[!(ensemblId %in% unique(gt$ensemblId))]
+  #
   filtered <- rbindlist(list(filtered_studies[, .(type, id=STUDY_ACCESSION, reason)], filtered_traits[, .(type, id=TRAIT_URI, reason)], filtered_genes[, .(type, id=ensemblId, reason)]))
   #
   trait_table <- gt[, .(trait=first(trait), N_study=first(traitNstudy), N_gene=uniqueN(ensemblId)),  by="efoId"]
@@ -96,7 +106,7 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   trait_menu <- as.list(trait_menu)
   gene_menu <- as.list(gene_menu)
   #
-  study_table <- read_delim("data/gwascat_gwas.tsv", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
+  study_table <- read_delim("data/gwascat_gwas.tsv.gz", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
   setDT(study_table)
   study_table <- study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED = DATE, DATE_ADDED_TO_CATALOG)][order(DATE_PUBLISHED)]
   #
@@ -109,15 +119,9 @@ if (!file.exists("tiga.Rdata") | DEBUG) {
   message(sprintf("Loading tiga.Rdata..."))
   load("tiga.Rdata")
 }
-if (!("efoId" %in% names(gt_prov))) gt_prov[, efoId := sub("^.*/", "", TRAIT_URI)] #tmp
-#
-t_elapsed <- (proc.time()-t0)[3]
 #
 message(sprintf("Gene count, IDs: %d; symbols: %d", uniqueN(gt$ensemblId), uniqueN(gt$geneSymbol)))
 message(sprintf("Trait count (total): %d", uniqueN(gt$efoId)))
-#trait_table[, ontology := factor(sub("_.*$","", efoId))]
-#trait_counts <- trait_table[, .N, by="ontology"][order(-N)]
-#message(sprintf("traits (%10s): %4d / %4d (%4.1f%%)\n", trait_counts$ontology, trait_counts$N, sum(trait_counts$N), 100*trait_counts$N/sum(trait_counts$N)))
 message(sprintf("Trait count (filtered; n_assn<%d): %d", MIN_ASSN, uniqueN(gt$efoId)-length(trait_menu)))
 message(sprintf("Trait count (menu; n_assn>=%d): %d", MIN_ASSN, length(trait_menu)))
 #
@@ -127,12 +131,11 @@ message(sprintf("FILTERED entities: (%5s) %5d REASON: %s\n", flt$V1, flt$N, flt$
 #
 message(sprintf("Graph \"%s\": vertices: %d; edges: %d", graph_attr(efoGraph, "name"), vcount(efoGraph), ecount(efoGraph)))
 #
-dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d ; studies: %d; publications: %d", 
+dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d; studies: %d; publications: %d", 
                  uniqueN(gt$ensemblId), uniqueN(gt$efoId), uniqueN(gt_prov$STUDY_ACCESSION), uniqueN(gt_prov$PUBMEDID))
 #
 ###
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
-#axes <- c("Effect", "Evidence")
 #
 #############################################################################
 HelpHtm <- function() {
@@ -269,12 +272,12 @@ ui <- fluidPage(
 ##########################################################################################
 server <- function(input, output, session) {
 
-  #Modal popup for genetrait details.
-  observeEvent(input$showGeneTraitProvenance, {
-    showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
-	title=HTML("<H2>Gene-trait detail</H2>"),
-		htmlOutput("detail_summary"), DT::dataTableOutput("detail_studies")))
-  })
+### Modal popup for genetrait details.
+# observeEvent(input$showGeneTraitProvenance, {
+#	showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
+#	title=HTML("<H2>Gene-trait detail</H2>"),
+#	htmlOutput("detail_summary"), DT::dataTableOutput("detail_studies")))
+# })
 
   output$helpHtm <- reactive({ paste(sprintf("<H2>%s Help</H2>", APPNAME), HelpHtm()) })
 
@@ -378,10 +381,13 @@ server <- function(input, output, session) {
     return(sprintf("%s:%s", gene_table[ensemblId==qryIds()$gene, geneSymbol], gene_table[ensemblId==qryIds()$gene, geneName]))
   })
 
-
   Hits <- reactive({
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
       return(NULL)
+    }
+    if (!(hitType() %in% c("trait", "gene"))) {
+      return(NULL)
+      #return(data.table()) #empty
     }
     if (hitType()=="trait") {
       gt_this <- gt[ensemblId==qryIds()$gene]
@@ -398,10 +404,6 @@ server <- function(input, output, session) {
       setnames(gt_this, old=c("geneMeanRank", "geneMeanRankScore"), new=c("meanRank", "meanRankScore"))
       setorder(gt_this, -meanRankScore)
       gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
-    } else { #hitType=="genetrait"
-      gt_this <- gt[ensemblId==qryIds()$gene & efoId==qryIds()$trait]
-      gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_median, rcras, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
-      gt_this[, ok2plot := T]
     }
     if (hitType() %in% c("trait", "gene") & input$yAxis=="auto") { #auto-set yAxis
       n_or <- gt_this[!is.na(or_median), .N]
@@ -413,7 +415,6 @@ server <- function(input, output, session) {
   })
 
   output$hitCount <- renderText({ as.character(nrow(Hits())) })
-  
   output$plotTabTxt <- renderText({ ifelse(is.null(Hits()), "Plot", sprintf("Plot (%d %ss)", Hits()[(ok2plot), .N], hitType())) })
   output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d %ss)", Hits()[, .N], hitType()), "Hits (0)") })
 
