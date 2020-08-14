@@ -17,8 +17,7 @@
 ### ok (but possibly not 1.4.0.2) with dqshiny 0.0.3.9000 and shinyBS 0.61.
 ########################################################################################
 ### To-do:
-### [ ] Missing genes/traits should show Plots tab and no Hits tab:
-###     http://unmtid-shinyapps.net/tiga_dev/?gene=ENSG00000007001
+### [ ] :
 ########################################################################################
 library(readr)
 library(data.table)
@@ -99,6 +98,11 @@ if (!file.exists("tiga.Rdata")) {
   gene_table <- gt[, .(geneSymbol, geneName, geneFamily, TDL, N_study = geneNstudy, N_trait = uniqueN(efoId), filtered=F),  by=c("ensemblId")]
   gene_table <- rbindlist(list(gene_table, filtered_genes[, .(ensemblId, geneSymbol=ensemblSymb, geneName, geneFamily, TDL, N_study=0, N_trait=0, filtered=T)]))
   gene_table <- unique(gene_table)[order(geneSymbol)]
+  #
+  # Duplicated ENSGs (could be isoforms):
+  dup_ENSGs <- gene_table[ensemblId %in% gene_table[duplicated(ensemblId), ensemblId], .(ensemblId, geneSymbol, geneName)][order(ensemblId)]
+  message(sprintf("DEBUG: duplicated ENSGs: %d; removing %d rows", uniqueN(dup_ENSGs$ensemblId), sum(duplicated(gene_table$ensemblId))))
+  gene_table <- gene_table[!duplicated(ensemblId)]
   #
   gene_menu <- gene_table$ensemblId #named vector
   names(gene_menu) <- sprintf("%s:%s", gene_table$geneSymbol, gene_table$geneName)
@@ -261,7 +265,6 @@ ui <- fluidPage(
         " and ",
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
-  #bsTooltip("randTraitQry", "Random query trait or gene", "right"),
   bsTooltip("goReset", "Reset.", "right"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
@@ -327,7 +330,7 @@ server <- function(input, output, session) {
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
     htm <- "<h3>Provenance and details</h3>\n"
     htm <- paste(htm, sprintf("<b>TRAIT:</b> <tt>%s</tt> &harr; <b>GENE:</b> <tt>%s</tt>\n<br/>", efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this)), "\n")
-    if (nrow(Hits())==0) {
+    if (is.null(Hits()) | nrow(Hits())==0) {
       htm <- paste(htm, "<B>NO ASSOCIATIONS FOUND.</B>")
     } else {
       for (tag in names(Hits()))
@@ -385,10 +388,6 @@ server <- function(input, output, session) {
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
       return(NULL)
     }
-    if (!(hitType() %in% c("trait", "gene"))) {
-      return(NULL)
-      #return(data.table()) #empty
-    }
     if (hitType()=="trait") {
       gt_this <- gt[ensemblId==qryIds()$gene]
       if (nrow(gt_this)==0) { return(NULL) }
@@ -404,13 +403,20 @@ server <- function(input, output, session) {
       setnames(gt_this, old=c("geneMeanRank", "geneMeanRankScore"), new=c("meanRank", "meanRankScore"))
       setorder(gt_this, -meanRankScore)
       gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
+    } else { #hitType=="genetrait"
+      # These data appear in Provenance tab.
+      gt_this <- gt[ensemblId==qryIds()$gene & efoId==qryIds()$trait]
+      gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_median, rcras, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
+      gt_this[, ok2plot := T]
     }
-    if (hitType() %in% c("trait", "gene") & input$yAxis=="auto") { #auto-set yAxis
-      n_or <- gt_this[!is.na(or_median), .N]
-      n_nbeta <- gt_this[n_beta>0, .N]
-      updateRadioButtons(session, "yAxis", selected=ifelse(n_nbeta>n_or, "n_beta", "or_median"))
+    if (hitType() %in% c("trait", "gene")) {
+      if (input$yAxis=="auto") { #auto-set yAxis
+        n_or <- gt_this[!is.na(or_median), .N]
+        n_nbeta <- gt_this[n_beta>0, .N]
+        updateRadioButtons(session, "yAxis", selected=ifelse(n_nbeta>n_or, "n_beta", "or_median"))
+      }
+      gt_this[, or_median := ifelse(is.na(or_median), 0, or_median)] #NA represented as zero for plotting.
     }
-    gt_this[, or_median := ifelse(is.na(or_median), 0, or_median)] #NA encoded as zero for plotting.
     return(gt_this)
   })
 
@@ -419,7 +425,7 @@ server <- function(input, output, session) {
   output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d %ss)", Hits()[, .N], hitType()), "Hits (0)") })
 
   output$traitFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(trait_table), ncol(trait_table)) })
-  output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table), ncol(gene_table)) })
+  output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table[(!filtered)]), ncol(gene_table)) })
   output$gtFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt), ncol(gt)) })
   output$provFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt_prov), ncol(gt_prov)) })
   output$detail_summary <- reactive({ DetailSummaryHtm(qryIds()$trait, qryIds()$gene) })
@@ -485,7 +491,6 @@ server <- function(input, output, session) {
     return(htm)
   })
   
-  #Errors here?
   markerSize <- reactive({
     if (input$markerSizeBy=="n_study") {
       size <- 5*Hits()[(ok2plot), n_study]
@@ -518,8 +523,8 @@ server <- function(input, output, session) {
     "; OR = ", round(Hits()[(ok2plot), or_median], digits=2), 
     "; N_beta = ", Hits()[(ok2plot), n_beta],
     "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok2plot), pvalue_mlog_median])),
-    "; RCRAS = ", round(Hits()[(ok2plot), rcras], digits=2),
-    ";<br>DEBUG: .I = ", Hits()[(ok2plot), .I]
+    "; RCRAS = ", round(Hits()[(ok2plot), rcras], digits=2)
+    # ";<br>DEBUG: .I = ", Hits()[(ok2plot), .I]
       )
     message(sprintf("DEBUG: length(markerTextGenes): %d", length(text)))
     return(text)
@@ -659,13 +664,15 @@ server <- function(input, output, session) {
 
   #All-genes table has tiga-gene links.
   gene_tableHtm <- reactive({
-    dt <- data.table(gene_table)[order(geneSymbol)]
+    #dt <- data.table(gene_table)[order(geneSymbol)]
+    dt <- data.table(gene_table[(!filtered)])[order(geneSymbol)]
     dt[, symbHtm := sprintf("<a href=\"%s?gene=%s\">%s</a>", urlBase(), ensemblId, geneSymbol)]
-    dt[, .(ensemblId, geneSymbol = symbHtm, geneName, geneFamily, TDL, N_study, N_trait, filtered)]
+    #dt[, .(ensemblId, geneSymbol = symbHtm, geneName, geneFamily, TDL, N_study, N_trait, filtered)]
+    dt[, .(ensemblId, geneSymbol = symbHtm, geneName, geneFamily, TDL, N_study, N_trait)]
   })
 
   output$genes <- DT::renderDataTable({
-    DT::datatable(data=gene_tableHtm()[, .(geneSymbol, geneName, geneFamily, TDL, N_study, N_trait, filtered)], rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
+    DT::datatable(data=gene_tableHtm()[, .(geneSymbol, geneName, geneFamily, TDL, N_study, N_trait)], rownames=F, options=list(autoWidth=T, dom='tipf'), escape=F)
   }, server=T)
   
   study_tableHtm <- reactive({
@@ -731,7 +738,7 @@ server <- function(input, output, session) {
   output$genes_file <- downloadHandler(
     filename = "tiga_genes.tsv",
     content = function(file) {
-      write_delim(gene_table, file, delim="\t")
+      write_delim(gene_table[(!filtered)], file, delim="\t")
     }
   )
   output$gt_file <- downloadHandler(
