@@ -75,7 +75,11 @@ for (efoId_this in unique(gt_stats$efoId)) {
   ii <- ii + 1
   trait_this <- gt_stats[efoId==efoId_this, trait][1]
   n_gene_this <- gt_stats[efoId==efoId_this, uniqueN(ensemblId)]
-  message(sprintf("[%d / %d] (N_gene: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$efoId), n_gene_this, efoId_this, trait_this))
+  #message(sprintf("DEBUG: [%d / %d] (N_gene: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$efoId), n_gene_this, efoId_this, trait_this))
+  if ((ii %% 100)==0) {
+    t_elapsed <- (Sys.time()-t_start)
+    message(sprintf("geneMeanRanks: %d / %d (%.1f%%) TRAITs; %.2f %s", ii, uniqueN(gt_stats$efoId), 100*ii/uniqueN(gt_stats$efoId), t_elapsed, attr(t_elapsed, "units")))
+  }
   if (n_gene_this<2) { #singletons
     gt_stats[efoId==efoId_this]$geneMeanRank <- 1
     next;
@@ -88,6 +92,7 @@ for (efoId_this in unique(gt_stats$efoId)) {
   ranks_this[, meanRank := rowMeans(.SD)]
   gt_stats[efoId==efoId_this]$geneMeanRank <- ranks_this$meanRank
 }
+message(sprintf("geneMeanRanks: %d / %d (%.1f%%) TRAITs; %.2f %s", ii, uniqueN(gt_stats$efoId), 100*ii/uniqueN(gt_stats$efoId), t_elapsed, attr(t_elapsed, "units")))
 #
 ###
 # Trait meanrank:
@@ -97,7 +102,11 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
   n_trait_this <- gt_stats[ensemblId==ensemblId_this, uniqueN(efoId)]
   ii <- ii + 1
   geneSymbol_this <- gt_stats[ensemblId==ensemblId_this, geneSymbol][1]
-  message(sprintf("[%d / %d] (N_trait: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$ensemblId), n_trait_this, ensemblId_this, geneSymbol_this))
+  #message(sprintf("DEBUG: [%d / %d] (N_trait: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$ensemblId), n_trait_this, ensemblId_this, geneSymbol_this))
+  if ((ii %% 1000)==0) {
+    t_elapsed <- (Sys.time()-t_start)
+    message(sprintf("traitMeanRanks: %d / %d (%.1f%%) GENEs; %.2f %s", ii, uniqueN(gt_stats$ensemblId), 100*ii/uniqueN(gt_stats$ensemblId), t_elapsed, attr(t_elapsed, "units")))
+  }
   if (n_trait_this<2) { #singletons
     gt_stats[ensemblId==ensemblId_this]$traitMeanRank <- 1
     next;
@@ -110,6 +119,7 @@ for (ensemblId_this in unique(gt_stats$ensemblId)) {
   ranks_this[, meanRank := rowMeans(.SD)]
   gt_stats[ensemblId==ensemblId_this]$traitMeanRank <- ranks_this$meanRank
 }
+message(sprintf("traitMeanRanks: %d / %d (%.1f%%) GENEs; %.2f %s", ii, uniqueN(gt_stats$ensemblId), 100*ii/uniqueN(gt_stats$ensemblId), t_elapsed, attr(t_elapsed, "units")))
 ###
 gt_stats[, `:=`(geneMeanRankScore = 100/geneMeanRank, traitMeanRankScore = 100/traitMeanRank)]
 #
