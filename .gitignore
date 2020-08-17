@@ -21,3 +21,5 @@ R/*.html
 **/*.pyc
 
 **/*.gz
+
+**/.DS_Store

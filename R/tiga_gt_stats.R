@@ -1,15 +1,19 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### GENE-TRAIT stats
-### tiga_gt_stats.R - Produce gt_stats.csv, for TIGA Shiny app.
+### GENE-TRAIT STATS
+### tiga_gt_stats.R - Produce gt_stats.tsv, for TIGA Shiny app.
 ### Input from tiga_gt_variables.R.
-### ~30min
 #############################################################################
 # Now using mean-rank or median-rank instead of mu_scores.
 # Based on DISEASES benchmark results, using only variables:
 #   * n_study
 #   * pvalue_mlog_median
 #   * rcras
+#############################################################################
+### Previously we computed meanRank for (1) genes for a given trait, and
+### (2) traits for a given gene. Another way providing additional 
+### functionality is to compute meanRank for gene-trait pairs (GTs) relative
+### to all GTs. Since the input variables all correspond to GTs.
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
@@ -68,60 +72,16 @@ my_rank <- function(v) {
 ###
 TAGS_FOR_RANKING <- c("n_study", "pvalue_mlog_median", "rcras")
 ###
-# Gene meanrank:
-gt_stats[, geneMeanRank := as.numeric(NA)]
-ii <- 0
-for (efoId_this in unique(gt_stats$efoId)) {
-  ii <- ii + 1
-  trait_this <- gt_stats[efoId==efoId_this, trait][1]
-  n_gene_this <- gt_stats[efoId==efoId_this, uniqueN(ensemblId)]
-  #message(sprintf("DEBUG: [%d / %d] (N_gene: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$efoId), n_gene_this, efoId_this, trait_this))
-  if ((ii %% 100)==0) {
-    t_elapsed <- (Sys.time()-t_start)
-    message(sprintf("geneMeanRanks: %d / %d (%.1f%%) TRAITs; %.2f %s", ii, uniqueN(gt_stats$efoId), 100*ii/uniqueN(gt_stats$efoId), t_elapsed, attr(t_elapsed, "units")))
-  }
-  if (n_gene_this<2) { #singletons
-    gt_stats[efoId==efoId_this]$geneMeanRank <- 1
-    next;
-  }
-  ranks_this <- list()
-  for (tag in TAGS_FOR_RANKING) {
-    ranks_this[[tag]] <- my_rank(-gt_stats[efoId==efoId_this][[tag]])
-  }
-  setDT(ranks_this)
-  ranks_this[, meanRank := rowMeans(.SD)]
-  gt_stats[efoId==efoId_this]$geneMeanRank <- ranks_this$meanRank
+ranks_this <- list()
+for (tag in TAGS_FOR_RANKING) {
+  ranks_this[[tag]] <- my_rank(-gt_stats[[tag]])
 }
-message(sprintf("geneMeanRanks: %d / %d (%.1f%%) TRAITs; %.2f %s", ii, uniqueN(gt_stats$efoId), 100*ii/uniqueN(gt_stats$efoId), t_elapsed, attr(t_elapsed, "units")))
+setDT(ranks_this)
+ranks_this[, meanRank := rowMeans(.SD)]
+gt_stats[, meanRank := ranks_this$meanRank]
 #
 ###
-# Trait meanrank:
-gt_stats[, traitMeanRank := as.numeric(NA)]
-ii <- 0
-for (ensemblId_this in unique(gt_stats$ensemblId)) {
-  n_trait_this <- gt_stats[ensemblId==ensemblId_this, uniqueN(efoId)]
-  ii <- ii + 1
-  geneSymbol_this <- gt_stats[ensemblId==ensemblId_this, geneSymbol][1]
-  #message(sprintf("DEBUG: [%d / %d] (N_trait: %3d) %s:\"%s\"", ii, uniqueN(gt_stats$ensemblId), n_trait_this, ensemblId_this, geneSymbol_this))
-  if ((ii %% 1000)==0) {
-    t_elapsed <- (Sys.time()-t_start)
-    message(sprintf("traitMeanRanks: %d / %d (%.1f%%) GENEs; %.2f %s", ii, uniqueN(gt_stats$ensemblId), 100*ii/uniqueN(gt_stats$ensemblId), t_elapsed, attr(t_elapsed, "units")))
-  }
-  if (n_trait_this<2) { #singletons
-    gt_stats[ensemblId==ensemblId_this]$traitMeanRank <- 1
-    next;
-  }
-  ranks_this <- list()
-  for (tag in TAGS_FOR_RANKING) {
-    ranks_this[[tag]] <- my_rank(-gt_stats[ensemblId==ensemblId_this][[tag]])
-  }
-  setDT(ranks_this)
-  ranks_this[, meanRank := rowMeans(.SD)]
-  gt_stats[ensemblId==ensemblId_this]$traitMeanRank <- ranks_this$meanRank
-}
-message(sprintf("traitMeanRanks: %d / %d (%.1f%%) GENEs; %.2f %s", ii, uniqueN(gt_stats$ensemblId), 100*ii/uniqueN(gt_stats$ensemblId), t_elapsed, attr(t_elapsed, "units")))
-###
-gt_stats[, `:=`(geneMeanRankScore = 100/geneMeanRank, traitMeanRankScore = 100/traitMeanRank)]
+gt_stats[, meanRankScore := 1e6/meanRank]
 #
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
