@@ -15,6 +15,9 @@
 ### functionality is to compute meanRank for gene-trait pairs (GTs) relative
 ### to all GTs. Since the input variables all correspond to GTs.
 #############################################################################
+### By expressing ranks as [1,100] percentiles rank_ptl, 100/rank_ptl is
+### normalized to [1,100] weighted more for higher rank intervals.
+#############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
 #
@@ -69,6 +72,7 @@ my_rank <- function(v) {
   ranks <- ifelse(is.na(ranks), rank_max+1, ranks)
   return(ranks)
 }
+#
 ###
 TAGS_FOR_RANKING <- c("n_study", "pvalue_mlog_median", "rcras")
 ###
@@ -81,7 +85,17 @@ ranks_this[, meanRank := rowMeans(.SD)]
 gt_stats[, meanRank := ranks_this$meanRank]
 #
 ###
-gt_stats[, meanRankScore := 1e6/meanRank]
+# Normalize to meanRankPtl (percentile)
+ranks2pctiles <- function(rs) {
+  q <- quantile(rs, seq(0, 1, .01))
+  for (i in 1:length(rs)) {
+    rs[i] <- max(which(q <= rs[i]))
+  }
+  return(rs)
+}
+#
+gt_stats[, meanRankPtl := ranks2pctiles(meanRank)]
+gt_stats[, meanRankScore := 100/meanRankPtl]
 #
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
