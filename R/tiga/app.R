@@ -52,6 +52,7 @@ efoId2Subclasses <- function(G, id_this) {
 ########################################################################################
 APPNAME <- "TIGA"
 APPNAME_FULL <- "TIGA: Target Illumination GWAS Analytics"
+GWASCATALOG_RELEASE <- "2020-07-15"
 MIN_ASSN <- 1
 #
 if (!file.exists("tiga.Rdata")) {
@@ -140,7 +141,7 @@ idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
 #
 #############################################################################
 HelpHtm <- function() {
-  htm <- ("<P><B>TIGA</B>, Target Illumination GWAS Analytics, facilitates drug target illumination by 
+  htm <- sprintf("<P><B>TIGA</B>, Target Illumination GWAS Analytics, facilitates drug target illumination by 
 scoring and ranking protein-coding genes associated with traits from genome-wide association studies
 (GWAS). Similarly, <B>TIGA</B> can score and rank traits with the same gene-trait association metrics. 
 Rather than a comprehensive analysis of GWAS for all biological implications and insights, this
@@ -162,13 +163,13 @@ as simple, rational measure of effect evidence and confidence (but not magnitude
   <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting trait-gene association.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
   <LI><B>OR</B>: median(odds ratio, inverted if &lt;1) supporting trait-gene association (computed as one if missing).
-  <LI><B>N_beta</B>: simple count of beta values with 95% confidence intervals supporting trait-gene association.
+  <LI><B>N_beta</B>: simple count of beta values with 95%% confidence intervals supporting trait-gene association.
   <LI><B>N_snp</B>: SNPs involved with trait-gene association.
   <LI><B>N_snpw</B>: N_snp weighted by distance inverse exponential.
   <LI><B>study_N</B>: mean(SAMPLE_SIZE) supporting trait-gene association.
   <LI><B>geneNtrait</B>: total traits associated with gene.
   <LI><B>traitNgene</B>: total genes associated with trait.
-  <LI><B>meanRankScore</B>: Gene-trait pairs (GTs) are ranked based on selected variables, determined by benchmarking versus gold standard associations.  meanRankScore = 100/meanRankPercentile, for normalization (0,100].
+  <LI><B>meanRankScore</B>: Gene-trait pairs (GTs) are ranked based on selected variables, determined by benchmarking versus gold standard associations.  meanRankScore = 100 - Percentile(meanRank).
 </UL>
 <SUP>*</SUP>Variable used in <B>meanRankScore</B>.
 <BR/>
@@ -187,10 +188,9 @@ measure of effect-evidence but not magnitude. Nonexistent ORs plotted as zero.
 <B><TT>?trait=EFO_1000654</TT></B>, <B><TT>?gene=ENSG00000094914</TT></B>,
 <B><TT>?trait=EFO_1000654&gene=ENSG00000094914</TT></B>.
 </UL>
-<B>More documentation:</B>
+<B>Sources:</B>
 <UL>
-<LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a>
-<LI><a href=\"https://www.ebi.ac.uk/gwas/docs/fileheaders\">GWAS Catalog data dictionary</a>
+<LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a> (release: %s)
 <LI><a href=\"https://www.ebi.ac.uk/efo/\">Experimental Factor Ontology (EFO)</a>
 </UL>
 <B>Issues:</B>
@@ -209,8 +209,8 @@ Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and En
 <BR/>
 <B>Feedback welcome</B> to corresponding author  
 <a href=\"mailto:jjyang_AT_salud_DOT_unm_DOT_edu\">Jeremy Yang</a>.<br/>
-This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
-  htm <- paste(htm, sprintf("<hr>\nBuilt with: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
+This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>", GWASCATALOG_RELEASE)
+  htm <- paste(htm, sprintf("<hr>\nPowered by: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
 }
 

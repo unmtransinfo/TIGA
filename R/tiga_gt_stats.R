@@ -85,17 +85,16 @@ ranks_this[, meanRank := rowMeans(.SD)]
 gt_stats[, meanRank := ranks_this$meanRank]
 #
 ###
-# Normalize to meanRankPtl (percentile)
+# Normalize to meanRankPtl (percentile). Inverted so high percentile is high (numerically low) rank.
 ranks2pctiles <- function(rs) {
-  q <- quantile(rs, seq(0, 1, .01))
+  q <- quantile(rs, seq(0, .999, .001)) #1000 bins.
   for (i in 1:length(rs)) {
-    rs[i] <- max(which(q <= rs[i]))
+    rs[i] <- 100 - max(which(q <= rs[i])) / 10
   }
   return(rs)
 }
 #
-gt_stats[, meanRankPtl := ranks2pctiles(meanRank)]
-gt_stats[, meanRankScore := 100/meanRankPtl]
+gt_stats[, meanRankScore := ranks2pctiles(meanRank)]
 #
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
