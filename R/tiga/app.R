@@ -325,13 +325,14 @@ server <- function(input, output, session) {
   
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
     htm <- "<h3>Provenance and details</h3>\n"
-    htm <- paste(htm, sprintf("<b>TRAIT:</b> <tt>%s</tt> &harr; <b>GENE:</b> <tt>%s</tt>\n<br/>", efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this)), "\n")
     if (is.null(Hits()) | nrow(Hits())==0) {
       htm <- paste(htm, "<B>NO ASSOCIATIONS FOUND.</B>")
     } else {
-      for (tag in names(Hits()))
-        if (tag != "ok2plot")
-          htm <- paste(htm, sprintf("<b>%s:</b> <tt>%s</tt>", tag, Hits()[[tag]][1]), sep=" &#8226; ")
+      htm <- paste(htm, sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\"><h3>GENE: %s<br/><i>%s (%s)</i></h3</td></tr></table>", 
+                                efoId_this, efoId2Name(efoId_this), ensemblId_this, ensemblId2Symbol(ensemblId_this), Hits()[["geneName"]][1]), "\n")
+      keys <- sort(setdiff(names(Hits()), c("geneSymbol", "geneName", "trait", "ok2plot")))
+      for (k in keys)
+        htm <- paste(htm, sprintf("<b>%s: </b><tt>%s</tt>", k, Hits()[[k]][1]), sep=" &#8226; ")
     }
     return(htm)
   }
@@ -494,7 +495,7 @@ server <- function(input, output, session) {
       size <- rep(10, nrow(Hits()[(ok2plot)]))
     }
     size <- pmax(size, rep(10, nrow(Hits()[(ok2plot)]))) #min
-    size <- pmin(size, rep(80, nrow(Hits()[(ok2plot)]))) #max
+    size <- pmin(size, rep(50, nrow(Hits()[(ok2plot)]))) #max
     message(sprintf("DEBUG: markerSizeBy: %s", as.character(input$markerSizeBy)))
     message(sprintf("DEBUG: nrow(Hits()[(ok2plot)]): %d", nrow(Hits()[(ok2plot)])))
     message(sprintf("DEBUG: length(markerSize): %d", length(size)))
@@ -540,8 +541,8 @@ server <- function(input, output, session) {
   })
 
   output$tigaPlot <- renderPlotly({
-    xaxis <- list(title="Evidence (meanRankScore)", type="normal", zeroline=F, showline=F)
-    yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type="normal")
+    xaxis <- list(title="Evidence (meanRankScore)", type="normal", zeroline=F, showline=F, dtick=10)
+    yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type="normal", dtick=1)
     axis_none <- list(zeroline=F, showline=F, showgrid=F, showticklabels=F)
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
       title <- "<I>(No query.)</I>"
