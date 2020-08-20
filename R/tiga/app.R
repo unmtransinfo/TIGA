@@ -324,11 +324,11 @@ server <- function(input, output, session) {
   }
   
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
-    htm <- "<h3>Provenance and details</h3>\n"
     if (is.null(Hits()) | nrow(Hits())==0) {
-      htm <- paste(htm, "<B>NO ASSOCIATIONS FOUND.</B>")
+      htm <- "<B>NO ASSOCIATIONS FOUND.</B>"
     } else {
-      htm <- paste(htm, sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\"><h3>GENE: %s<br/><i>%s (%s)</i></h3</td></tr></table>", 
+      htm <- "<center><b>Gene-trait association provenance</b></center>"
+      htm <- paste(htm, sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\" valign=\"bottom\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\" valign=\"bottom\"><h3>GENE: %s<br/><i>%s (%s)</i></h3</td></tr></table>", 
                                 efoId_this, efoId2Name(efoId_this), ensemblId_this, ensemblId2Symbol(ensemblId_this), Hits()[["geneName"]][1]), "\n")
       keys <- sort(setdiff(names(Hits()), c("geneSymbol", "geneName", "trait", "ok2plot")))
       for (k in keys)
