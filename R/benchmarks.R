@@ -3,7 +3,7 @@
 # https://stats.stackexchange.com/questions/52756/probability-of-overlap-between-independent-samples-of-different-sizes
 # (extreme-tail hypergeometric probability)
 ###
-options(warn=-1) #suppress warnings
+#options(warn=-1) #suppress warnings
 #
 library(readr)
 library(data.table, quietly=T)
@@ -30,7 +30,7 @@ efoId2Subclasses <- function(G, id_this) {
   return(V(subG)$efoId)
 }
 #
-t0 <- proc.time()
+t_start <- Sys.time()
 #
 ###
 # JensenLab DISEASES:
@@ -42,7 +42,7 @@ diseases_exp <- diseases_exp[order(-DISEASES_confidence), .SD, by=c("doId", "doN
 ###
 # Selected DO diseases which map to EFO, in both datasets, and associate with numerous genes:
 # Mapping from OxO! https://www.ebi.ac.uk/spot/oxo/
-do2efo <- read_delim("data/oxo_do2efo.tsv", "\t")
+do2efo <- read_delim("data/oxo_doid2efo.tsv", "\t")
 setDT(do2efo)
 do2efo <- do2efo[distance == 1]
 setnames(do2efo, old=c("curie_id", "label", "mapped_curie", "mapped_label"), new=c("doId", "doName", "efoId", "efoName"))
@@ -54,8 +54,7 @@ tiga <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_cha
 n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(),
 geneNtrait=col_integer(), geneNstudy=col_integer(),
 traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(),
-geneMuScore=col_double(), geneMuRank=col_integer(),
-traitMuScore=col_double(), traitMuRank=col_integer()))
+meanRank=col_double(), meanRankScore=col_double()))
 setDT(tiga)                                                           
 #
 tiga <- merge(tiga, do2efo[, .(efoId, doId, doName)], by="efoId")
@@ -113,11 +112,11 @@ for (efoId_this in tiga[, unique(efoId)]) {
 	lower.tail=F)
 
   # Correlate scores
-  tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
+  tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, meanRankScore)]
   diseases_exp_this_scores <- diseases_exp_this[, .(doId, geneSymbol, DISEASES_confidence)]
   tiga_vs_diseases <- merge(tiga_this_scores, diseases_exp_this_scores, by=c("doId", "geneSymbol"), all=F)
   if (length(genes_in_common) > 2) {
-    corPearson <- cor(tiga_vs_diseases$geneMuScore, tiga_vs_diseases$DISEASES_confidence, method="pearson")
+    corPearson <- cor(tiga_vs_diseases$meanRankScore, tiga_vs_diseases$DISEASES_confidence, method="pearson")
   } else {
     corPearson <- NA
   }
@@ -131,8 +130,8 @@ for (efoId_this in tiga[, unique(efoId)]) {
   set(results_diseases, i, names(results_diseases), list(efoId_this, efoName_this, doId_this, doName_this, length(efoIds_this)-1, tiga_Ngenes, diseases_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(diseases_Ngenes, tiga_Ngenes), inCommon_pval, corPearson))
   
   annos <- c(sprintf("corPearson: %.3f", corPearson), sprintf("Subclasses: %d", length(efoIds_this)-1))
-  plots_diseases[[i]] <- plot_ly(tiga_vs_diseases, x=~DISEASES_confidence, y=~geneMuScore, type="scatter", mode="markers") %>%
-	layout(title=sprintf("%s (%s)<br>geneMuScore vs DISEASES_confidence", efoId_this, efoName_this)) %>%
+  plots_diseases[[i]] <- plot_ly(tiga_vs_diseases, x=~DISEASES_confidence, y=~meanRankScore, type="scatter", mode="markers") %>%
+	layout(title=sprintf("%s (%s)<br>meanRankScore vs DISEASES_confidence", efoId_this, efoName_this)) %>%
 	add_annotations(text=annos, showarrow=F, x=.5, y=.1, xref="paper", yref="paper")
   
 }
@@ -233,11 +232,11 @@ for (efoId_this in tiga[, unique(efoId)]) {
 	lower.tail=F)
 
   # Correlate scores
-  tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, geneMuScore)]
+  tiga_this_scores <- tiga_this[, .(efoId, doId, ensemblId, geneSymbol, meanRankScore)]
   opentargets_this_scores <- opentargets_this[, .(efoId, geneSymbol, otOverallScore)]
   tiga_vs_opentargets <- merge(tiga_this_scores, opentargets_this_scores, by=c("efoId", "geneSymbol"), all=F)
   if (length(genes_in_common) > 2) {
-    corPearson <- cor(tiga_vs_opentargets$geneMuScore, tiga_vs_opentargets$otOverallScore, method="pearson")
+    corPearson <- cor(tiga_vs_opentargets$meanRankScore, tiga_vs_opentargets$otOverallScore, method="pearson")
   } else {
     corPearson <- NA
   }
@@ -250,8 +249,8 @@ for (efoId_this in tiga[, unique(efoId)]) {
   }
   set(results_ot, i, names(results_ot), list(efoId_this, efoName_this, doId_this, doName_this, length(efoIds_this)-1, tiga_Ngenes, opentargets_Ngenes, length(genes_in_common), 100*length(genes_in_common)/min(opentargets_Ngenes, tiga_Ngenes), inCommon_pval, corPearson))
   annos <- c(sprintf("corPearson: %.3f", corPearson), sprintf("Subclasses: %s", paste(collapse="; ", efoIds_this)))
-  plots_opentargets[[i]] <- plot_ly(tiga_vs_opentargets, x=~otOverallScore, y=~geneMuScore, type="scatter", mode="markers") %>%
-	layout(title=sprintf("%s (%s)<br>geneMuScore vs otOverallScore", efoId_this, efoName_this)) %>%
+  plots_opentargets[[i]] <- plot_ly(tiga_vs_opentargets, x=~otOverallScore, y=~meanRankScore, type="scatter", mode="markers") %>%
+	layout(title=sprintf("%s (%s)<br>meanRankScore vs otOverallScore", efoId_this, efoName_this)) %>%
 	add_annotations(text=annos, showarrow=F, x=.5, y=.1, xref="paper", yref="paper")
   
 }
@@ -270,5 +269,6 @@ message(sprintf("TOTAL efoIds: %d; TIGA_Ngenes: %d; OPENTARGETS_Ngenes: %d; InCo
 	results_ot[, median(inCommon_pVal, na.rm=T)],
 	results_diseases[, median(corPearson, na.rm=T)]))
 #
-message(sprintf("NOTE: elapsed time: %.2fs",(proc.time()-t0)[3]))
+t_elapsed <- (Sys.time()-t_start)
+message(sprintf("Elapsed time: %.2f %s", t_elapsed, attr(t_elapsed, "units")))
 #

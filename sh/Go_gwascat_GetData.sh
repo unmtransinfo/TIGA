@@ -59,8 +59,14 @@ efofile="${DATADIR}/efo.tsv"
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 	-ifile_ont ${OWLFILE} -vv -ont2tsv -o ${efofile}
 #
-tsvfile_trait_sub="${DATADIR}/efo_sub_gwas.tsv"
 ###
+# From efo.tsv create efo_graph.graphml.gz:
+${cwd}/R/efo_graph.R
+#
+#
+###
+tsvfile_trait_sub="${DATADIR}/efo_sub_gwas.tsv"
+#
 ${cwd}/R/gwascat_trait.R $gwasfile $efofile $tsvfile_trait $tsvfile_trait_sub
 #
 #############################################################################
