@@ -240,20 +240,26 @@ sprintf("DOWNSTREAM: %4sile: %d\n", names(qtl), as.integer(qtl))
 ```{r}
 xmax <- 1e5
 xvals <- seq(0, xmax, by=1000)
-annos <- c(
-	sprintf("N_total = %d", assn[, .N]),
-	sprintf("N_[BP_up>%.1g] = %d", xmax, assn[UPSTREAM_GENE_DISTANCE>xmax, .N]),
-	sprintf("N_[BP_down>%.1g] = %d", xmax, assn[DOWNSTREAM_GENE_DISTANCE>xmax, .N]))
+annos1 <- c(
+	sprintf("N_total = %d", assn[, .N]))
+	#sprintf("N_[BP_up>%.1g] = %d", xmax, assn[UPSTREAM_GENE_DISTANCE>xmax, .N]),
+	#sprintf("N_[BP_down>%.1g] = %d", xmax, assn[DOWNSTREAM_GENE_DISTANCE>xmax, .N]))
+annos2 <- c(
+  sprintf("Exponential weighting function"),
+  sprintf("f(x) = 2<sup>(-x/50k)</sup>")
+)
 plots <- list(
   plot_ly(alpha=0.6) %>%
     add_histogram(name="UPSTREAM", x=assn$UPSTREAM_GENE_DISTANCE, histnorm="probability") %>%
     add_histogram(name="DOWNSTREAM", x=assn$DOWNSTREAM_GENE_DISTANCE, histnorm="probability") %>%
-  add_annotations(text=paste0(annos, collapse="<br>"), x=1, xanchor="right", y=.5, yanchor="bottom", xref="paper", yref="paper", showarrow=F) %>%
+  add_annotations(text=paste0(annos1, collapse="<br>"), x=1, xanchor="right", y=.7, yanchor="bottom", xref="paper", yref="paper", showarrow=F) %>%
+  add_annotations(text="Distribution of mapped genomic distances", x=.5, xanchor="center", y=.7, yanchor="top", xref="paper", yref="paper", showarrow=F) %>%
     layout(yaxis=list(title="probability")),
   plot_ly() %>%
-    add_trace(name="Exponential", type="scatter", x=xvals, y=exp(-xvals/4e4*log(2)), mode="lines", line=list(width=5, color='#CC2222')) %>%
-    add_trace(name="ReLU", type="scatter", x=xvals, y=1-xvals/xmax, mode="lines", line=list(width=3, color='#777777', dash="dot"))  %>%
+    add_trace(name="f(x)", type="scatter", x=xvals, y=exp(-xvals/4e4*log(2)), mode="lines", line=list(width=5, color='#CC2222')) %>%
+#    add_trace(name="ReLU", type="scatter", x=xvals, y=1-xvals/xmax, mode="lines", line=list(width=3, color='#777777', dash="dot"))  %>%
   # add_trace(name="Sigmoid", type="scatter", x=xvals, y=exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)), mode="lines", line=list(width=5)) %>%
+      add_annotations(text=paste0(annos2, collapse="<br>"), x=.5, xanchor="center", y=.7, yanchor="top", xref="paper", yref="paper", showarrow=F) %>%
     layout(yaxis=list(title="f(x)"))
   )
 subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
@@ -261,7 +267,7 @@ subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
          margin = list(l=80, t=100, r=50),
          xaxis=list(title="BPs", range=c(0,xmax)),
          font=list(family="monospace", size=14),
-         legend = list(x=.8, y=.2), showlegend=T)
+         legend = list(x=.8, y=.4), showlegend=T)
 ```
 
 
@@ -449,7 +455,7 @@ studies, for each gene-trait association.
 
 ```{r}
 gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
-n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), n_traits_g=col_integer(), n_genes_t=col_integer(), pvalue_mlog_median=col_double(),
+n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), geneNtrait=col_integer(), traitNgene=col_integer(), pvalue_mlog_median=col_double(),
 or_median=col_double(), n_beta=col_integer(),
 meanRank=col_double(), meanRankScore=col_double()))
 setDT(gt)
@@ -532,9 +538,9 @@ sprintf("%s: (%s) %s", trait_id, query_uri, query_trait)
 t2g <- gt[efoId==trait_id]
 t2g <- t2g[!is.na(ensemblId)]
 t2g <- t2g[!is.na(or_median)]
+setorder(t2g, meanRank)
 NMAX_PLOT <- 100
-t2g[, ok2plot := as.logical(traitMeanRank<=NMAX_PLOT)]
-setorder(t2g, traitMeanRank)
+t2g[, ok2plot := as.logical(.I <= NMAX_PLOT)]
 message(sprintf("meanRankScore_filter result: %d / %d", sum(t2g[, ok2plot]), nrow(t2g)))
 ```
 
@@ -547,10 +553,10 @@ t2g[, markersize := 10*n_study]
 t2g[, text := paste0("<b>", geneSymbol, "</b> (", ensemblId, ")<br><b>", geneName, "</b><br>", "Family: ", geneFamily, "<br>", "TDL: ", geneIdgTdl, "<br>", "N_traits=", geneNtrait, " ; N_snp=", n_snp, " ; N_study=", n_study, "study_N = ",
 "OR = ", or_median, "; ",  study_N_mean, "; ",
 " ; pVal=", sprintf("%.2g",10^(-pvalue_mlog_median)), "RCRAS = ", rcras, "; ", 
-"meanRankScore = ", geneMeanRankScore, "; ","meanRank = ", geneMeanRank, "; ")]
+"meanRankScore = ", meanRankScore, "; ","meanRank = ", meanRank, "; ")]
 plot_ly(type='scatter', mode='markers', data=t2g[(ok2plot)], 
   color=~geneIdgTdl, colors=c("blue", "green", "red", "black", "gray"),
-	x=~geneMeanRankScore,
+	x=~meanRankScore,
 	y=~or_median, marker=list(symbol="circle", size=~markersize), text=~text) %>%
   layout(xaxis=list(title="Evidence (meanRankScore)", zeroline=F, showline=F), 
          yaxis=list(title="Effect (OddsRatio)"), 
@@ -562,7 +568,7 @@ plot_ly(type='scatter', mode='markers', data=t2g[(ok2plot)],
 Top hits:
 
 ```{r}
-setorder(t2g, geneMeanRank)
-knitr::kable(t2g[1:10][, .(GSYMB=geneSymbol, name=geneName, family=geneFamily, geneIdgTdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, geneMeanRankScore, geneMeanRank)], caption=sprintf("TIGA: %s, top hits", query_trait))
+setorder(t2g, meanRank)
+knitr::kable(t2g[1:10][, .(GSYMB=geneSymbol, name=geneName, family=geneFamily, geneIdgTdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, meanRankScore, meanRank)], caption=sprintf("TIGA: %s, top hits", query_trait))
 ```
 
