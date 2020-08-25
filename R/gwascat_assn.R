@@ -56,7 +56,7 @@ message(sprintf("Studies with SNPS and DISEASE_TRAIT and OR_or_BETA: %d", assn[(
 message(sprintf("Associations with OR_or_BETA values: %d (%.1f%%)", nrow(assn[!is.na(OR_or_BETA)]), 100*nrow(assn[!is.na(OR_or_BETA)])/nrow(assn)))
 #
 ###
-# PVALUE_MLOG (not `P-VALUE`) used for TIGA.
+message("NOTE: `PVALUE_MLOG` (not `P-VALUE`) used for TIGA.")
 message(sprintf("Studies with P-VALUE: %d", assn[!is.na(`P-VALUE`), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Associations with P-VALUE: %d; missing: %d", nrow(assn[!is.na(`P-VALUE`)]), nrow(assn[is.na(`P-VALUE`)])))
 message(sprintf("Studies with PVALUE_MLOG: %d", assn[!is.na(PVALUE_MLOG), uniqueN(STUDY_ACCESSION)]))

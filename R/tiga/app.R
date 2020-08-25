@@ -159,14 +159,14 @@ as simple, rational measure of effect evidence and confidence (but not magnitude
 </UL>
 <B>Datatypes:</B>
 <UL>
-  <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting trait-gene association.
-  <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (RCR) Aggregated Score (iCite-RCR-based)
+  <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting gene-trait association.
+  <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (iCite RCR) Aggregated Score.
   <LI><B>N_snpw<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
-  <LI><B>N_study</B>: studies supporting trait-gene association.
-  <LI><B>OR</B>: median(odds ratio, inverted if &lt;1) supporting trait-gene association (computed as one if missing).
-  <LI><B>N_beta</B>: simple count of beta values with 95%% confidence intervals supporting trait-gene association.
-  <LI><B>N_snp</B>: SNPs involved with trait-gene association.
-  <LI><B>study_N</B>: mean(SAMPLE_SIZE) supporting trait-gene association.
+  <LI><B>N_study</B>: studies supporting gene-trait association.
+  <LI><B>OR</B>: median(odds ratio, inverted if &lt;1) supporting gene-trait association (1 if missing).
+  <LI><B>N_beta</B>: simple count of beta values with 95%% confidence intervals supporting gene-trait association.
+  <LI><B>N_snp</B>: SNPs involved with gene-trait association.
+  <LI><B>study_N</B>: mean(SAMPLE_SIZE) supporting gene-trait association.
   <LI><B>geneNtrait</B>: total traits associated with gene.
   <LI><B>traitNgene</B>: total genes associated with trait.
   <LI><B>meanRankScore</B>: Gene-trait pairs (GTs) are ranked based on selected variables, determined by benchmarking versus gold standard associations.  meanRankScore = 100 - Percentile(meanRank).
@@ -227,8 +227,8 @@ ui <- fluidPage(
         	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
       wellPanel(
         sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
-	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "nBeta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T),
-        radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("N_study", "RCRAS", "None"), choiceValues=c("n_study", "rcras", NA), selected="n_study", inline=T)
+	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "N_beta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T),
+        radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("RCRAS", "pValue", "None"), choiceValues=c("rcras", "pvalue_mlog_median", NA), selected="rcras", inline=T)
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
 	wellPanel(htmlOutput(outputId="resultHtm"))
@@ -237,7 +237,7 @@ ui <- fluidPage(
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("tigaPlot", height = "500px")),
 		tabPanel(value="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
-		tabPanel(value="detail", title="Provenance", htmlOutput("detail_summary"), DT::dataTableOutput("detail_studies")),
+		tabPanel(value="provenance", title="Provenance", htmlOutput("provenance_summary"), DT::dataTableOutput("provenance_studies"), br(), downloadButton("prov_detail_file", label="Download Provenance (this association)")),
 		tabPanel(value="traits", title="Traits (browse)", DT::dataTableOutput("traits")),
 		tabPanel(value="genes", title="Genes (browse)", DT::dataTableOutput("genes")),
 		tabPanel(value="studies", title="Studies (browse)", DT::dataTableOutput("studies")),
@@ -271,17 +271,16 @@ ui <- fluidPage(
 ##########################################################################################
 server <- function(input, output, session) {
 
-### Modal popup for genetrait details.
+### Modal popup for genetrait provenances.
 # observeEvent(input$showGeneTraitProvenance, {
 #	showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
-#	title=HTML("<H2>Gene-trait detail</H2>"),
-#	htmlOutput("detail_summary"), DT::dataTableOutput("detail_studies")))
+#	title=HTML("<H2>Gene-trait provenance</H2>"),
+#	htmlOutput("provenance_summary"), DT::dataTableOutput("provenance_studies")))
 # })
 
   output$helpHtm <- reactive({ paste(sprintf("<H2>%s Help</H2>", APPNAME), HelpHtm()) })
 
   Sys.sleep(1) #Needed?
-  traitQryRand_count <- 0 # initialize once per session
   i_query <- 0 # initialize once per session
   
   # ?trait=EFO_0000341
@@ -423,7 +422,7 @@ server <- function(input, output, session) {
   output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table[(!filtered)]), ncol(gene_table)) })
   output$gtFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt), ncol(gt)) })
   output$provFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt_prov), ncol(gt_prov)) })
-  output$detail_summary <- reactive({ DetailSummaryHtm(qryIds()$trait, qryIds()$gene) })
+  output$provenance_summary <- reactive({ DetailSummaryHtm(qryIds()$trait, qryIds()$gene) })
 
   #Hits table has links to tiga:trait+gene, and to external resources EFO and Pharos.
   HitsWithHtm <- reactive({
@@ -443,7 +442,7 @@ server <- function(input, output, session) {
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
       hideTab("tabset", "plot")
       hideTab("tabset", "hits")
-      hideTab("tabset", "detail")
+      hideTab("tabset", "provenance")
       updateTabsetPanel(session, "tabset", selected="traits")
       return("No query. Search? Browse?")
     }
@@ -459,13 +458,13 @@ server <- function(input, output, session) {
     if (qryType() %in% c("gene", "trait")) {
       showTab("tabset", "plot")
       showTab("tabset", "hits")
-      hideTab("tabset", "detail")
+      hideTab("tabset", "provenance")
       updateTabsetPanel(session, "tabset", selected="plot")
     } else if (qryType()=="genetrait") {
       hideTab("tabset", "plot")
       hideTab("tabset", "hits")
-      showTab("tabset", "detail")
-      updateTabsetPanel(session, "tabset", selected="detail")
+      showTab("tabset", "provenance")
+      updateTabsetPanel(session, "tabset", selected="provenance")
     }
     if (!is.null(Hits())) {
       htm <- paste0(htm, sprintf("; N_%s: %d plotted (%d total)", hitType(), Hits()[(ok2plot), .N], Hits()[, .N]))
@@ -487,10 +486,10 @@ server <- function(input, output, session) {
   })
   
   markerSize <- reactive({
-    if (input$markerSizeBy=="n_study") {
-      size <- 5*Hits()[(ok2plot), n_study]
-    } else if (input$markerSizeBy=="rcras") {
+    if (input$markerSizeBy=="rcras") {
       size <- 5*Hits()[(ok2plot), rcras]
+    } else if (input$markerSizeBy=="pvalue_mlog_median") {
+      size <- 5*Hits()[(ok2plot), pvalue_mlog_median]
     } else { #NA
       size <- rep(10, nrow(Hits()[(ok2plot)]))
     }
@@ -555,10 +554,13 @@ server <- function(input, output, session) {
       return(plot_ly(type="scatter", mode="marker") %>% config(displayModeBar=F) %>% layout(title=title, xaxis=axis_none, yaxis=axis_none, margin=list(t=120,b=20)))
     }
     
-    #if (qryType()=="trait")
-    #  message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok2plot)]$geneSymbol, as.character(markerSize()), sep=":"))))
-    #else if (qryType()=="gene")
-    #  message(sprintf("DEBUG: %s", paste(collapse=",", paste(Hits()[(ok2plot)]$efoId, as.character(markerSize()), sep=":"))))
+    if (input$yAxis=="n_beta" & (max(Hits()[(ok2plot), n_beta]) - min(Hits()[(ok2plot), n_beta]) < 1.0)) {
+      yaxis[["range"]] <- c(floor(min(Hits()[(ok2plot), n_beta])-.1), ceiling(max(Hits()[(ok2plot), n_beta])+.1))
+    } else if (input$yAxis=="or_median" & (max(Hits()[(ok2plot), or_median]) - min(Hits()[(ok2plot), or_median]) < 1.0)) {
+      yaxis[["range"]] <- c(floor(min(Hits()[(ok2plot), or_median])-.1), ceiling(max(Hits()[(ok2plot), or_median])+.1))
+    } else {
+      yaxis[["autorange"]] <- T
+    }
     
     if (hitType()=="gene") {
       if (input$yAxis=="n_beta")
@@ -657,10 +659,8 @@ server <- function(input, output, session) {
 
   #All-genes table has tiga-gene links.
   gene_tableHtm <- reactive({
-    #dt <- data.table(gene_table)[order(geneSymbol)]
     dt <- data.table(gene_table[(!filtered)])[order(geneSymbol)]
     dt[, symbHtm := sprintf("<a href=\"%s?gene=%s\">%s</a>", urlBase(), ensemblId, geneSymbol)]
-    #dt[, .(ensemblId, geneSymbol = symbHtm, geneName, geneFamily, TDL, N_study, N_trait, filtered)]
     dt[, .(ensemblId, geneSymbol = symbHtm, geneName, geneFamily, TDL, N_study, N_trait)]
   })
 
@@ -679,17 +679,23 @@ server <- function(input, output, session) {
     DT::datatable(data=study_tableHtm()[, .(Accession, Study, PMID, DatePublished, DateAdded)], rownames=F, width="100%", options=list(autoWidth=F, dom='tipf'), escape=F)
   }, server=T)
 
-  output$detail_studies <- DT::renderDataTable({
-    DT::datatable(data=detail_studies_tableHtm(), rownames=F, width="100%", options=list(autoWidth=F, dom='tip'), escape=F,
+  output$provenance_studies <- DT::renderDataTable({
+    DT::datatable(data=provenance_studies_tableHtm(), rownames=F, width="100%", options=list(autoWidth=F, dom='tip'), escape=F,
       caption = tags$caption(style='caption-side:top; text-align:center;', 'Table: ', tags$b('Studies with association evidence')))
   }, server=T)
 
-  detail_studies_tableHtm <- reactive({
+  provenance_studies_tableHtm <- reactive({
     dt <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG)], by="STUDY_ACCESSION", all.x=T, all.y=F))
     dt <- unique(dt)
     dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s</a>", STUDY_ACCESSION, STUDY_ACCESSION)]
     dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s</a>", PUBMEDID, PUBMEDID)]
     dt[, .(Accession=gcHtm, Study=STUDY, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED, DateAdded=DATE_ADDED_TO_CATALOG)][order(-DatePublished)]
+  })
+
+  Provenance_export <- reactive({
+    prov_out <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+    prov_out <- unique(prov_out)
+    return(prov_out)
   })
 
   Hits_export <- reactive({
@@ -738,6 +744,15 @@ server <- function(input, output, session) {
     filename = "tiga_gene-trait_stats.tsv",
     content = function(file) {
       write_delim(gt, file, delim="\t")
+    }
+  )
+  output$prov_detail_file <- downloadHandler(
+    filename = function() {
+      sprintf("tiga_provenance_%s_%s.tsv", qryIds()$gene, qryIds()$trait)
+    },
+    content = function(file) {
+      if (is.null(Provenance_export())) { return(NULL) }
+      write_delim(Provenance_export(), file, delim="\t")
     }
   )
   output$provenance_file <- downloadHandler(

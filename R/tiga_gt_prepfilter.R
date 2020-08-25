@@ -83,10 +83,10 @@ setnames(trait, old=c("MAPPED_TRAIT_URI", "MAPPED_TRAIT"), new=c("TRAIT_URI", "T
 trait[, TRAIT := iconv(TRAIT, from="latin1", to="UTF-8")]
 #
 ###
-# Estimate RCR for new publications as median.
+# Estimate RCR for new publications as global median.
 icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(), relative_citation_ratio=col_double(), field_citation_rate=col_double(), citation_count=col_integer(), nih_percentile=col_double(), expected_citations_per_year=col_double(), citations_per_year=col_double(), year=col_integer()), na=c("", "NA", "None"))
 setDT(icite)
-rcr_median <- median(icite$relative_citation_ratio, na.rm=T)
+rcr_median <- median(icite$relative_citation_ratio, na.rm=T) #global median ignoring NAs.
 year_this <- as.integer(format(Sys.time(), "%Y"))
 message(sprintf("Estimating undefined RCR for new publications [%d-%d] as global median.", year_this-1, year_this))
 icite[is.na(relative_citation_ratio) & (year>=year_this-1) , relative_citation_ratio := rcr_median]
@@ -94,6 +94,7 @@ icite[is.na(relative_citation_ratio) & (year>=year_this-1) , relative_citation_r
 icite_gwas <- merge(icite[, .(pmid, relative_citation_ratio, year)], gwas[, .(PUBMEDID, STUDY_ACCESSION)], by.x="pmid", by.y="PUBMEDID", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, gwas_counts[, .(study_accession, trait_count, gene_r_count, gene_m_count)], by.x="STUDY_ACCESSION", by.y="study_accession", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, icite_gwas[, .(study_perpmid_count = uniqueN(STUDY_ACCESSION)), by="pmid"], by="pmid")
+###
 # RCRAS = RCR-Aggregated-Score
 icite_gwas[, rcras_pmid := (log2(relative_citation_ratio)+1)/study_perpmid_count]
 icite_gwas <- icite_gwas[gene_r_count>0 | gene_m_count>0] #Need genes to be useful
@@ -102,7 +103,7 @@ icite_gwas[gene_m_count==0, gene_m_count := NA]
 icite_gwas[, rcras_study := 1/gene_r_count * rcras_pmid]
 icite_gwas[is.na(rcras_study), rcras_study := 0]
 icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_ratio, rcras_pmid, rcras_study, trait_count, gene_r_count, gene_m_count, study_perpmid_count)]
-setkey(icite_gwas, pmid, STUDY_ACCESSION)
+setkey(icite_gwas, pmid, STUDY_ACCESSION) #Ensures unique study-pmid pairs each row.
 ###
 # Link to Ensembl via IDs from Catalog.
 # (In 2020 (not 2018), EnsemblIDs available in downloads, so API not required.)
