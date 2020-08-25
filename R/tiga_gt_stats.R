@@ -74,7 +74,7 @@ my_rank <- function(v) {
 }
 #
 ###
-TAGS_FOR_RANKING <- c("n_study", "pvalue_mlog_median", "rcras")
+TAGS_FOR_RANKING <- c("pvalue_mlog_median", "rcras", "n_snpw")
 ###
 ranks_this <- list()
 for (tag in TAGS_FOR_RANKING) {

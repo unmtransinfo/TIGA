@@ -55,20 +55,20 @@ are combined in one field `OR_or_BETA`.
 * Evidence assessment based on confirmatory statistics.
 * __iCite__ annotations from __iCite API__, via PMIDs from __GWAS Catalog__.
 * Visualization of associations for a given disease by scatter plot of
-effect size versus __meanrank score__, inverse multivariate mean rank
+effect size versus __meanRankScore__, inverse multivariate mean rank
 of benchmark-validated variables.
 
 ## TIGA Workflow
 
 * Clean and tidy download files:
-    * gwas_catalog_v1.0.2-studies_r2018-09-30.tsv
-    * gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv
+    * gwas-catalog-studies\_ontology-annotated.tsv
+    * gwas-catalog-associations\_ontology-annotated.tsv
     * efo.owl
 * Split comma separated fields, convert to UTF-8 characters.
 * Generate gene-trait association statistics for evidence weighting:
-  * `N_study`: studies supporting trait-gene association
-  * `N_snp`: SNPs involved with trait-gene association
-  * `N_snpw`: SNPs involved with trait-gene association weighted by genomic distance
+  * `N_study`: studies supporting gene-trait association
+  * `N_snp`: SNPs involved with gene-trait association
+  * `N_snpw`: SNPs involved with gene-trait association weighted by genomic distance
   * `N_trait`: total traits associated with gene
   * `N_gene`: total genes associated with trait
   * `RCRAS`: RCR Aggregated Score

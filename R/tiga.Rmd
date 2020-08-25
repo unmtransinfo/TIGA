@@ -14,10 +14,9 @@ editor_options:
 Genome wide association studies (GWAS) can reveal important genotype to phenotype
 associations, however, data quality and interpretability issues must be addressed.
 The TIGA approach enables rational ranking, filtering and interpretation of GWAS
-via metrics, methods, and interactive visualization.  Each inferred gene-to-trait
-association is evaluated for confidence and relevance, with scores solely derived
-from aggregated statistics, linking a protein-coding gene and phenotype. Applicability
-and thresholds will depend on use cases.
+via metrics, methods, and interactive visualization.  Each inferred gene-trait
+association is evaluated for confidence, with scores solely derived
+from aggregated statistics, linking a protein-coding gene and phenotype.
 
 * Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) format v1.0.2, July 15, 2020.
 * Workflow designed for integration with TCRD & Pharos
@@ -79,7 +78,7 @@ ifile_trait <- "data/gwascat_trait.tsv"
 ifile_icite <- "data/gwascat_icite.tsv"
 ifile_tcrd <- "data/tcrd_targets.tsv"
 ifile_efo <- "data/efo.tsv"
-ifile_efo2do <- "data/oxo_efo2doid.tsv"
+ifile_efo2do <- "data/oxo_efo2doid_d2.tsv"
 ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
 gt_provfile <- "data/gt_provenance.tsv.gz"
 gt_statsfile <- "data/gt_stats.tsv.gz"
@@ -166,7 +165,7 @@ knitr::kable(gwas_journals[1:12], caption="Top journals by N_gwas")
 # Relative Citation Ratio (RCR)
 
 RCR annotations from iCite API; PMIDs from GWASCatalog.
-New publications may lack RCR. Should we impute RCR=median as reasonable prior?
+New publications may lack RCR. We impute RCR=median as reasonable prior.
 
 ```{r warning=FALSE}
 icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
@@ -197,7 +196,7 @@ plot_ly(gwas_icite,
         color = ~journal, 
         type="box",
         text=sprintf("%s: %s, <i>%s</i> (%d)", gwas_icite$PUBMEDID, wordwrap(gwas_icite$title, 40), gwas_icite$journal, gwas_icite$year)) %>%
-  layout(title = 'iCite Relative Citation Ratio<br>Top journals by GWAS Publication count',
+  layout(title = 'iCite Relative Citation Ratio<br>for top journals by GWAS publication count',
          xaxis = list(title="", range=c(2015, 2019), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
          yaxis = list(title="RCR", range=c(0,25), showgrid=T),
          margin = list(t=100, l=100, r=100),
@@ -296,8 +295,8 @@ knitr::kable(snp2gene_counts)
 ```
 # GWAS Catalog API, Ensembl IDs, Ensemble API and annotations
 
-The API provides additional data including Ensembl IDs for ___mapped genes___, from which we query the Ensembl API
-for additional annotations including gene ___biotype___, thereby filtering for __protein_coding__.
+The API provides additional data and/or rigorous formatting (JSON) for ___mapped genes___. Using Ensembl IDs, we query 
+the Ensembl API for additional annotations including gene ___biotype___, thereby filtering for __protein_coding__.
 
 ```{r}
 ensbInfo <- read_delim("data/gwascat_Snps_EnsemblInfo.tsv.gz", "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
@@ -493,12 +492,12 @@ TIGA: Target Illumination GWAS Analytics
 * Y-axis: Effect (`OR` or `N_beta`)
 * Variables used in `meanRankScore`:
  * `pVal` - median of trait-SNP pValues
- * `N_study` - # studies supporting association
+ * `N_snpw` - # SNPs implicating gene, weighted by genomic distance
  * `RCRAS` - Relative Citation Ratio Aggregated Score 
 * Other variables:
+ * `N_study` - # studies supporting association
  * `N_trait` - traits associated with gene
  * `N_snp` - # SNPs implicating gene
- * `N_snpw` - # SNPs implicating gene, weighted by genomic distance
  * `OR` - median of trait-SNP ORs
  * `N_beta` - # supporting beta values
  * `N_gene` - # genes associated with trait

@@ -6,14 +6,14 @@ library(data.table)
 
 ifile_trait <- "data/gwascat_trait.tsv" #trait2study
 ifile_efo <- "data/efo.tsv" #from efo.owl
-ifile_efo2do <- "data/ebi-oxo_efo2doid_mappings_maxd-2.tsv" #from OxO
+ifile_efo2do <- "data/oxo_efo2doid_d2.tsv" #from OxO
 ifile_efo_gwas <- "data/efo_sub_gwas.tsv"
 
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
-setnames(trait, c("STUDY_ACCESSION", "TRAIT", "TRAIT_URI", "trait_id", "efo_label"))
-trait <- trait[!is.na(trait$TRAIT_URI)]
-trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
+setnames(trait, c("STUDY_ACCESSION", "TRAIT_URI", "TRAIT", "trait_id", "efo_label"))
+trait <- trait[!is.na(TRAIT_URI)]
+trait[, TRAIT := iconv(TRAIT, from="latin1", to="UTF-8")]
 
 # GWAS traits and EFO
 # EFO = Experimental Factor Ontology. Includes GO, Orphanet, PO, Mondo and Uberon classes.
@@ -76,4 +76,4 @@ message(sprintf("GWAS EFO_ID to DO_ID mappings (distance=1): EFO_IDs: %d, DO_IDs
 message(sprintf("GWAS EFO_ID to DO_ID mappings (distance=2): EFO_IDs: %d, DO_IDs: %d", 
         uniqueN(efo2do_gwas[distance==2, efo_id]), uniqueN(efo2do_gwas[distance==2, do_id])))
 #
-write_delim(efo2do_gwas[, .(efo_id, efo_name, do_id, doid_name, distance)], "data/gwascat_efo2do.tsv", "\t")
+write_delim(efo2do_gwas[, .(efo_id, efo_name, do_id, doid_name, distance)], "data/gwascat_efo2doid.tsv", "\t")

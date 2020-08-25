@@ -12,13 +12,12 @@ output:
 * <https://www.ebi.ac.uk/gwas/docs/api>
 * <https://www.ebi.ac.uk/gwas/rest/api>
 * <https://www.ebi.ac.uk/gwas/rest/docs/api>
-* See [gwascat\_query.py](python/gwascat_query.py)
 * See [Go\_gwascat\_GetData.sh](sh/Go_gwascat_GetData.sh)
 
 What data add value for our use case relative to the downloads?
 
-* Ensemble gene IDs (better than symbols in association file).
-
+* Ensemble gene IDs (better than symbols in association file). Included in downloads since 2019.
+* Genomic mappings from API JSON less error-prone than download TSV with inconsistently delimited multiple values per cell.
 
 ```{r echo=FALSE}
 knitr::opts_chunk$set(echo=FALSE, message=FALSE)
@@ -32,7 +31,6 @@ library(plotly, quietly=T)
 ```
 
 # Read associations
-
 
 ```{r}
 studyAssns <- read_delim("data/gwascat_StudyAssociations.tsv.gz", "\t", col_types = cols(.default=col_character(), standardError = col_double(), pvalue = col_double(), betaNum = col_double(), orPerCopyNum = col_double(), multiSnpHaplotype = col_logical(), snpInteraction = col_logical(), pvalueMantissa = col_double(), pvalueExponent = col_double(), locus_haplotypeSnpCount = col_integer(), allele_genomeWide = col_logical(), allele_limitedList = col_logical()))
@@ -118,24 +116,8 @@ snp2gene[, `:=`(GSYMB=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
 snp2gene <- unique(snp2gene)
 
 ```
-## Gene name discrepancies
 
-```{r}
-sprintf("Gene name discrepancies: %d (%.1f%%)", nrow(snp2gene[geneName!=EnsemblName]), 100*nrow(snp2gene[geneName!=EnsemblName])/nrow(snp2gene))
-knitr::kable(snp2gene[geneName!=EnsemblName][sample(.N, 12)], caption="Gene name discrepancies (examples)")
-```
 
-Also check TCRD xrefs.
-
-```{r}
-tcrd <- read_delim("data/tcrd_targets.tsv", "\t", col_types=cols(.default=col_character(), idgList=col_logical()), na = c("", "NA", "NULL"))
-setDT(tcrd)
-tcrd <- tcrd[, .(tcrdProteinId, TDL, ncbiGeneId, uniprotId, ensemblGeneId)]
-snp2gene <- merge(snp2gene, tcrd, by.x="ensemblId", by.y="ensemblGeneId", all.x=T)
-sprintf("ensemblGeneIds NOT mapped to TCRD: %d (%.1f%%)", 
-        sum(is.na(snp2gene$tcrdProteinId)),
-        100*sum(is.na(snp2gene$tcrdProteinId))/nrow(snp2gene))
-```
 
 
 
