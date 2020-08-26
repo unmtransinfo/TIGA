@@ -19,7 +19,9 @@ See related [poster](https://www.slideshare.net/jeremyjyang/gwas-explorer-drug-t
 
 ## Dependencies
 
-* [BioClients](https://github.com/jeremyjyang/BioClients) 
+* Python 3.6+; package [BioClients](https://github.com/jeremyjyang/BioClients) 
+* R 3.6+; packages readr, data.table, shiny, DT, shinyBS, plotly, igraph
+* [dqshiny](https://github.com/daqana/dqshiny) dev version (late 2019) via `remotes::install_github("daqana/dqshiny")` to resolve update\_autocomplete\_input bug.
 
 ## GWAS Catalog features
 
@@ -60,32 +62,9 @@ of benchmark-validated variables.
 
 ## TIGA Workflow
 
-* Clean and tidy download files:
-    * gwas-catalog-studies\_ontology-annotated.tsv
-    * gwas-catalog-associations\_ontology-annotated.tsv
-    * efo.owl
-* Split comma separated fields, convert to UTF-8 characters.
-* Generate gene-trait association statistics for evidence weighting:
-  * `N_study`: studies supporting gene-trait association
-  * `N_snp`: SNPs involved with gene-trait association
-  * `N_snpw`: SNPs involved with gene-trait association weighted by genomic distance
-  * `N_trait`: total traits associated with gene
-  * `N_gene`: total genes associated with trait
-  * `RCRAS`: RCR Aggregated Score
-  * `pValue`: median of SNP pValues
-  * `OR`: median(OR), where OR = `odds_ratio`, or `1/odds_ratio` if &lt;1
-  * `N_beta`: count of supporting beta values
-* MySql database intended for transition toward IDG TCRD integration (currently not required for TIGA app).
+See [WORKFLOW.md](doc/WORKFLOW.md) for details describing
+how to update the TIGA dataset from sources.
 
 ## TIGA Application
 
 * Currently at <http://unmtid-shinyapps.net/tiga/>
-* Dependencies
-   * R 3.6+
-   * readr, data.table, shiny, DT, shinyBS, plotly, igraph
-   * [dqshiny](https://github.com/daqana/dqshiny) dev version (late 2019) via `remotes::install_github("daqana/dqshiny")` to resolve update\_autocomplete\_input bug.
-
-## Dependencies
-
-* <https://github.com/jeremyjyang/BioClients>
-
