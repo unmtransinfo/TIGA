@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 #############################################################################
 ### GENE-TRAIT stats
-### tiga_gt_stats_mu.R - Produce gt_stats.csv, for TIGA Shiny app.
+### tiga_gt_stats_mu.R - Produce mu scores.
 #############################################################################
 # Multivariable non-parametric ranking via &mu; scores.
 ###
@@ -19,6 +19,9 @@
 # This is arbitrary so we assign score = nBelow = nAbove = 0 - 0 = 0.
 # ?mu.Sums:
 # score  = (nB-nA) * ifelse(weight==0, NA, 1)
+#############################################################################
+## Problem: muStat requires huge memory (>100Gb?)
+## Error: vector memory exhausted (limit reached?)
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
