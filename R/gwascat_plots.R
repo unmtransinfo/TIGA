@@ -51,31 +51,6 @@ writeLines(sprintf("%d. RCR = %.1f ; C/yr = %.1f ; C_count = %d ; nih_pctl = %.1
 	myrange, icite$relative_citation_ratio[myrange], icite$citations_per_year[myrange],
 	icite$citation_count[myrange], icite$nih_percentile[myrange],
 	icite$year[myrange], icite$journal[myrange], icite$title[myrange]))
-
-
-
-t <- table(gwas$journal)
-v <- as.vector(t)
-names(v) <- names(t)
-v <- sort(v, decreasing = T)
-
-subplot(nrows=2, margin=0.1,
-  plot_ly(x=as.numeric(format(gwas$date, "%Y")), type="histogram"),
-  plot_ly(type="bar", orientation="h", y=names(v[1:10]), x=v[1:10]) %>%
-    layout(yaxis=list(tickfont=list(size=11)))
-  ) %>%
-  layout(title = paste0("GWAS Catalog counts (N_gwas = ", n_gwas, ")"),
-         font=list(family="Arial", size=14),
-         legend=list(x=-0.3, y=1.1),
-         annotations = list(x=c(0.4,0.4), y=c(1.0,0.5),
-                            xanchor="left", xref="paper", yref="paper", showarrow=F,
-                            text=c("gwas_per_year", "gwas_per_journal (top 10)"),
-                            font=list(size=12)),
-         margin=list(t=100, l=160), showlegend=F) %>%
-  add_annotations(text=format(Sys.time(), "%Y-%m-%d %H:%M:%S"), showarrow=F, x=1.0, y=1.2, xref="paper", yref="paper")
-#webshot::export(p=p1, file="data/gwas_counts.png")
-###
-
 ###
 
 max_snp_count <- max(gwas_counts$snp_count)
@@ -105,8 +80,7 @@ subplot(nrows = 2, margin = 0.08,
   plot_ly(type = "histogram", x = icite$nih_percentile),
   plot_ly(type = "histogram", x = icite$citations_per_year),
   plot_ly(type = "histogram", x = icite$relative_citation_ratio)) %>%
-  layout(title = paste0("GWAS Catalog: publication iCite stats<BR> (N_pubs = ",
-nrow(icite), " ; N_gwas = ", n_gwas, ")"),
+  layout(title = paste0("GWAS Catalog: publication iCite stats<BR> (N_pubs = ", nrow(icite)),
 	annotations = list(x = c(0.1, 0.7, 0.1, 0.7), y = c(0.9, 0.9, 0.3, 0.3),
           xanchor = "left", xref = "paper", yref = "paper", showarrow = F,
           text = c("citation_count", "nih_percentile", "citations_per_year", "relative_citation_ratio")),
@@ -151,70 +125,86 @@ plot_ly() %>%
 #Below not counts, maybe separate file?
 snp2gene <- snp2gene[!(GSYMB %in% c("intergenic", "Unknown"))]
 
-t1 <- table(trait$trait_uri)
-t1 <- t1[order(t1, decreasing = T)]
+trait_counts <- trait[, .(N_study = uniqueN(STUDY_ACCESSION), MAPPED_TRAIT=first(MAPPED_TRAIT)), by=MAPPED_TRAIT_URI]
+setorder(trait_counts, -N_study)
 print("MOST COMMON GWAS TRAITS:\n")
 for (i in 1:20)
 {
-  uri <- names(t1)[i]
-  trait_this <- trait$trait[trait$trait_uri == uri][1]
-  print(sprintf("%2d. (N_study = %3d) [%s] \"%s\"\n", i, t1[i], sub("^.*/", "", uri), substr(trait_this, 1, 44)))
+  print(sprintf("%2d. (N_study = %3d) [%s] \"%s\"\n", i, trait_counts[i, N_study], trait_counts[i, sub("^.*/", "", MAPPED_TRAIT_URI)], trait_counts[i, substr(MAPPED_TRAIT, 1, 44)]))
 }
-trait$ontology <- sub('^.*/([^_]+).*$','\\1',trait$trait_uri)
-#Pie chart of trait ontologies.
-tbl <- table(trait$ontology)
-ax0 <- list(showline = F, zeroline = F, showticklabels = F, showgrid = F)
-p6 <- plot_ly(type = "pie", hole = 0.5, values = tbl[names(tbl)],
-       labels = paste0(names(tbl), " (", tbl[names(tbl)], ")") ) %>%
-  layout(title = paste0("GWAS Catalog:<br>Traits by ontology"), 
-         xaxis = ax0, yaxis = ax0, showlegend = T, margin = list(t=120), legend = list(x=0.4,y=0.5),
-         font = list(family = "Arial", size = 12))
-p6
-export(p=p6, file="data/gwas_counts.png")
+
 ###
 tcrd <- read_delim("data/tcrd_targets.tsv", "\t")
 setDT(tcrd)
 
-gsyms_tcrd <- unique(tcrd$protein_sym)
-print(sprintf("TCRD targets: %d ; geneSymbols: %d", nrow(tcrd), length(gsyms_tcrd)))
+print(sprintf("TCRD targets: %d ; geneSymbols: %d; ENSGs: %d", nrow(tcrd), uniqueN(tcrd$tcrdGeneSymbol), uniqueN(tcrd$ensemblGeneId)))
 
-gsyms_gwascat <- unique(snp2gene$gsymb)
-writeLines(sprintf("GWASCat Unique gene symbols: %d",length(gsyms_gwascat)))
-writeLines(sprintf("GWASCat gene symbols in TCRD: %d", length(intersect(gsyms_gwascat, gsyms_tcrd))))
-writeLines(sprintf("GWASCat gene symbols NOT in TCRD: %d", length(setdiff(gsyms_gwascat, gsyms_tcrd))))
-
-tcrd <- merge(tcrd, data.frame(gsym=gsyms_gwascat, in_gwascat=rep(T, length(gsyms_gwascat))),
-              by.x="protein_sym", by.y="gsym", all.x=T, all.y=F)
-tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
-tcrd$idg2 <- as.logical(tcrd$idg2)
-t2 <- table(tcrd$tdl[tcrd$in_gwascat])
-print(sprintf("%s: %d\n", names(t2), t2))
+writeLines(sprintf("GWASCat Unique gene symbols: %d", uniqueN(snp2gene$GSYMB)))
+writeLines(sprintf("GWASCat gene symbols in TCRD: %d", length(intersect(snp2gene[, unique(GSYMB)], tcrd[, unique(tcrdGeneSymbol)]))))
+writeLines(sprintf("GWASCat gene symbols NOT in TCRD: %d", length(setdiff(snp2gene[, unique(GSYMB)], tcrd[, unique(tcrdGeneSymbol)]))))
 
 ###
 
-gwascat_gene <- unique(snp2gene[,c("study_accession", "gsymb")])
-gwascat_gene <- merge(gwascat_gene, tcrd[,c("protein_sym","name","idg2")], all.x=T, all.y=F,
-	by.x="gsymb", by.y="protein_sym")
-t1 <- table(gwascat_gene$gsymb)
-t1 <- t1[order(t1, decreasing = T)]
+tcrd <- merge(tcrd, data.frame(gsym=snp2gene[, unique(GSYMB)], in_gwascat=T), by.x="tcrdGeneSymbol", by.y="gsym", all.x=T, all.y=F)
+tcrd[is.na(in_gwascat), in_gwascat := F]
+tcrd[, idgList := as.logical(idgList)]
+
+
+gene_counts <- snp2gene[, .(N_study = uniqueN(STUDY_ACCESSION)), by=GSYMB]
+gene_counts <- merge(gene_counts, tcrd[, .(tcrdGeneSymbol, tcrdTargetName, idgList)], all.x=T, all.y=F, by.x="GSYMB", by.y="tcrdGeneSymbol")
+setorder(gene_counts, -N_study)
 print("MOST COMMON GWAS GENES:\n")
 for (i in 1:20)
 {
-  gsymb <- names(t1)[i]
-  name <- gwascat_gene$name[gwascat_gene$gsymb == gsymb][1]
-  idg2 <- tcrd$idg2[tcrd$protein_sym == gsymb][1]
-  print(sprintf("%2d. (N_study = %3d) [%5s] \"%s\" (idg2=%s)\n", i, t1[i], gsymb, substr(name, 1, 44), idg2))
-}
-
-print("MOST COMMON GWAS GENES (IDG2):\n")
-t1 <- table(gwascat_gene$gsymb[gwascat_gene$idg2])
-t1 <- t1[order(t1, decreasing = T)]
-for (i in 1:10)
-{
-  gsymb <- names(t1)[i]
-  name <- gwascat_gene$name[gwascat_gene$gsymb == gsymb][1]
-  idg2 <- tcrd$idg2[tcrd$protein_sym == gsymb][1]
-  print(sprintf("%2d. (N_study = %3d) [%5s] \"%s\" (idg2=%s)\n", i, t1[i], gsymb, substr(name, 1, 44), idg2))
+  print(sprintf("%2d. (N_study = %3d) [%5s] \"%s\" (idgList=%s)\n", i, gene_counts[i, N_study], gene_counts[i, GSYMB], gene_counts[i, substr(tcrdTargetName, 1, 44)], gene_counts[i, idgList]))
 }
 
 ###
+print("MOST COMMON GWAS GENES (idgList):\n")
+gene_counts <- snp2gene[, .(N_study = uniqueN(STUDY_ACCESSION)), by=GSYMB]
+gene_counts <- merge(gene_counts, tcrd[(idgList), .(tcrdGeneSymbol, tcrdTargetName, idgList)], all.x=F, all.y=F, by.x="GSYMB", by.y="tcrdGeneSymbol")
+setorder(gene_counts, -N_study)
+print("MOST COMMON GWAS GENES:\n")
+for (i in 1:20)
+{
+  print(sprintf("%2d. (N_study = %3d) [%5s] \"%s\" (idgList=%s)\n", i, gene_counts[i, N_study], gene_counts[i, GSYMB], gene_counts[i, substr(tcrdTargetName, 1, 44)], gene_counts[i, idgList]))
+}
+
+###
+
+tdl_counts <- tcrd[(in_gwascat), .N, by=TDL]
+tdl_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
+tdl_counts <- tdl_counts[order(TDL)]
+print(tdl_counts)
+#Pie chart of TDL counts.
+ax0 <- list(showline=F, zeroline=F, showticklabels=F, showgrid=F)
+plot_ly(tdl_counts, type="pie", hole=0.2, values=~N, labels=~factor(TDL), marker = list(colors = c("green", "blue", "red", "#222222")),
+  textposition = 'inside', textinfo = 'label+value+percent',
+        #insidetextfont = list(color = '#FFFFFF'),
+        hoverinfo = 'text', text = ~paste0(TDL, "\n", N, " genes")) %>%
+  layout(title=sprintf("TIGA MAPPED GENES:<br>Target Development Levels (TDLs)<br>N_total = %d", sum(tdl_counts$N)), 
+         xaxis=ax0, yaxis=ax0, showlegend=F, margin=list(t=120),
+         font=list(family="Arial", size=12))
+
+fam_counts <- tcrd[(in_gwascat), .N, by=tcrdTargetFamily]
+setorder(fam_counts, -N)
+print(fam_counts)
+plot_ly(fam_counts, type="pie", hole=0.5, values=~N, labels=~factor(tcrdTargetFamily),
+  textposition = 'inside', textinfo = 'label+value+percent',
+        hoverinfo = 'text', text = ~paste0(tcrdTargetFamily, "\n", N, " genes")) %>%
+  layout(title=sprintf("TIGA MAPPED GENES:<br>Target family<br>N_total = %d", sum(fam_counts$N)), 
+         xaxis=ax0, yaxis=ax0, showlegend=T, margin=list(t=120), legend=list(x=0.4, y=0.5),
+         font=list(family="Arial", size=12))
+
+###
+# Table of all TDL, Family combos:
+
+tdl_fam_counts <- tcrd[(in_gwascat), .N, by=c("TDL", "tcrdTargetFamily")]
+tdl_fam_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
+tdl_fam_counts <- dcast(tdl_fam_counts, formula = tcrdTargetFamily ~ TDL, value.var = "N", fill = 0)
+setorder(tdl_fam_counts, -Tclin, -Tchem, -Tbio, -Tdark)
+setnames(tdl_fam_counts, old="tcrdTargetFamily", new="Family")
+print(tdl_fam_counts)
+write_delim(tdl_fam_counts, "data/tdl_fam_counts.tsv", "\t")
+
+

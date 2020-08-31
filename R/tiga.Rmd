@@ -1,11 +1,13 @@
 ---
-title: "Target Illumination by GWAS Analytics (TIGA)"
+title: "Target Illumination GWAS Analytics (TIGA)"
 author: "Jeremy Yang"
 output:
   html_document:
     number_sections: yes
     toc: yes
-editor_options: 
+  pdf_document:
+    toc: yes
+editor_options:
   chunk_output_type: console
 ---
 

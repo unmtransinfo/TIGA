@@ -179,15 +179,12 @@ Hits are ranked based on meanRankScore
 Scatterplot axes are Effect (OR or beta) vs. Evidence as measured by <B>meanRankScore</B>.
 Odds ratio (OR) is the median, beta is a count of non-zero beta values, hence a
 measure of effect-evidence but not magnitude. Nonexistent ORs plotted as zero.
-<UL>
-<LI>Genes markers colored by TDL, and may be be hidden via legend.
-<LI>Trait markers colored by EFO top-level class, and may be hidden via legend (TO DO).
-<LI>Plot markers may be sized by <B>N_study</B> or <B>RCRAS</B>.
-<LI>Note that this app will accept query parameters <B>trait</B> (EFO_ID) and/or <B>gene</B>
+<BR/>
+Note that this app will accept query parameters <B>trait</B> (EFO_ID) and/or <B>gene</B>
 (ENSEMBL_ID) via URL, e.g.
 <B><TT>?trait=EFO_1000654</TT></B>, <B><TT>?gene=ENSG00000094914</TT></B>,
 <B><TT>?trait=EFO_1000654&gene=ENSG00000094914</TT></B>.
-</UL>
+<BR/>
 <B>Sources:</B>
 <UL>
 <LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a> (release: %s)
@@ -196,13 +193,13 @@ measure of effect-evidence but not magnitude. Nonexistent ORs plotted as zero.
 <B>Issues:</B>
 <UL>
 <LI>Query traits with apostrophes must be typed in full. Autocomplete autosuggests but does not complete.
-<LI>Plot markers may obscure others.
+<LI>Plot markers may obscure others. (Workaround: Disable marker sizing
+and/or select region to zoom.)
 </UL>
 <B>Authors:</B>
-Jeremy Yang<SUP>1</SUP>, Stephen Mathias<SUP>1</SUP>, Cristian Bologa<SUP>1</SUP>,
-Anna Waller<SUP>1</SUP>, Dhouha Grissa<SUP>2</SUP>,
-Christophe Lambert<SUP>1</SUP>, David Wild<SUP>3</SUP>,
-Lars Juhl Jensen<SUP>2</SUP> and Tudor Oprea<SUP>1</SUP>.<BR/>
+Jeremy Yang<SUP>1</SUP>, Dhouha Grissa<SUP>2</SUP>, Stephen Mathias<SUP>1</SUP>,
+Cristian Bologa<SUP>1</SUP>, Anna Waller<SUP>1</SUP>, David Wild<SUP>3</SUP>,
+Christophe Lambert<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP> and Tudor Oprea<SUP>1</SUP>.<BR/>
 <I><SUP>1</SUP>University of New Mexico, Translational Informatics Division, Dept. of
 Internal Medicine; <SUP>2</SUP>Novo Nordisk Center for Protein Research, Copenhagen,
 Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and Engineering, Integrative Data Science Lab.</I>
@@ -693,7 +690,10 @@ server <- function(input, output, session) {
   })
 
   Provenance_export <- reactive({
-    prov_out <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+    prov_out <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(efoId, ensemblId, STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+    prov_out <- merge(prov_out, gene_table[, .(ensemblId, geneSymbol, geneName)], by="ensemblId")
+    prov_out <- merge(prov_out, trait_table[, .(efoId, trait)], by="efoId")
+    prov_out <- prov_out[, .(geneSymbol, ensemblId, geneName, efoId, trait, STUDY_ACCESSION, STUDY, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG, PUBMEDID)]
     prov_out <- unique(prov_out)
     return(prov_out)
   })
