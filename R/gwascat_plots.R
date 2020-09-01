@@ -182,7 +182,7 @@ plot_ly(tdl_counts, type="pie", hole=0.2, values=~N, labels=~factor(TDL), marker
   textposition = 'inside', textinfo = 'label+value+percent',
         #insidetextfont = list(color = '#FFFFFF'),
         hoverinfo = 'text', text = ~paste0(TDL, "\n", N, " genes")) %>%
-  layout(title=sprintf("TIGA MAPPED GENES:<br>Target Development Levels (TDLs)<br>N_total = %d", sum(tdl_counts$N)), 
+  layout(title=sprintf("MAPPED GENES:<br>Target Development Levels (TDLs)<br>N_total = %d", sum(tdl_counts$N)), 
          xaxis=ax0, yaxis=ax0, showlegend=F, margin=list(t=120),
          font=list(family="Arial", size=12))
 
@@ -192,7 +192,7 @@ print(fam_counts)
 plot_ly(fam_counts, type="pie", hole=0.5, values=~N, labels=~factor(tcrdTargetFamily),
   textposition = 'inside', textinfo = 'label+value+percent',
         hoverinfo = 'text', text = ~paste0(tcrdTargetFamily, "\n", N, " genes")) %>%
-  layout(title=sprintf("TIGA MAPPED GENES:<br>Target family<br>N_total = %d", sum(fam_counts$N)), 
+  layout(title=sprintf("MAPPED GENES:<br>Target family<br>N_total = %d", sum(fam_counts$N)), 
          xaxis=ax0, yaxis=ax0, showlegend=T, margin=list(t=120), legend=list(x=0.4, y=0.5),
          font=list(family="Arial", size=12))
 

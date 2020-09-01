@@ -1,0 +1,124 @@
+#!/usr/bin/env Rscript
+#############################################################################
+### 
+#############################################################################
+library(readr)
+library(data.table)
+library(plotly, quietly = T)
+library(RMySQL, quietly = T)
+
+dbcon <- dbConnect(MySQL(), host="tcrd.kmc.io", port=3306, dbname="tcrd660", user="tcrd", password="")
+
+sql="SELECT DISTINCT
+	target.id AS \"tcrdTargetId\",
+	target.name AS \"tcrdTargetName\",
+	target.fam AS \"tcrdTargetFamily\",
+	target.tdl AS \"TDL\",
+	target.idg AS \"idgList\",
+	protein.sym AS \"geneSymbol\",
+	protein.geneid AS \"ncbiGeneId\",
+	xref.value AS \"ensemblGeneId\"
+FROM
+	target
+JOIN
+	t2tc ON t2tc.target_id = target.id
+JOIN
+	protein ON protein.id = t2tc.protein_id
+JOIN
+	xref ON xref.protein_id = protein.id
+WHERE
+	xref.xtype = 'Ensembl' AND xref.value REGEXP '^ENSG'
+ORDER BY
+	protein.sym"
+
+#tcrd <- read_delim("data/tcrd_targets.tsv", "\t")
+tcrd <- dbGetQuery(dbcon, sql)
+setDT(tcrd)
+
+print(sprintf("TCRD targets: %d ; geneSymbols: %d; ENSGs: %d", uniqueN(tcrd$tcrdTargetId), uniqueN(tcrd$geneSymbol), uniqueN(tcrd$ensemblGeneId)))
+###
+###
+#
+tiga <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
+	n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(),
+	geneNtrait=col_integer(), geneNstudy=col_integer(),
+	traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(),
+	meanRank=col_double(), meanRankScore=col_double()))
+setDT(tiga)
+print(sprintf("TIGA geneSymbols: %d; ENSGs: %d", uniqueN(tiga$geneSymbol), uniqueN(tiga$ensemblId)))
+###
+
+tcrd <- merge(tcrd, data.frame(ensemblId=tiga[, unique(ensemblId)], in_tiga=T), by.x="ensemblGeneId", by.y="ensemblId", all.x=T, all.y=F)
+tcrd[is.na(in_tiga), in_tiga := F]
+tcrd[, idgList := as.logical(idgList)]
+
+
+###
+
+tdl_counts <- tcrd[(in_tiga), .N, by=TDL]
+tdl_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
+tdl_counts <- tdl_counts[order(TDL)]
+print(tdl_counts)
+#Pie chart of TDL counts.
+ax0 <- list(showline=F, zeroline=F, showticklabels=F, showgrid=F)
+plot_ly(tdl_counts, type="pie", hole=0.2, values=~N, labels=~factor(TDL), marker = list(colors = c("green", "blue", "red", "#222222")),
+  textposition = 'inside', textinfo = 'label+value+percent',
+        #insidetextfont = list(color = '#FFFFFF'),
+        hoverinfo = 'text', text = ~paste0(TDL, "\n", N, " genes")) %>%
+  layout(title=sprintf("TIGA MAPPED GENES:<br>Target Development Levels (TDLs)<br>N_total = %d", sum(tdl_counts$N)), 
+         xaxis=ax0, yaxis=ax0, showlegend=F, margin=list(t=120),
+         font=list(family="Arial", size=12))
+
+fam_counts <- tcrd[(in_tiga), .N, by=tcrdTargetFamily]
+setorder(fam_counts, -N)
+print(fam_counts)
+plot_ly(fam_counts, type="pie", hole=0.5, values=~N, labels=~factor(tcrdTargetFamily),
+  textposition = 'inside', textinfo = 'label+value+percent',
+        hoverinfo = 'text', text = ~paste0(tcrdTargetFamily, "\n", N, " genes")) %>%
+  layout(title=sprintf("TIGA MAPPED GENES:<br>Target family<br>N_total = %d", sum(fam_counts$N)), 
+         xaxis=ax0, yaxis=ax0, showlegend=T, margin=list(t=120), legend=list(x=0.4, y=0.5),
+         font=list(family="Arial", size=12))
+
+###
+# Table of all TDL, Family combos:
+tcrd[tcrdTargetFamily=="IC", tcrdTargetFamily := "Ion channel"]
+tcrd[tcrdTargetFamily=="NR", tcrdTargetFamily := "Nuclear receptor"]
+FAMS = c("GPCR", "Ion channel", "Kinase", "Enzyme", "Transporter", "Nuclear receptor")
+writeLines(sprintf("TCRD family being merged into Other: \"%s\"", 
+  tcrd[(!tcrdTargetFamily %in% FAMS), unique(tcrdTargetFamily)]))
+#
+tdl_fam_counts <- tcrd[, .N, by=c("TDL", "tcrdTargetFamily")]
+tdl_fam_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
+tdl_fam_counts <- dcast(tdl_fam_counts, formula = tcrdTargetFamily ~ TDL, value.var = "N", fill = 0)
+setnames(tdl_fam_counts, old="tcrdTargetFamily", new="Family")
+tdl_fam_counts[!(Family %in% FAMS), Family := "Other"]
+tdl_fam_counts <- tdl_fam_counts[, .(Tclin=sum(Tclin), Tchem=sum(Tchem), Tbio=sum(Tbio), Tdark=sum(Tdark)), by=Family]
+tdl_fam_counts <- rbindlist(list(tdl_fam_counts, data.table(Family="Total", Tclin=sum(tdl_fam_counts$Tclin), Tchem=sum(tdl_fam_counts$Tchem), 
+  Tbio=sum(tdl_fam_counts$Tbio), Tdark=sum(tdl_fam_counts$Tdark))))
+tdl_fam_counts[, Total := sum(Tclin, Tchem, Tbio, Tdark), by=Family]
+tdl_fam_counts[, Family := factor(Family, levels=c(FAMS, "Other", "Total"), ordered=T)]
+setorder(tdl_fam_counts, Family)
+print(tdl_fam_counts)
+write_delim(tdl_fam_counts, "data/tdl_fam_counts.tsv", "\t")
+#
+# Table of all (in TIGA) TDL, Family combos:
+tiga_tdl_fam_counts <- tcrd[(in_tiga), .N, by=c("TDL", "tcrdTargetFamily")]
+tiga_tdl_fam_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
+tiga_tdl_fam_counts <- dcast(tiga_tdl_fam_counts, formula = tcrdTargetFamily ~ TDL, value.var = "N", fill = 0)
+setnames(tiga_tdl_fam_counts, old="tcrdTargetFamily", new="Family")
+tiga_tdl_fam_counts[!(Family %in% FAMS), Family := "Other"]
+tiga_tdl_fam_counts <- tiga_tdl_fam_counts[, .(Tclin=sum(Tclin), Tchem=sum(Tchem), Tbio=sum(Tbio), Tdark=sum(Tdark)), by=Family]
+tiga_tdl_fam_counts <- rbindlist(list(tiga_tdl_fam_counts, data.table(Family="Total", Tclin=sum(tiga_tdl_fam_counts$Tclin), 
+  Tchem=sum(tiga_tdl_fam_counts$Tchem), Tbio=sum(tiga_tdl_fam_counts$Tbio), Tdark=sum(tiga_tdl_fam_counts$Tdark))))
+tiga_tdl_fam_counts[, Total := sum(Tclin, Tchem, Tbio, Tdark), by=Family]
+tiga_tdl_fam_counts[, Family := factor(Family, levels=c(FAMS, "Other", "Total"), ordered=T)]
+setorder(tiga_tdl_fam_counts, Family)
+print(tiga_tdl_fam_counts)
+write_delim(tiga_tdl_fam_counts, "data/tdl_fam_counts_TIGA.tsv", "\t")
+#
+write_delim(data.table(tiga_tdl_fam_counts)[, `:=`(
+	Tclin = sprintf("%d / %d", Tclin, tdl_fam_counts$Tclin),
+	Tchem = sprintf("%d / %d", Tchem, tdl_fam_counts$Tchem),
+	Tbio = sprintf("%d / %d", Tbio, tdl_fam_counts$Tbio),
+	Tdark = sprintf("%d / %d", Tdark, tdl_fam_counts$Tdark),
+  Total = sprintf("%d / %d", Total, tdl_fam_counts$Total))], "data/tdl_fam_counts_MERGED.tsv", "\t")
