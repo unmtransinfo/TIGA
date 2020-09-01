@@ -39,37 +39,31 @@ message(sprintf("Output: %s", ofile))
 
 trait <- read_delim(ifile, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
-setnames(trait, old=c("STUDY ACCESSION"), new=c("STUDY_ACCESSION"))
+setnames(trait, old=c("STUDY ACCESSION", "DISEASE/TRAIT"), new=c("STUDY_ACCESSION", "TRAIT"))
 study <- unique(trait[, .(STUDY_ACCESSION, STUDY)])
-trait <- unique(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT)])
+trait <- unique(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT, TRAIT)])
 
 writeLines(sprintf("Studies missing MAPPED_TRAIT_URI: %d", trait[is.na(MAPPED_TRAIT_URI), uniqueN(STUDY_ACCESSION)]))
 
-### MOVE FILTER TO tiga_gt_prepfilter.R
-#filtered_studies <- merge(data.table(STUDY_ACCESSION = trait[is.na(MAPPED_TRAIT_URI), unique(STUDY_ACCESSION)]), study, by="STUDY_ACCESSION", all.x=T, all.y=F)
-#filtered_studies[, reason := "Missing MAPPED_TRAIT_URI"]
-#write_delim(filtered_studies, "data/filtered_studies_trait.tsv", "\t")
-#trait <- unique(trait[!is.na(MAPPED_TRAIT_URI)])
-###
-
 ###
 # Split comma separated vals.
-trait_multi <- trait[grepl(",", MAPPED_TRAIT_URI)]
-trait <- trait[!grepl(",", MAPPED_TRAIT_URI)]
+trait_multi <- trait[grepl(",", MAPPED_TRAIT_URI, TRAIT)]
+trait <- trait[!grepl(",", MAPPED_TRAIT_URI, TRAIT)]
 for (i in 1:nrow(trait_multi)) {
   uris <- strsplit(trait_multi$MAPPED_TRAIT_URI[i], ', ', perl=T)[[1]]
-  traits <- strsplit(trait_multi$MAPPED_TRAIT[i], ', ', perl=T)[[1]]
+  mapped_traits <- strsplit(trait_multi$MAPPED_TRAIT[i], ', ', perl=T)[[1]]
   accs <- rep(trait_multi$STUDY_ACCESSION[i], length(uris))
-  if (length(uris)!=length(traits)) {
-    message(sprintf("ERROR: length(uris)!=length(traits) (%d!=%d) (probably due to commas in trait names) \"%s\"", length(uris), length(traits), trait_multi$MAPPED_TRAIT[i]))
-    traits <- rep(trait_multi$MAPPED_TRAIT[i], length(uris)) #Commas in trait names, so must be curated manually.
+  traits <- rep(trait_multi$TRAIT[i], length(uris))
+  if (length(uris)!=length(mapped_traits)) {
+    message(sprintf("ERROR: length(uris)!=length(mapped_traits) (%d!=%d) (probably due to commas in trait names) \"%s\"", length(uris), length(mapped_traits), trait_multi$MAPPED_TRAIT[i]))
+    mapped_traits <- rep(trait_multi$MAPPED_TRAIT[i], length(uris)) #Commas in trait names, so must be curated manually.
   }
-  trait <- rbind(trait, data.frame(STUDY_ACCESSION=accs, MAPPED_TRAIT_URI=uris, MAPPED_TRAIT=traits))
+  trait <- rbind(trait, data.frame(STUDY_ACCESSION=accs, MAPPED_TRAIT_URI=uris, MAPPED_TRAIT=mapped_traits, TRAIT=traits))
 }
 
-trait[['efoId']] <- as.factor(sub("^.*/", "", trait$MAPPED_TRAIT_URI)) 
-trait[['EFO_prefix']] <- as.factor(sub("_.*$", "", trait$efoId))
 trait <- unique(trait)
+trait[, efoId := as.factor(sub("^.*/", "", MAPPED_TRAIT_URI))] 
+trait[, EFO_prefix := as.factor(sub("_.*$", "", efoId))]
 
 message(sprintf("Total trait unique ID count (MAPPED_TRAIT_URI): %d", trait[, uniqueN(MAPPED_TRAIT_URI)]))
 message(sprintf("Total trait instance count (MAPPED_TRAIT_URI): %d", trait[!is.na(MAPPED_TRAIT_URI), .N]))
@@ -104,13 +98,15 @@ efo_node[, EFO_prefix := NULL]
 
 trait <- merge(trait, efo_node[, .(id, efo_label = label)], by.x="efoId", by.y="id", all.x=T, all.y=F)
 
-trait_unmapped <- trait[is.na(efo_label), .(efoId, MAPPED_TRAIT)]
-n_trait_mapped <- nrow(trait[!is.na(efo_label)])
-message(sprintf("Trait IDs mapped to EFO: %d / %d (%.1f%%)", n_trait_mapped, 
-                n_trait_mapped + uniqueN(trait_unmapped$efoId),
-                100 * (n_trait_mapped / (n_trait_mapped + uniqueN(trait_unmapped$efoId)))))
 #
-write_delim(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT, efoId, efo_label)], ofile, "\t")
+
+n_trait_unmapped <- trait[is.na(MAPPED_TRAIT_URI), uniqueN(TRAIT)]
+n_trait_mapped <- trait[!is.na(MAPPED_TRAIT_URI), uniqueN(MAPPED_TRAIT_URI)]
+message(sprintf("Trait IDs mapped to EFO: %d / %d (%.1f%%)", n_trait_mapped, 
+                n_trait_mapped + n_trait_unmapped,
+                100 * (n_trait_mapped / (n_trait_mapped + n_trait_unmapped))))
+#
+write_delim(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT, TRAIT, efoId, efo_label)], ofile, "\t")
 #
 ###
 # Subclass file, of study pairs with subclass-related traits:
@@ -126,3 +122,4 @@ efo_sub <- merge(efo_sub, unique(trait[, .(study_accession_subclass = STUDY_ACCE
 efo_sub <- unique(efo_sub[, .(study_accession, trait, trait_uri, study_accession_subclass, subclass_trait, subclass_uri)])
 
 write_delim(efo_sub, ofile_subclass, "\t")
+

@@ -311,12 +311,9 @@ knitr::kable(biotypes[, Percent := round(100 * N_gene / sum(N_gene), 1)][N_gene 
 
 
 ```{r}
-setnames(trait, c("STUDY_ACCESSION", "TRAIT", "TRAIT_URI", "efoId", "efo_label"))
-trait <- trait[!is.na(trait$TRAIT_URI)]
-trait$TRAIT <- iconv(trait$TRAIT, from="latin1", to="UTF-8")
-trait[, trait_id := sub("^.*/", "", TRAIT_URI)] #redundant?
+trait <- trait[!is.na(trait$MAPPED_TRAIT_URI)]
+trait$MAPPED_TRAIT <- iconv(trait$MAPPED_TRAIT, from="latin1", to="UTF-8")
 sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE))
-#
 assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
 assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
 sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE))
@@ -401,11 +398,11 @@ efo_sub[, source_in_gwas := (source %in% trait$efoId)]
 efo_sub[, target_in_gwas := (target %in% trait$efoId)]
 efo_sub <- efo_sub[(source_in_gwas) & (target_in_gwas)]
 efo_sub[, `:=`(source_in_gwas=NULL, target_in_gwas=NULL, label=NULL)]
-setnames(efo_sub, old=c("source", "target"), new=c("trait_id", "subclass_id"))
+setnames(efo_sub, old=c("source", "target"), new=c("efoId", "subclass_id"))
 trait_counts <- trait[, .(N_study = uniqueN(STUDY_ACCESSION)), by=c("efoId", "TRAIT")]
-efo_sub <- merge(efo_sub, trait_counts[, .(efoId, trait_N_study=N_study, trait_name=TRAIT)], by.x="trait_id", by.y="efoId", all.x=T, all.y=F)
-efo_sub <- merge(efo_sub, trait_counts[, .(efoId, subclass_N_study=N_study, subclass_name=TRAIT)], by.x="subclass_id", by.y="efoId", all.x=T, all.y=F)
-efo_sub <- efo_sub[, .(trait_id, trait_name, subclass_id, subclass_name, trait_N_study, subclass_N_study)]
+efo_sub <- merge(efo_sub, trait_counts[, .(efoId, trait_N_study=N_study, trait_name=MAPPED_TRAIT)], by="efoId", all.x=T, all.y=F)
+efo_sub <- merge(efo_sub, trait_counts[, .(efoId, subclass_N_study=N_study, subclass_name=MAPPED_TRAIT)], by.x="subclass_id", by.y="efoId", all.x=T, all.y=F)
+efo_sub <- efo_sub[, .(efoId, trait_name, subclass_id, subclass_name, trait_N_study, subclass_N_study)]
 sprintf("GWAS trait-subclass pairs: %d", nrow(efo_sub))
 setorder(efo_sub, -trait_N_study, -subclass_N_study)
 knitr::kable(efo_sub[1:24], caption="Top EFO trait-subclass pairs")
@@ -416,7 +413,7 @@ knitr::kable(efo_sub[1:24], caption="Top EFO trait-subclass pairs")
 ```{r}
 efo_gwas <- read_delim(ifile_efo_gwas, "\t", col_types=cols(.default=col_character()))
 setDT(efo_gwas)
-efo_gwas[, `:=`(trait_id = sub("^.*/", "", trait_uri), subclass_id = sub("^.*/", "", subclass_uri))] #Uri2Id
+efo_gwas[, `:=`(efoId = sub("^.*/", "", trait_uri), subclass_id = sub("^.*/", "", subclass_uri))] #Uri2Id
 sprintf("GWAS studies related by EFO-subclass: %d", 
         uniqueN(union(efo_gwas[study_accession != study_accession_subclass, study_accession], efo_gwas[study_accession != study_accession_subclass, study_accession_subclass])))
 ```
@@ -433,7 +430,7 @@ setDT(efo2do)
 efo2do[, `:=`(curie_id = sub(":", "_", curie_id, fixed=T), mapped_curie = sub(":", "_", mapped_curie, fixed=T), mapping_source_prefix = NULL, mapping_target_prefix = NULL)]
 setnames(efo2do, old=c("curie_id", "label",  "mapped_curie", "mapped_label"), new=c("efoId", "efo_name", "do_id", "doid_name"))
 efo2do <- efo2do[, .SD[distance == min(distance)], by=c("efoId", "do_id")] #keep only closest mappings
-gwas_efo_ids <- unique(efo_gwas$trait_id)
+gwas_efo_ids <- unique(efo_gwas$efoId)
 efo2do_gwas <- efo2do[(efoId %in% gwas_efo_ids)]
 setorder(efo2do_gwas, efoId, do_id)
 sprintf("GWAS EFO_IDs (Total): %d", length(gwas_efo_ids))
@@ -528,9 +525,7 @@ trait_id <- "EFO_0002508" #Parkinsons disease
 #trait_id <- "EFO_0000384" #Crohns disease
 #trait_id <- "EFO_0004574" #total cholesterol measurement
 
-query_uri <- paste0("http://www.ebi.ac.uk/efo/", trait_id)
 query_trait <- gt[efoId==trait_id, first(trait)]
-sprintf("%s: (%s) %s", trait_id, query_uri, query_trait)
 ```
 
 ### Rank and filter based on meanRank score.
