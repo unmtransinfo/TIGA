@@ -17,6 +17,10 @@ sql="SELECT DISTINCT
 	target.idg AS \"idgList\",
 	protein.sym AS \"geneSymbol\",
 	protein.geneid AS \"ncbiGeneId\",
+  protein.uniprot,
+  protein.stringid AS \"ensemblProteinId\",
+  protein.dtoid,
+  protein.dtoclass,
 	xref.value AS \"ensemblGeneId\"
 FROM
 	target
@@ -31,12 +35,17 @@ WHERE
 ORDER BY
 	protein.sym"
 
-#tcrd <- read_delim("data/tcrd_targets.tsv", "\t")
 tcrd <- dbGetQuery(dbcon, sql)
 setDT(tcrd)
 
-print(sprintf("TCRD targets: %d ; geneSymbols: %d; ENSGs: %d", uniqueN(tcrd$tcrdTargetId), uniqueN(tcrd$geneSymbol), uniqueN(tcrd$ensemblGeneId)))
+print(sprintf("TCRD targets: %d ; geneSymbols: %d; ENSGs: %d; ENSPs: %d; UniProts: %d", uniqueN(tcrd$tcrdTargetId), 
+  uniqueN(tcrd$geneSymbol), uniqueN(tcrd$ensemblGeneId),  uniqueN(tcrd$ensemblProteinId),
+  uniqueN(tcrd$uniprot)))
 ###
+tcrd_dto <- read_delim("data/TCRDv6.4_DTO.tsv", "\t")
+setDT(tcrd_dto)
+setnames(tcrd_dto, old=c("STRING ID"), new=c("ensemblProteinId"))
+tcrd_dto <- unique(tcrd_dto[, .(ensemblProteinId, DTO_Lvl1, DTO_Lvl2, DTO_Lvl3, DTO_Lvl4, DTO_Lvl5, DTO_Lvl6, DTO_Class)])
 ###
 #
 tiga <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), 
@@ -51,7 +60,6 @@ print(sprintf("TIGA geneSymbols: %d; ENSGs: %d", uniqueN(tiga$geneSymbol), uniqu
 tcrd <- merge(tcrd, data.frame(ensemblId=tiga[, unique(ensemblId)], in_tiga=T), by.x="ensemblGeneId", by.y="ensemblId", all.x=T, all.y=F)
 tcrd[is.na(in_tiga), in_tiga := F]
 tcrd[, idgList := as.logical(idgList)]
-
 
 ###
 
@@ -77,6 +85,19 @@ plot_ly(fam_counts, type="pie", hole=0.5, values=~N, labels=~factor(tcrdTargetFa
         hoverinfo = 'text', text = ~paste0(tcrdTargetFamily, "\n", N, " genes")) %>%
   layout(title=sprintf("TIGA MAPPED GENES:<br>Target family<br>N_total = %d", sum(fam_counts$N)), 
          xaxis=ax0, yaxis=ax0, showlegend=T, margin=list(t=120), legend=list(x=0.4, y=0.5),
+         font=list(family="Arial", size=12))
+###
+
+tcrd <- merge(tcrd, tcrd_dto, by="ensemblProteinId", allow.cartesian=T)
+
+dto_counts <- tcrd[(in_tiga), .(N = uniqueN(ensemblGeneId)), by=DTO_Lvl2]
+setorder(dto_counts, -N)
+print(dto_counts)
+plot_ly(dto_counts, type="pie", hole=0.1, values=~N, labels=~factor(DTO_Lvl2),
+  textposition = 'inside', textinfo = 'label+value+percent',
+        hoverinfo = 'text', text = ~paste0(DTO_Lvl2, "\n", N, " genes")) %>%
+  layout(title=sprintf("TIGA MAPPED GENES:<br>DTO_Lvl2<br>N_total = %d", sum(dto_counts$N)), 
+         xaxis=ax0, yaxis=ax0, showlegend=T, margin=list(t=120),
          font=list(family="Arial", size=12))
 
 ###
