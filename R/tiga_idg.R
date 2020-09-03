@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### 
+### IDG counts and plots
 #############################################################################
 library(readr)
 library(data.table)
@@ -88,9 +88,9 @@ plot_ly(fam_counts, type="pie", hole=0.5, values=~N, labels=~factor(tcrdTargetFa
          font=list(family="Arial", size=12))
 ###
 
-tcrd <- merge(tcrd, tcrd_dto, by="ensemblProteinId", allow.cartesian=T)
+tcrd <- merge(tcrd, tcrd_dto, by="ensemblProteinId", allow.cartesian=T, all.x=T, all.y=F)
 
-dto_counts <- tcrd[(in_tiga), .(N = uniqueN(ensemblGeneId)), by=DTO_Lvl2]
+dto_counts <- tcrd[(in_tiga), .(N = uniqueN(ensemblProteinId)), by=DTO_Lvl2]
 setorder(dto_counts, -N)
 print(dto_counts)
 plot_ly(dto_counts, type="pie", hole=0.1, values=~N, labels=~factor(DTO_Lvl2),
@@ -101,14 +101,14 @@ plot_ly(dto_counts, type="pie", hole=0.1, values=~N, labels=~factor(DTO_Lvl2),
          font=list(family="Arial", size=12))
 
 ###
-# Table of all TDL, Family combos:
+# Table of all gene counts for TDL, TargetFamily combos:
 tcrd[tcrdTargetFamily=="IC", tcrdTargetFamily := "Ion channel"]
 tcrd[tcrdTargetFamily=="NR", tcrdTargetFamily := "Nuclear receptor"]
 FAMS = c("GPCR", "Ion channel", "Kinase", "Enzyme", "Transporter", "Nuclear receptor")
 writeLines(sprintf("TCRD family being merged into Other: \"%s\"", 
   tcrd[(!tcrdTargetFamily %in% FAMS), unique(tcrdTargetFamily)]))
 #
-tdl_fam_counts <- tcrd[, .N, by=c("TDL", "tcrdTargetFamily")]
+tdl_fam_counts <- tcrd[, .(N = uniqueN(ensemblProteinId)), by=c("TDL", "tcrdTargetFamily")]
 tdl_fam_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
 tdl_fam_counts <- dcast(tdl_fam_counts, formula = tcrdTargetFamily ~ TDL, value.var = "N", fill = 0)
 setnames(tdl_fam_counts, old="tcrdTargetFamily", new="Family")
@@ -122,8 +122,8 @@ setorder(tdl_fam_counts, Family)
 print(tdl_fam_counts)
 write_delim(tdl_fam_counts, "data/tdl_fam_counts.tsv", "\t")
 #
-# Table of all (in TIGA) TDL, Family combos:
-tiga_tdl_fam_counts <- tcrd[(in_tiga), .N, by=c("TDL", "tcrdTargetFamily")]
+# Table of all gene counts (in TIGA) for TDL, TargetFamily combos:
+tiga_tdl_fam_counts <- tcrd[(in_tiga), .(N = uniqueN(ensemblProteinId)), by=c("TDL", "tcrdTargetFamily")]
 tiga_tdl_fam_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
 tiga_tdl_fam_counts <- dcast(tiga_tdl_fam_counts, formula = tcrdTargetFamily ~ TDL, value.var = "N", fill = 0)
 setnames(tiga_tdl_fam_counts, old="tcrdTargetFamily", new="Family")
@@ -143,3 +143,66 @@ write_delim(data.table(tiga_tdl_fam_counts)[, `:=`(
 	Tbio = sprintf("%d / %d", Tbio, tdl_fam_counts$Tbio),
 	Tdark = sprintf("%d / %d", Tdark, tdl_fam_counts$Tdark),
   Total = sprintf("%d / %d", Total, tdl_fam_counts$Total))], "data/tdl_fam_counts_MERGED.tsv", "\t")
+
+###
+# Same but with DTO Level2 classes.
+# Table of all gene counts for TDL, DTO_Lvl2 combos:
+FAMS_DTOL2 <- c(
+  "G-protein coupled receptor",
+  "Ion channel",
+  "Kinase",
+	"Calcium-binding protein",
+	"Cell-cell junction",
+	"Cell adhesion",
+	"Cellular structure",
+	"Chaperone",
+	"Enzyme modulator",
+	"Enzyme",
+	"Epigenetic regulator",
+	"Extracellular structure",
+	"Immune response",
+	"Nuclear receptor",
+	"Nucleic acid binding",
+	"Transcription factor",
+	"Transporter",
+	"Receptor",
+	"Signaling",
+	"Storage",
+	"Surfactant")
+
+tdl_dto_counts <- tcrd[, .(N = uniqueN(ensemblProteinId)), by=c("TDL", "DTO_Lvl2")]
+tdl_dto_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
+tdl_dto_counts <- dcast(tdl_dto_counts, formula = DTO_Lvl2 ~ TDL, value.var = "N", fill = 0)
+setnames(tdl_dto_counts, old="DTO_Lvl2", new="Family")
+tdl_dto_counts[!(Family %in% FAMS_DTOL2), Family := "Other"]
+tdl_dto_counts <- tdl_dto_counts[, .(Tclin=sum(Tclin), Tchem=sum(Tchem), Tbio=sum(Tbio), Tdark=sum(Tdark)), by=Family]
+tdl_dto_counts <- rbindlist(list(tdl_dto_counts, data.table(Family="Total", Tclin=sum(tdl_dto_counts$Tclin), Tchem=sum(tdl_dto_counts$Tchem), 
+  Tbio=sum(tdl_dto_counts$Tbio), Tdark=sum(tdl_dto_counts$Tdark))))
+tdl_dto_counts[, Total := sum(Tclin, Tchem, Tbio, Tdark), by=Family]
+tdl_dto_counts[, Family := factor(Family, levels=c(FAMS_DTOL2, "Other", "Total"), ordered=T)]
+setorder(tdl_dto_counts, Family)
+print(tdl_dto_counts)
+write_delim(tdl_dto_counts, "data/tdl_dto_counts.tsv", "\t")
+#
+# Table of all gene counts (in TIGA) for TDL, DTO_Lvl2 combos:
+tiga_tdl_dto_counts <- tcrd[(in_tiga), .(N = uniqueN(ensemblProteinId)), by=c("TDL", "DTO_Lvl2")]
+tiga_tdl_dto_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
+tiga_tdl_dto_counts <- dcast(tiga_tdl_dto_counts, formula = DTO_Lvl2 ~ TDL, value.var = "N", fill = 0)
+setnames(tiga_tdl_dto_counts, old="DTO_Lvl2", new="Family")
+tiga_tdl_dto_counts[!(Family %in% FAMS_DTOL2), Family := "Other"]
+tiga_tdl_dto_counts <- tiga_tdl_dto_counts[, .(Tclin=sum(Tclin), Tchem=sum(Tchem), Tbio=sum(Tbio), Tdark=sum(Tdark)), by=Family]
+tiga_tdl_dto_counts <- rbindlist(list(tiga_tdl_dto_counts, data.table(Family="Total", Tclin=sum(tiga_tdl_dto_counts$Tclin), 
+  Tchem=sum(tiga_tdl_dto_counts$Tchem), Tbio=sum(tiga_tdl_dto_counts$Tbio), Tdark=sum(tiga_tdl_dto_counts$Tdark))))
+tiga_tdl_dto_counts[, Total := sum(Tclin, Tchem, Tbio, Tdark), by=Family]
+tiga_tdl_dto_counts[, Family := factor(Family, levels=c(FAMS_DTOL2, "Other", "Total"), ordered=T)]
+setorder(tiga_tdl_dto_counts, Family)
+print(tiga_tdl_dto_counts)
+write_delim(tiga_tdl_dto_counts, "data/tdl_dto_counts_TIGA.tsv", "\t")
+#
+write_delim(data.table(tiga_tdl_dto_counts)[, `:=`(
+	Tclin = sprintf("%d / %d", Tclin, tdl_dto_counts$Tclin),
+	Tchem = sprintf("%d / %d", Tchem, tdl_dto_counts$Tchem),
+	Tbio = sprintf("%d / %d", Tbio, tdl_dto_counts$Tbio),
+	Tdark = sprintf("%d / %d", Tdark, tdl_dto_counts$Tdark),
+  Total = sprintf("%d / %d", Total, tdl_dto_counts$Total))], "data/tdl_dto_counts_MERGED.tsv", "\t")
+
