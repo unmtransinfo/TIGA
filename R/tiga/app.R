@@ -74,7 +74,8 @@ if (!file.exists("tiga.Rdata")) {
   setDT(filtered_genes)
   filtered_genes[, type := "gene"]
   filtered_gene_menu <- filtered_genes$ensemblId #named vector
-  names(filtered_gene_menu) <- sprintf("%s:%s", filtered_genes$ensemblSymb, filtered_genes$geneName)
+  #names(filtered_gene_menu) <- sprintf("%s:%s", filtered_genes$ensemblSymb, filtered_genes$geneName)
+  names(filtered_gene_menu) <- filtered_genes$ensemblSymb
   #
   for (ensemblId in filtered_genes$ensemblId) {
     if (ensemblId %in% unique(gt$ensemblId)) {
@@ -103,14 +104,17 @@ if (!file.exists("tiga.Rdata")) {
   gene_table <- gene_table[!duplicated(ensemblId)]
   #
   gene_menu <- gene_table$ensemblId #named vector
-  names(gene_menu) <- sprintf("%s:%s", gene_table$geneSymbol, gene_table$geneName)
+  #names(gene_menu) <- sprintf("%s:%s", gene_table$geneSymbol, gene_table$geneName)
+  names(gene_menu) <- gene_table$geneSymbol
   #
   trait_menu <- as.list(trait_menu)
   gene_menu <- as.list(gene_menu)
   #
   study_table <- read_delim("data/gwascat_gwas.tsv.gz", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
   setDT(study_table)
-  study_table <- study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED = DATE, DATE_ADDED_TO_CATALOG)][order(DATE_PUBLISHED)]
+  # Filter studies without TIGA evidence:
+  study_table <- study_table[STUDY_ACCESSION %in% gt_prov$STUDY_ACCESSION]
+  study_table <- study_table[, .(STUDY_ACCESSION, STUDY, MAPPED_TRAIT, MAPPED_TRAIT_URI, PUBMEDID, DATE_PUBLISHED = DATE, DATE_ADDED_TO_CATALOG)][order(DATE_PUBLISHED)]
   #
   system("if [ -f \"data/efo_graph.graphml.gz\" ]; then gunzip -f data/efo_graph.graphml.gz ; fi")
   efoGraph <- read_graph("data/efo_graph.graphml", format="graphml")
@@ -218,8 +222,11 @@ ui <- fluidPage(
   fluidRow(
     column(3, 
       wellPanel(
-	dqshiny::autocomplete_input("traitQry", "Trait", options=trait_menu, max_options=1000, placeholder="Query trait..."),
-	dqshiny::autocomplete_input("geneQry", div("Gene"), options=as.list(c(gene_menu, filtered_gene_menu)), max_options=10000, placeholder="Query gene..."),
+	dqshiny::autocomplete_input("traitQry", "Trait", options=trait_menu, max_options=2000, placeholder="Query trait..."),
+	dqshiny::autocomplete_input("geneQry", div("Gene"), 
+	                            options=as.list(c(gene_menu, filtered_gene_menu)), 
+	                            #options=gene_menu,
+	                            max_options=15000, placeholder="Query gene..."),
         	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
         	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
       wellPanel(
@@ -234,10 +241,13 @@ ui <- fluidPage(
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("tigaPlot", height = "500px")),
 		tabPanel(value="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
-		tabPanel(value="provenance", title="Provenance", htmlOutput("provenance_summary"), DT::dataTableOutput("provenance_studies"), br(), downloadButton("prov_detail_file", label="Download Provenance (this association)")),
-		tabPanel(value="traits", title="Traits (browse)", DT::dataTableOutput("traits")),
-		tabPanel(value="genes", title="Genes (browse)", DT::dataTableOutput("genes")),
-		tabPanel(value="studies", title="Studies (browse)", DT::dataTableOutput("studies")),
+		tabPanel(value="provenance", title="Provenance", htmlOutput("provenance_summary"),
+			DT::dataTableOutput("provenance_studies"), br(),
+			downloadButton("prov_detail_file", label="Download Provenance (this association)")
+			),
+		tabPanel(value="traits", title="Traits (all)", DT::dataTableOutput("traits")),
+		tabPanel(value="genes", title="Genes (all)", DT::dataTableOutput("genes")),
+		tabPanel(value="studies", title="Studies (all)", DT::dataTableOutput("studies")),
 		tabPanel(value="download", title="Download",
 			h1("Downloads"),
 			p(downloadButton("gt_file", label="Gene-Trait Associations (all)"), textOutput("gtFileInfoTxt")),
@@ -321,7 +331,7 @@ server <- function(input, output, session) {
   
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
     if (is.null(Hits()) | nrow(Hits())==0) {
-      htm <- "<B>NO ASSOCIATIONS FOUND.</B>"
+      htm <- "<center><b>NO ASSOCIATIONS FOUND</b></center>"
     } else {
       htm <- "<center><b>Gene-trait association provenance</b></center>"
       htm <- paste(htm, sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\" valign=\"bottom\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\" valign=\"bottom\"><h3>GENE: %s<br/><i>%s (%s)</i></h3</td></tr></table>", 
@@ -350,9 +360,9 @@ server <- function(input, output, session) {
     i_query <<- i_query + 1  # Must assign to up-scoped variable.
     if (!grepl("^\\s*$", input$traitQry)) ids$trait <- input$traitQry
     if (!grepl("^\\s*$", input$geneQry)) ids$gene <- input$geneQry
+    message(sprintf("DEBUG: qryIds(): i_query: %d; input$traitQry: %s; ids$trait: %s; input$geneQry: %s; ids$gene: %s", i_query, input$traitQry, ids$trait, input$geneQry, ids$gene))
     return(ids)
   })
-
   qryType <- reactive({
     if (!is.na(qryIds()$trait) & is.na(qryIds()$gene)) { return("trait") }
     else if (is.na(qryIds()$trait) & !is.na(qryIds()$gene)) { return("gene") }
@@ -365,7 +375,6 @@ server <- function(input, output, session) {
     ifelse(qryType()=="trait", "gene",
     ifelse(qryType()=="genetrait", "genetrait", NA))))
   })
-
   traitQryName <- reactive({
     if (is.na(qryIds()$trait)) { return(NULL) }
     if (!(qryIds()$trait %in% trait_table$efoId)) { return(NULL) }
@@ -492,9 +501,9 @@ server <- function(input, output, session) {
     }
     size <- pmax(size, rep(10, nrow(Hits()[(ok2plot)]))) #min
     size <- pmin(size, rep(50, nrow(Hits()[(ok2plot)]))) #max
-    message(sprintf("DEBUG: markerSizeBy: %s", as.character(input$markerSizeBy)))
-    message(sprintf("DEBUG: nrow(Hits()[(ok2plot)]): %d", nrow(Hits()[(ok2plot)])))
-    message(sprintf("DEBUG: length(markerSize): %d", length(size)))
+    #message(sprintf("DEBUG: markerSizeBy: %s", as.character(input$markerSizeBy)))
+    #message(sprintf("DEBUG: nrow(Hits()[(ok2plot)]): %d", nrow(Hits()[(ok2plot)])))
+    #message(sprintf("DEBUG: length(markerSize): %d", length(size)))
     return(size)
   })
 
@@ -516,7 +525,7 @@ server <- function(input, output, session) {
     "; RCRAS = ", round(Hits()[(ok2plot), rcras], digits=2)
     # ";<br>DEBUG: .I = ", Hits()[(ok2plot), .I]
       )
-    message(sprintf("DEBUG: length(markerTextGenes): %d", length(text)))
+    #message(sprintf("DEBUG: length(markerTextGenes): %d", length(text)))
     return(text)
   })
   markerTextTraits <- reactive({
@@ -551,7 +560,9 @@ server <- function(input, output, session) {
       return(plot_ly(type="scatter", mode="marker") %>% config(displayModeBar=F) %>% layout(title=title, xaxis=axis_none, yaxis=axis_none, margin=list(t=120,b=20)))
     }
     
-    if (input$yAxis=="n_beta" & (max(Hits()[(ok2plot), n_beta]) - min(Hits()[(ok2plot), n_beta]) < 1.0)) {
+    if (nrow(Hits()[(ok2plot)])==0) {
+      yaxis[["autorange"]] <- T
+    } else if (input$yAxis=="n_beta" & (max(Hits()[(ok2plot), n_beta]) - min(Hits()[(ok2plot), n_beta]) < 1.0)) {
       yaxis[["range"]] <- c(floor(min(Hits()[(ok2plot), n_beta])-.1), ceiling(max(Hits()[(ok2plot), n_beta])+.1))
     } else if (input$yAxis=="or_median" & (max(Hits()[(ok2plot), or_median]) - min(Hits()[(ok2plot), or_median]) < 1.0)) {
       yaxis[["range"]] <- c(floor(min(Hits()[(ok2plot), or_median])-.1), ceiling(max(Hits()[(ok2plot), or_median])+.1))
@@ -646,8 +657,8 @@ server <- function(input, output, session) {
   #All-traits table has tiga-trait links.
   trait_tableHtm <- reactive({
     dt <- data.table(trait_table) #copy
-    dt[, idHtm := sprintf("<a href=\"%s?trait=%s\">%s</a>", urlBase(), efoId, efoId)]
-    dt[, .(efoId = idHtm, trait, N_study, N_gene)][order(trait)]
+    dt[, efoHtm := sprintf("<a href=\"%s?trait=%s\">%s</a>", urlBase(), efoId, efoId)]
+    dt[, .(efoId = efoHtm, trait, N_study, N_gene)][order(trait)]
   })
 
   output$traits <- DT::renderDataTable({
@@ -669,11 +680,13 @@ server <- function(input, output, session) {
     dt <- data.table(study_table)
     dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s</a><i class=\"fa fa-external-link\">", STUDY_ACCESSION, STUDY_ACCESSION)]
     dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s</a><i class=\"fa fa-external-link\">", PUBMEDID, PUBMEDID)]
-    dt[, .(Accession=gcHtm, Study=STUDY, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED, DateAdded=DATE_ADDED_TO_CATALOG)][order(-DatePublished)]
+    dt[, efoId := sub("^.*/", "", MAPPED_TRAIT_URI)]
+    dt[, efoHtm := sprintf("<a href=\"%s?trait=%s\">%s</a>", urlBase(), efoId, efoId)]
+    dt[, .(Trait = MAPPED_TRAIT, efoId = efoHtm, Study=STUDY, Accession=gcHtm, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED)][order(Trait)]
   })
 
   output$studies <- DT::renderDataTable({
-    DT::datatable(data=study_tableHtm()[, .(Accession, Study, PMID, DatePublished, DateAdded)], rownames=F, width="100%", options=list(autoWidth=F, dom='tipf'), escape=F)
+    DT::datatable(data=study_tableHtm()[, .(Trait, efoId, Study, Accession, PMID, DatePublished)], rownames=F, width="100%", options=list(autoWidth=F, dom='tipf'), escape=F)
   }, server=T)
 
   output$provenance_studies <- DT::renderDataTable({
@@ -682,15 +695,16 @@ server <- function(input, output, session) {
   }, server=T)
 
   provenance_studies_tableHtm <- reactive({
-    dt <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+    dt <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED)], by="STUDY_ACCESSION", all.x=T, all.y=F))
     dt <- unique(dt)
     dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s</a>", STUDY_ACCESSION, STUDY_ACCESSION)]
     dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s</a>", PUBMEDID, PUBMEDID)]
-    dt[, .(Accession=gcHtm, Study=STUDY, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED, DateAdded=DATE_ADDED_TO_CATALOG)][order(-DatePublished)]
+    dt[, .(Accession=gcHtm, Study=STUDY, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED)][order(-DatePublished)]
   })
 
   Provenance_export <- reactive({
-    prov_out <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(efoId, ensemblId, STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+    prov_out <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(efoId, ensemblId, STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+    if (nrow(prov_out)) return(NULL)
     prov_out <- merge(prov_out, gene_table[, .(ensemblId, geneSymbol, geneName)], by="ensemblId")
     prov_out <- merge(prov_out, trait_table[, .(efoId, trait)], by="efoId")
     prov_out <- prov_out[, .(geneSymbol, ensemblId, geneName, efoId, trait, STUDY_ACCESSION, STUDY, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG, PUBMEDID)]
