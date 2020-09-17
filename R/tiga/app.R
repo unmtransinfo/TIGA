@@ -218,21 +218,24 @@ This work was supported by the National Institutes of Health grant U24-CA224370.
 ##########################################################################################
 ui <- fluidPage(
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
+  tags$style("label {display: table-cell; text-align: center; vertical-align: middle;} .form-group {display: table-row;}"),
   titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), APPNAME_FULL), windowTitle=APPNAME_FULL),
   fluidRow(
     column(3, 
       wellPanel(
-	dqshiny::autocomplete_input("traitQry", "Trait", options=trait_menu, max_options=2000, placeholder="Query trait..."),
-	dqshiny::autocomplete_input("geneQry", div("Gene"), 
+        fluidRow(column(10, dqshiny::autocomplete_input("traitQry", "Trait:", options=trait_menu, max_options=2000, placeholder="Query trait...")),
+	column(2, actionButton("clearTrait", label="", icon=icon("backspace", "fa-2x"), style='background-color:#EEEEEE; border-width:0; padding:0'))),
+	fluidRow(column(10, dqshiny::autocomplete_input("geneQry", div("Gene:"), 
 	                            options=as.list(c(gene_menu, filtered_gene_menu)), 
 	                            #options=gene_menu,
-	                            max_options=15000, placeholder="Query gene..."),
+	                            max_options=15000, placeholder="Query gene...")), 
+	column(2, actionButton("clearGene", label="", icon=icon("backspace", "fa-2x"), style='background-color:#EEEEEE; border-width:0; padding:0'))),
         	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
         	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
       wellPanel(
-        sliderInput("maxHits", "MaxHits", 25, 200, 50, step=25),
+        sliderInput("maxHits", "MaxHits:", 25, 200, 50, step=25),
 	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "N_beta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T),
-        radioButtons("markerSizeBy", "MarkerSizeBy", choiceNames=c("RCRAS", "pValue", "None"), choiceValues=c("rcras", "pvalue_mlog_median", NA), selected="rcras", inline=T)
+        radioButtons("markerSizeBy", "MarkerSizeBy:", choiceNames=c("RCRAS", "pValue", "None"), choiceValues=c("rcras", "pvalue_mlog_median", NA), selected="rcras", inline=T)
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
 	wellPanel(htmlOutput(outputId="resultHtm"))
@@ -250,10 +253,10 @@ ui <- fluidPage(
 		tabPanel(value="studies", title="Studies (all)", DT::dataTableOutput("studies")),
 		tabPanel(value="download", title="Download",
 			h1("Downloads"),
-			p(downloadButton("gt_file", label="Gene-Trait Associations (all)"), textOutput("gtFileInfoTxt")),
-			p(downloadButton("traits_file", label="Traits (all)"), textOutput("traitFileInfoTxt")),
-			p(downloadButton("genes_file", label="Genes (all)"), textOutput("geneFileInfoTxt")),
-			p(downloadButton("provenance_file", label="Provenance (association-to-study)"), textOutput("provFileInfoTxt"))
+			wellPanel(p(tags$b("All gene-trait associations:")), downloadButton("gt_file", label="Gene-Trait Associations"), htmlOutput("gtFileInfoHtm")),
+			wellPanel(p(tags$b("All traits involved in gene-trait associations:")), downloadButton("traits_file", label="Traits"), htmlOutput("traitFileInfoHtm")),
+			wellPanel(p(tags$b("All genes involved in gene-trait associations:")), downloadButton("genes_file", label="Genes"), htmlOutput("geneFileInfoHtm")),
+			wellPanel(p(tags$b("Studies for all gene-trait associations:")), downloadButton("provenance_file", label="Provenance"), htmlOutput("provFileInfoHtm"))
 		),
 		tabPanel(value="help", title="Help", htmlOutput("helpHtm"))
 	))),
@@ -277,13 +280,6 @@ ui <- fluidPage(
 
 ##########################################################################################
 server <- function(input, output, session) {
-
-### Modal popup for genetrait provenances.
-# observeEvent(input$showGeneTraitProvenance, {
-#	showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
-#	title=HTML("<H2>Gene-trait provenance</H2>"),
-#	htmlOutput("provenance_summary"), DT::dataTableOutput("provenance_studies")))
-# })
 
   output$helpHtm <- reactive({ paste(sprintf("<H2>%s Help</H2>", APPNAME), HelpHtm()) })
 
@@ -424,10 +420,19 @@ server <- function(input, output, session) {
   output$plotTabTxt <- renderText({ ifelse(is.null(Hits()), "Plot", sprintf("Plot (%d %ss)", Hits()[(ok2plot), .N], hitType())) })
   output$hitsTabTxt <- renderText({ ifelse(!is.null(Hits()), sprintf("Hits (%d %ss)", Hits()[, .N], hitType()), "Hits (0)") })
 
-  output$traitFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(trait_table), ncol(trait_table)) })
-  output$geneFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gene_table[(!filtered)]), ncol(gene_table)) })
-  output$gtFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt), ncol(gt)) })
-  output$provFileInfoTxt <- renderText({ sprintf("rows: %d; cols: %d", nrow(gt_prov), ncol(gt_prov)) })
+  output$gtFileInfoHtm <- reactive({ 
+    paste(sep="\n", sprintf("<tt>rows: %d; cols: %d (%s)</tt>", nrow(gt), ncol(gt), paste(collapse=", ", names(gt))))
+    })
+  output$traitFileInfoHtm <- reactive({ 
+    paste("\n", sprintf("<tt>rows: %d; cols: %d (%s)</tt>", nrow(trait_table), ncol(trait_table), paste(collapse=", ", names(trait_table))))
+    })
+  output$geneFileInfoHtm <- reactive({
+    paste("\n", sprintf("<tt>rows: %d; cols: %d (%s)</tt>", nrow(gene_table[(!filtered)]), ncol(gene_table), paste(collapse=", ", names(gene_table))))
+    })
+  output$provFileInfoHtm <- reactive({
+    paste("\n", sprintf("<tt>rows: %d; cols: %d (%s)</tt>", nrow(gt_prov), ncol(gt_prov), paste(collapse=", ", names(gt_prov))))
+    })
+  
   output$provenance_summary <- reactive({ DetailSummaryHtm(qryIds()$trait, qryIds()$gene) })
 
   #Hits table has links to tiga:trait+gene, and to external resources EFO and Pharos.
@@ -678,8 +683,8 @@ server <- function(input, output, session) {
   
   study_tableHtm <- reactive({
     dt <- data.table(study_table)
-    dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s</a><i class=\"fa fa-external-link\">", STUDY_ACCESSION, STUDY_ACCESSION)]
-    dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s</a><i class=\"fa fa-external-link\">", PUBMEDID, PUBMEDID)]
+    dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s<i class=\"fa fa-external-link\"></a>", STUDY_ACCESSION, STUDY_ACCESSION)]
+    dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s<i class=\"fa fa-external-link\"></a>", PUBMEDID, PUBMEDID)]
     dt[, efoId := sub("^.*/", "", MAPPED_TRAIT_URI)]
     dt[, efoHtm := sprintf("<a href=\"%s?trait=%s\">%s</a>", urlBase(), efoId, efoId)]
     dt[, .(Trait = MAPPED_TRAIT, efoId = efoHtm, Study=STUDY, Accession=gcHtm, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED)][order(Trait)]
@@ -697,8 +702,8 @@ server <- function(input, output, session) {
   provenance_studies_tableHtm <- reactive({
     dt <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED)], by="STUDY_ACCESSION", all.x=T, all.y=F))
     dt <- unique(dt)
-    dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s</a>", STUDY_ACCESSION, STUDY_ACCESSION)]
-    dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s</a>", PUBMEDID, PUBMEDID)]
+    dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s<i class=\"fa fa-external-link\"></a>", STUDY_ACCESSION, STUDY_ACCESSION)]
+    dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s<i class=\"fa fa-external-link\"></a>", PUBMEDID, PUBMEDID)]
     dt[, .(Accession=gcHtm, Study=STUDY, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED)][order(-DatePublished)]
   })
 
