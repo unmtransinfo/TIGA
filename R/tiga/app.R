@@ -218,18 +218,17 @@ This work was supported by the National Institutes of Health grant U24-CA224370.
 ##########################################################################################
 ui <- fluidPage(
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
-  tags$style("label {display: table-cell; text-align: center; vertical-align: middle;} .form-group {display: table-row;}"),
+  #tags$style("label {display: table-cell; text-align: center; vertical-align: middle;} .form-group {display: table-row;}"),
   titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), APPNAME_FULL), windowTitle=APPNAME_FULL),
   fluidRow(
     column(3, 
       wellPanel(
-        fluidRow(column(10, dqshiny::autocomplete_input("traitQry", "Trait:", options=trait_menu, max_options=2000, placeholder="Query trait...")),
-	column(2, actionButton("clearTrait", label="", icon=icon("backspace", "fa-2x"), style='background-color:#EEEEEE; border-width:0; padding:0'))),
-	fluidRow(column(10, dqshiny::autocomplete_input("geneQry", div("Gene:"), 
-	                            options=as.list(c(gene_menu, filtered_gene_menu)), 
-	                            #options=gene_menu,
-	                            max_options=15000, placeholder="Query gene...")), 
-	column(2, actionButton("clearGene", label="", icon=icon("backspace", "fa-2x"), style='background-color:#EEEEEE; border-width:0; padding:0'))),
+        fluidRow(column(12, dqshiny::autocomplete_input("traitQry", "Trait:", options=trait_menu, max_options=2000, placeholder="Query trait..."))
+	#column(2, actionButton("clearTrait", label="", icon=icon("backspace", "fa-2x"), style='background-color:#EEEEEE; border-width:0; padding:0'))
+	),
+	fluidRow(column(12, dqshiny::autocomplete_input("geneQry", div("Gene:"), options=as.list(c(gene_menu, filtered_gene_menu)), max_options=15000, placeholder="Query gene..."))
+	#column(2, actionButton("clearGene", label="", icon=icon("backspace", "fa-2x"), style='background-color:#EEEEEE; border-width:0; padding:0'))
+	),
         	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
         	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
       wellPanel(
@@ -272,6 +271,8 @@ ui <- fluidPage(
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
   bsTooltip("goReset", "Reset.", "right"),
+  #bsTooltip("clearTrait", "Clear trait.", "right"),
+  #bsTooltip("clearGene", "Clear gene.", "right"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
   bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),
@@ -311,6 +312,12 @@ server <- function(input, output, session) {
     updateQueryString("?", "push", session)
     session$reload()
   })
+  #observeEvent(input$clearTrait, {
+  #  dqshiny::update_autocomplete_input(session, "traitQry", value="")
+  #})
+  #observeEvent(input$clearGene, {
+  #  dqshiny::update_autocomplete_input(session, "geneQry", value="")
+  #})
   
   efoId2Name <- function(efoId_this) {
     name <- trait_table[efoId==efoId_this, first(trait)]
@@ -345,7 +352,8 @@ server <- function(input, output, session) {
     if ("trait" %in% names(qStr))
       dqshiny::update_autocomplete_input(session, "traitQry", value=efoId2Name(qStr[["trait"]]))
     if ("gene" %in% names(qStr))
-      dqshiny::update_autocomplete_input(session, "geneQry", value=sprintf("%s:%s", ensemblId2Symbol(qStr[["gene"]]), ensemblId2Name(qStr[["gene"]])))
+      #dqshiny::update_autocomplete_input(session, "geneQry", value=sprintf("%s:%s", ensemblId2Symbol(qStr[["gene"]]), ensemblId2Name(qStr[["gene"]])))
+      dqshiny::update_autocomplete_input(session, "geneQry", value=ensemblId2Symbol(qStr[["gene"]]))
   }
 
   # Returns both input fields as a list(gene = ***, trait = ***)
@@ -636,8 +644,8 @@ server <- function(input, output, session) {
 				)
 			)
 	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRankScore"), digits=2)
-    %>% DT::formatStyle(c("pvalue_mlog_median", "rcras", "n_snpw"), backgroundColor="skyblue", fontWeight="bold")
-    %>% DT::formatStyle(c("meanRankScore"), color="black", backgroundColor="orange", fontWeight="bold")
+    %>% DT::formatStyle(c("pvalue_mlog_median", "rcras", "n_snpw"), fontWeight="bold")
+    %>% DT::formatStyle(c("meanRankScore"), color="black", fontWeight="bold")
     %>% DT::formatStyle("TDL", backgroundColor=styleEqual(c("Tclin", "Tchem", "Tbio", "Tdark"), c("#4444DD", "#11EE11", "#EE1111", "gray"))
   )
         )
@@ -653,8 +661,8 @@ server <- function(input, output, session) {
 				)
 			)
 	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRankScore"), digits=2)
-    %>% DT::formatStyle(c("pvalue_mlog_median", "rcras", "n_snpw"), backgroundColor="skyblue", fontWeight="bold")
-    %>% DT::formatStyle(c("meanRankScore"), color="black", backgroundColor="orange", fontWeight="bold")
+    %>% DT::formatStyle(c("pvalue_mlog_median", "rcras", "n_snpw"), fontWeight="bold")
+    %>% DT::formatStyle(c("meanRankScore"), color="black", fontWeight="bold")
 	) 
   }
   }, server=T)
