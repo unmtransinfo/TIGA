@@ -10,18 +10,18 @@
 ###  gwascat_gwas.tsv.gz        (from gwascat_gwas.R)
 ###  efo_graph.graphml.gz       (from efo_graph.R)
 ########################################################################################
-### Requires dqshiny dev version late 2019, via https://github.com/daqana/dqshiny
-### remotes::install_github("daqana/dqshiny")
+### DEPRECATED ### library(dqshiny, quietly=T)
+### DEPRECATED ### remotes::install_github("daqana/dqshiny")
+### DEPRECATED ### Requires dev version late 2019; fussy and/or buggy.
 ########################################################################################
-### Autosuggest is dependent on dqshiny and shiny versions and is fussy. shiny 1.4.0 is
-### ok (but possibly not 1.4.0.2) with dqshiny 0.0.3.9000 and shinyBS 0.61.
+### Requires shinysky, devtools::install_github("AnalytixWare/ShinySky")
 ########################################################################################
 library(readr)
 library(data.table)
 library(igraph, quietly=T)
 library(shiny, quietly=T)
 library(shinyBS, quietly=T)
-library(dqshiny, quietly=T) #https://github.com/daqana/dqshiny
+library(shinysky, quietly=T)
 library(DT, quietly=T)
 library(plotly, quietly=T)
 #
@@ -54,6 +54,7 @@ APPNAME <- "TIGA"
 APPNAME_FULL <- "TIGA: Target Illumination GWAS Analytics"
 GWASCATALOG_RELEASE <- "2020-07-15"
 MIN_ASSN <- 1
+TDL_COLORS <- list(Tclin = "#B3D8FF", Tchem = "#B3FFCA", Tbio = "#FA838A", Tdark = "#A7A4A4")
 #
 if (!file.exists("tiga.Rdata")) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
@@ -221,14 +222,25 @@ ui <- fluidPage(
   #tags$style("label {display: table-cell; text-align: center; vertical-align: middle;} .form-group {display: table-row;}"),
   titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), APPNAME_FULL), windowTitle=APPNAME_FULL),
   fluidRow(
-    column(3, 
+    column(4, 
       wellPanel(
-        fluidRow(column(12, dqshiny::autocomplete_input("traitQry", "Trait:", options=trait_menu, max_options=2000, placeholder="Query trait..."))
-	#column(2, actionButton("clearTrait", label="", icon=icon("backspace", "fa-2x"), style='background-color:#EEEEEE; border-width:0; padding:0'))
-	),
-	fluidRow(column(12, dqshiny::autocomplete_input("geneQry", div("Gene:"), options=as.list(c(gene_menu, filtered_gene_menu)), max_options=15000, placeholder="Query gene..."))
-	#column(2, actionButton("clearGene", label="", icon=icon("backspace", "fa-2x"), style='background-color:#EEEEEE; border-width:0; padding:0'))
-	),
+        shinysky::textInput.typeahead(
+		id="traitQry"
+		,placeholder="Trait..."
+		,local=trait_table
+		,valueKey="efoId"
+		,tokens=trait_table$trait
+		,template=HTML("<p class='repo-name'>{{efoId}}</p> <p class='repo-description'>{{trait}}</p>")
+		,limit=10), p(),
+
+        shinysky::textInput.typeahead(
+		id="geneQry"
+		,placeholder="Gene..."
+		,local=gene_table
+		,valueKey="ensemblId"
+		,tokens=gene_table$geneSymbol
+		,template=HTML("<p class='repo-name'>{{geneSymbol}}</p> <p class='repo-description'>{{geneName}}</p>")
+		,limit=10), p(),
         	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
         	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
       wellPanel(
@@ -239,7 +251,7 @@ ui <- fluidPage(
 	wellPanel(htmlOutput(outputId="logHtm")),
 	wellPanel(htmlOutput(outputId="resultHtm"))
 	),
-    column(9,
+    column(8,
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="plot", title=textOutput("plotTabTxt"), plotlyOutput("tigaPlot", height = "500px")),
 		tabPanel(value="hits", title=textOutput("hitsTabTxt"), DT::dataTableOutput("hitrows"), br(), downloadButton("hits_file", label="Download Hits")),
@@ -291,9 +303,9 @@ server <- function(input, output, session) {
   # ?trait=EFO_1000654&gene=ENSG00000094914
   httpQstr <- reactive({
     qStr <- getQueryString(session) #named list
-    #if (length(qStr)>0)
-    #  for (key in names(qStr))
-    #    message(sprintf("DEBUG: qStr[[\"%s\"]]=\"%s\"", key, qStr[[key]]))
+    if (length(qStr)>0)
+      for (key in names(qStr))
+        message(sprintf("DEBUG: qStr[[\"%s\"]]=\"%s\"", key, qStr[[key]]))
     return(qStr)
   })
 
@@ -307,17 +319,15 @@ server <- function(input, output, session) {
   })
  
   observeEvent(input$goReset, {
-    dqshiny::update_autocomplete_input(session, "traitQry", value="")
-    dqshiny::update_autocomplete_input(session, "geneQry", value="")
+    #dqshiny::update_autocomplete_input(session, "traitQry", value="")
+    shiny::updateTextInput(session, "traitQry", value="")
+
+    #dqshiny::update_autocomplete_input(session, "geneQry", value="")
+    shiny::updateTextInput(session, "geneQry", value="")
+
     updateQueryString("?", "push", session)
     session$reload()
   })
-  #observeEvent(input$clearTrait, {
-  #  dqshiny::update_autocomplete_input(session, "traitQry", value="")
-  #})
-  #observeEvent(input$clearGene, {
-  #  dqshiny::update_autocomplete_input(session, "geneQry", value="")
-  #})
   
   efoId2Name <- function(efoId_this) {
     name <- trait_table[efoId==efoId_this, first(trait)]
@@ -333,12 +343,11 @@ server <- function(input, output, session) {
   }
   
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
+    htm <- sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\" valign=\"bottom\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\" valign=\"bottom\"><h3>GENE: %s<br/><i>%s (%s)</i></h3</td></tr></table>", efoId_this, efoId2Name(efoId_this), ensemblId_this, ensemblId2Symbol(ensemblId_this), ensemblId2Name(ensemblId_this))
     if (is.null(Hits()) | nrow(Hits())==0) {
-      htm <- "<center><b>NO ASSOCIATIONS FOUND</b></center>"
+      htm <- paste(htm, "<center><h3>NO ASSOCIATIONS FOUND</h3></center>", "\n")
     } else {
-      htm <- "<center><b>Gene-trait association provenance</b></center>"
-      htm <- paste(htm, sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\" valign=\"bottom\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\" valign=\"bottom\"><h3>GENE: %s<br/><i>%s (%s)</i></h3</td></tr></table>", 
-                                efoId_this, efoId2Name(efoId_this), ensemblId_this, ensemblId2Symbol(ensemblId_this), Hits()[["geneName"]][1]), "\n")
+      htm <- paste("<center><h3>Gene-trait association provenance</h3></center>", "\n")
       keys <- sort(setdiff(names(Hits()), c("geneSymbol", "geneName", "trait", "ok2plot")))
       for (k in keys)
         htm <- paste(htm, sprintf("<b>%s: </b><tt>%s</tt>", k, Hits()[[k]][1]), sep=" &#8226; ")
@@ -346,25 +355,32 @@ server <- function(input, output, session) {
     return(htm)
   }
 
-  processUrlParams <- function() {
-    #message(sprintf("DEBUG: url: \"%s\"", urlText()))
-    qStr <- httpQstr()
-    if ("trait" %in% names(qStr))
-      dqshiny::update_autocomplete_input(session, "traitQry", value=efoId2Name(qStr[["trait"]]))
-    if ("gene" %in% names(qStr))
-      #dqshiny::update_autocomplete_input(session, "geneQry", value=sprintf("%s:%s", ensemblId2Symbol(qStr[["gene"]]), ensemblId2Name(qStr[["gene"]])))
-      dqshiny::update_autocomplete_input(session, "geneQry", value=ensemblId2Symbol(qStr[["gene"]]))
+  processUrlParams <- function(qStr) {
+    message(sprintf("DEBUG: url: \"%s\"", urlText()))
+    if ("trait" %in% names(qStr)) {
+      #dqshiny::update_autocomplete_input(session, "traitQry", value=efoId2Name(qStr[["trait"]]))
+      shiny::updateTextInput(session, "traitQry", value=efoId2Name(qStr[["trait"]]))
+    }
+    if ("gene" %in% names(qStr)) {
+      #dqshiny::update_autocomplete_input(session, "geneQry", value=ensemblId2Symbol(qStr[["gene"]]))
+      shiny::updateTextInput(session, "geneQry", value=ensemblId2Symbol(qStr[["gene"]]))
+    }
   }
 
   # Returns both input fields as a list(gene = ***, trait = ***)
   qryIds <- reactive({
     input$goSubmit #trigger with goSubmit button?
     ids <- list(trait = NA, gene = NA)
-    if (i_query==0 & length(names(httpQstr()))>0) { processUrlParams() } #1st query may be via URL http param.
-    i_query <<- i_query + 1  # Must assign to up-scoped variable.
+    qStr <- httpQstr()
+    if (i_query==0 & length(names(qStr))>0) {  #1st query may be via URL http param.
+      processUrlParams(qStr)
+      if ("trait" %in% names(qStr)) ids$trait <- qStr[["trait"]]
+      if ("gene" %in% names(qStr)) ids$gene <- qStr[["gene"]]
+    }
     if (!grepl("^\\s*$", input$traitQry)) ids$trait <- input$traitQry
     if (!grepl("^\\s*$", input$geneQry)) ids$gene <- input$geneQry
     message(sprintf("DEBUG: qryIds(): i_query: %d; input$traitQry: %s; ids$trait: %s; input$geneQry: %s; ids$gene: %s", i_query, input$traitQry, ids$trait, input$geneQry, ids$gene))
+    i_query <<- i_query + 1  # Must assign to up-scoped variable.
     return(ids)
   })
   qryType <- reactive({
@@ -646,7 +662,7 @@ server <- function(input, output, session) {
 	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRankScore"), digits=2)
     %>% DT::formatStyle(c("pvalue_mlog_median", "rcras", "n_snpw"), fontWeight="bold")
     %>% DT::formatStyle(c("meanRankScore"), color="black", fontWeight="bold")
-    %>% DT::formatStyle("TDL", backgroundColor=styleEqual(c("Tclin", "Tchem", "Tbio", "Tdark"), c("#4444DD", "#11EE11", "#EE1111", "gray"))
+    %>% DT::formatStyle("TDL", backgroundColor=styleEqual(c("Tclin", "Tchem", "Tbio", "Tdark"), c(TDL_COLORS[["Tclin"]], TDL_COLORS[["Tchem"]], TDL_COLORS[["Tbio"]], TDL_COLORS[["Tdark"]]))
   )
         )
   } else if (hitType()=="trait") {
