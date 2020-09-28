@@ -224,6 +224,7 @@ ui <- fluidPage(
   fluidRow(
     column(4, 
       wellPanel(
+        #tokens: A list whose length equal to nrow(local) where each element is array of string tokens.
         shinysky::textInput.typeahead(
 		id="traitQry"
 		,placeholder="Trait..."
@@ -239,6 +240,7 @@ ui <- fluidPage(
 		,local=gene_table
 		,valueKey="ensemblId"
 		,tokens=gene_table$geneSymbol
+    #,tokens=as.list(data.table(t(gene_table[, .(geneSymbol, geneName, ensemblId)])))      
 		,template=HTML("<p class='repo-name'>{{geneSymbol}}</p> <p class='repo-description'>{{geneName}}</p>")
 		,limit=10), p(),
         	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
