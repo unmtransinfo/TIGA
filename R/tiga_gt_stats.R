@@ -86,18 +86,30 @@ gt_stats[, meanRank := ranks_this$meanRank]
 #
 ###
 # Normalize to meanRankPtl (percentile). Inverted so high percentile is high (numerically low) rank.
+# PROBLEM: This is only approximate percentile.
+#ranks2pctiles <- function(rs) {
+#  q <- quantile(rs, seq(0, .999, .001)) #1000 bins.
+#  for (i in 1:length(rs)) {
+#    rs[i] <- 100 - max(which(q <= rs[i])) / 10
+#  }
+#  return(rs)
+#}
+#
+# ecdf() is empirical cumulative distribution function
 ranks2pctiles <- function(rs) {
-  q <- quantile(rs, seq(0, .999, .001)) #1000 bins.
-  for (i in 1:length(rs)) {
-    rs[i] <- 100 - max(which(q <= rs[i])) / 10
-  }
-  return(rs)
+  pctiles <- 100 * (1.0 - ecdf(rs)(rs))
+  return(pctiles)
 }
 #
 gt_stats[, meanRankScore := ranks2pctiles(meanRank)]
 #
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
+#
+message(sprintf("cor(meanRank, meanRankScore): %f", cor(gt_stats$meanRank, gt_stats$meanRankScore)))
+gt_stats <- gt_stats[order(meanRank)]
+message(sprintf("meanRank monotonically increasing: %s", all(gt_stats$meanRank == cummax(gt_stats$meanRank))))
+message(sprintf("meanRankScore monotonically decreasing: %s", all(gt_stats$meanRankScore == cummin(gt_stats$meanRankScore))))
 #
 t_elapsed <- (Sys.time()-t_start)
 message(sprintf("%s, elapsed time: %.2f %s", Sys.time(), t_elapsed, attr(t_elapsed, "units")))
