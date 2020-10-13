@@ -345,11 +345,13 @@ server <- function(input, output, session) {
   }
   
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
-    htm <- sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\" valign=\"bottom\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\" valign=\"bottom\"><h3>GENE: %s<br/><i>%s (%s)</i></h3</td></tr></table>", efoId_this, efoId2Name(efoId_this), ensemblId_this, ensemblId2Symbol(ensemblId_this), ensemblId2Name(ensemblId_this))
+    #message(sprintf("DEBUG: efoId_this: %s; ensemblId_this: %s; efoId2Name(efoId_this): %s; ensemblId2Symbol(ensemblId_this): %s; ensemblId2Name(ensemblId_this): %s", efoId_this, ensemblId_this, efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this), ensemblId2Name(ensemblId_this)))
+    htm <- sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\" valign=\"bottom\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\" valign=\"bottom\"><h3>GENE: %s<br/><i>%s (%s)</i></h3</td></tr></table>", 
+                   efoId_this, efoId2Name(efoId_this), ensemblId_this, ensemblId2Symbol(ensemblId_this), ensemblId2Name(ensemblId_this))
     if (is.null(Hits()) | nrow(Hits())==0) {
       htm <- paste(htm, "<center><h3>NO ASSOCIATIONS FOUND</h3></center>", "\n")
     } else {
-      htm <- paste("<center><h3>Gene-trait association provenance</h3></center>", "\n")
+      htm <- paste(htm, "<center><h3>Gene-trait association provenance</h3></center>", "\n")
       keys <- sort(setdiff(names(Hits()), c("geneSymbol", "geneName", "trait", "ok2plot")))
       for (k in keys)
         htm <- paste(htm, sprintf("<b>%s: </b><tt>%s</tt>", k, Hits()[[k]][1]), sep=" &#8226; ")

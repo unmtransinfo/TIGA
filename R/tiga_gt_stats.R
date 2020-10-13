@@ -85,19 +85,10 @@ ranks_this[, meanRank := rowMeans(.SD)]
 gt_stats[, meanRank := ranks_this$meanRank]
 #
 ###
-# Normalize to meanRankPtl (percentile). Inverted so high percentile is high (numerically low) rank.
-# PROBLEM: This is only approximate percentile.
-#ranks2pctiles <- function(rs) {
-#  q <- quantile(rs, seq(0, .999, .001)) #1000 bins.
-#  for (i in 1:length(rs)) {
-#    rs[i] <- 100 - max(which(q <= rs[i])) / 10
-#  }
-#  return(rs)
-#}
-#
+# Normalize to meanRankPtl (percentile).
 # ecdf() is empirical cumulative distribution function
-ranks2pctiles <- function(rs) {
-  pctiles <- 100 * (1.0 - ecdf(rs)(rs))
+ranks2pctiles <- function(ranks) {
+  pctiles <- 100 * (1.0 - ecdf(ranks)(ranks))
   return(pctiles)
 }
 #
@@ -106,10 +97,29 @@ gt_stats[, meanRankScore := ranks2pctiles(meanRank)]
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
 #
+# 
+message("Testing and checking behavior of meanRankScore vs meanRank:")
 message(sprintf("cor(meanRank, meanRankScore): %f", cor(gt_stats$meanRank, gt_stats$meanRankScore)))
+message(sprintf("meanRank values: %d; unique values: %d", nrow(gt_stats[!is.na(meanRank)]), gt_stats[, uniqueN(meanRank)]))
+message(sprintf("meanRankScore values: %d; unique values: %d", nrow(gt_stats[!is.na(meanRankScore)]), gt_stats[, uniqueN(meanRankScore)]))
+ecdf_this <- ecdf(gt_stats$meanRank)
+summary(ecdf_this)
+if (interactive()) {
+  plot(ecdf_this)
+}
 gt_stats <- gt_stats[order(meanRank)]
 message(sprintf("meanRank monotonically increasing: %s", all(gt_stats$meanRank == cummax(gt_stats$meanRank))))
 message(sprintf("meanRankScore monotonically decreasing: %s", all(gt_stats$meanRankScore == cummin(gt_stats$meanRankScore))))
+if (interactive()) {
+  plot(x=gt_stats$meanRank, y=gt_stats$meanRankScore, type="p", main="meanRankScore vs meanRank", col="dark red", cex=.1)
+}
+if (interactive()) { #Inspecting discontinuities.
+  library(plotly)
+  scores_suspicious <- gt_stats[meanRank>55000 & meanRank<60000, .(meanRank, meanRankScore)]
+  plot_ly(scores_suspicious, x=~meanRank, y=~meanRankScore, type="scatter", mode="markers")
+}
+frequent_meanRank <- gt_stats[, .(.N), by=meanRank][order(-N)][1:10]
+writeLines(sprintf("Frequent meanRank (ties) #%2d: %12.2f (N=%4d)", 1:10, frequent_meanRank[, meanRank], frequent_meanRank[, N]))
 #
 t_elapsed <- (Sys.time()-t_start)
 message(sprintf("%s, elapsed time: %.2f %s", Sys.time(), t_elapsed, attr(t_elapsed, "units")))
