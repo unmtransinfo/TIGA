@@ -99,27 +99,24 @@ writeLines(sprintf("Output file written: %s", ofile))
 #
 # 
 message("Testing and checking behavior of meanRankScore vs meanRank:")
-message(sprintf("cor(meanRank, meanRankScore): %f", cor(gt_stats$meanRank, gt_stats$meanRankScore)))
 message(sprintf("meanRank values: %d; unique values: %d", nrow(gt_stats[!is.na(meanRank)]), gt_stats[, uniqueN(meanRank)]))
 message(sprintf("meanRankScore values: %d; unique values: %d", nrow(gt_stats[!is.na(meanRankScore)]), gt_stats[, uniqueN(meanRankScore)]))
-ecdf_this <- ecdf(gt_stats$meanRank)
-summary(ecdf_this)
-if (interactive()) {
-  plot(ecdf_this)
-}
 gt_stats <- gt_stats[order(meanRank)]
 message(sprintf("meanRank monotonically increasing: %s", all(gt_stats$meanRank == cummax(gt_stats$meanRank))))
 message(sprintf("meanRankScore monotonically decreasing: %s", all(gt_stats$meanRankScore == cummin(gt_stats$meanRankScore))))
-if (interactive()) {
-  plot(x=gt_stats$meanRank, y=gt_stats$meanRankScore, type="p", main="meanRankScore vs meanRank", col="dark red", cex=.1)
-}
+frequent_meanRank <- gt_stats[, .(N = as.integer(.N)), by=meanRank][order(-N)]
+writeLines(sprintf("Frequent meanRank (tied values) #%2d: %12.2f (N=%4d)", 1:10, frequent_meanRank[1:10, meanRank], frequent_meanRank[1:10, N]))
+message(sprintf("Total tied values: %d / %d (%.1f%%)", frequent_meanRank[N>1, sum(N)], frequent_meanRank[, sum(N)], 100*frequent_meanRank[N>1, sum(N)]/frequent_meanRank[, sum(N)]))
 if (interactive()) { #Inspecting discontinuities.
-  library(plotly)
+  ecdf_this <- ecdf(gt_stats$meanRank)
+  print(summary(ecdf_this))
+  plot(ecdf_this)
+  plot(x=gt_stats$meanRank, y=gt_stats$meanRankScore, type="p", main="meanRankScore vs meanRank", col="dark red", cex=.1)
   scores_suspicious <- gt_stats[meanRank>55000 & meanRank<60000, .(meanRank, meanRankScore)]
-  plot_ly(scores_suspicious, x=~meanRank, y=~meanRankScore, type="scatter", mode="markers")
+  plot(x=scores_suspicious$meanRank, y=scores_suspicious$meanRankScore, cex=.1)
+  #library(plotly)
+  #plot_ly(scores_suspicious, x=~meanRank, y=~meanRankScore, type="scatter", mode="markers")
 }
-frequent_meanRank <- gt_stats[, .(.N), by=meanRank][order(-N)][1:10]
-writeLines(sprintf("Frequent meanRank (ties) #%2d: %12.2f (N=%4d)", 1:10, frequent_meanRank[, meanRank], frequent_meanRank[, N]))
 #
 t_elapsed <- (Sys.time()-t_start)
 message(sprintf("%s, elapsed time: %.2f %s", Sys.time(), t_elapsed, attr(t_elapsed, "units")))
