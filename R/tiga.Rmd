@@ -73,7 +73,7 @@ library(plotly, quietly=T)
 From GWAS Catalog, TCRD, and EFO.
 
 ```{r}
-ifile_gwas <- "data/gwascat_gwas.tsv"
+ifile_gwas <- "data/gwascat_gwas.tsv.gz"
 ifile_assn <- "data/gwascat_assn.tsv"
 ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
 ifile_trait <- "data/gwascat_trait.tsv"
@@ -114,14 +114,13 @@ setorder(gwas_platforms, YEAR, PLATFORM)
 gwas_platforms_cast <- dcast(gwas_platforms, YEAR ~ PLATFORM, value.var="N", fill=0)
 plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="Not Reported",
                 type="scatter", mode="markers", fill="tonexty") %>%
-#  add_trace(y = ~Perlegen, name="Perlegen") %>%
   add_trace(y = ~Affymetrix, name="Affymetrix") %>%
   add_trace(y = ~Illumina, name="Illumina") %>%
   layout(title = 'GWAS counts by year &amp; vendor',
          xaxis = list(title="", showgrid=F, range=c(2005, 2019), dtick=1, tickangle=45),
          yaxis = list(title="", showgrid=F),
          margin = list(t=100, l=100),
-         font = list(family="monospace", size=18),
+         font = list(family="monospace", size=24),
          legend = list(x=.1, y=.7), showlegend=T) %>%
   add_annotations(text=("N = count(studies)"), showarrow=F, x=0.05, y=1, xref="paper", yref="paper")
 ```
@@ -136,7 +135,7 @@ plot_ly(gwas, x=~YEAR, y=~study_N, type="box") %>%
     layout(title="GWAS sample sizes",
          xaxis=list(title="", tickangle=45), yaxis=list(title="Study_N", type="log"),
          margin = list(t=100, l=100),
-         font = list(family="monospace", size=18)) %>%
+         font = list(family="monospace", size=24)) %>%
   add_annotations(text=sprintf("median:%d  mean:%d  range:[%d-%.2g]", median(gwas$study_N, na.rm=T), round(mean(gwas$study_N, na.rm=T)), min(gwas$study_N, na.rm=T), max(gwas$study_N, na.rm=T)), showarrow=F, x=0.5, y=1, xref="paper", yref="paper")
 ```
 
@@ -258,16 +257,14 @@ plots <- list(
     layout(yaxis=list(title="probability")),
   plot_ly() %>%
     add_trace(name="f(x)", type="scatter", x=xvals, y=exp(-xvals/4e4*log(2)), mode="lines", line=list(width=5, color='#CC2222')) %>%
-#    add_trace(name="ReLU", type="scatter", x=xvals, y=1-xvals/xmax, mode="lines", line=list(width=3, color='#777777', dash="dot"))  %>%
-  # add_trace(name="Sigmoid", type="scatter", x=xvals, y=exp(-(xvals-xmax/2)/1e4)/(1+exp(-(xvals-xmax/2)/1e4)), mode="lines", line=list(width=5)) %>%
       add_annotations(text=paste0(annos2, collapse="<br>"), x=.5, xanchor="center", y=.7, yanchor="top", xref="paper", yref="paper", showarrow=F) %>%
     layout(yaxis=list(title="f(x)"))
   )
 subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
   layout(title="Association/SNP-GENE_DISTANCE<br>(UP|DOWN)STREAM",
          margin = list(l=80, t=100, r=50),
-         xaxis=list(title="BPs", range=c(0,xmax)),
-         font=list(family="monospace", size=14),
+         xaxis=list(title="BPs", range=c(0, xmax)),
+         font=list(family="monospace", size=24),
          legend = list(x=.8, y=.4), showlegend=T)
 ```
 
