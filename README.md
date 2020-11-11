@@ -21,7 +21,7 @@ See related [poster](https://www.slideshare.net/jeremyjyang/gwas-explorer-drug-t
 
 * Python 3.6+; package [BioClients](https://github.com/jeremyjyang/BioClients) 
 * R 3.6+; packages readr, data.table, shiny, DT, shinyBS, plotly, igraph
-* [dqshiny](https://github.com/daqana/dqshiny) dev version (late 2019) via `remotes::install_github("daqana/dqshiny")` to resolve update\_autocomplete\_input bug.
+* [shinysky](https://github.com/AnalytixWare/ShinySky)
 
 ## GWAS Catalog features
 
@@ -49,7 +49,8 @@ Acids Research, 2014, Vol. 42 (Database issue): D1001-D1006.
 * Beta coefficients require units and thus are not comparable between
 non-convertible units (e.g. mg vs mm). Nor are beta
 coefficients comparable with OR, so it is questionable that these values
-are combined in one field `OR_or_BETA`.
+are combined in one field `OR_or_BETA`.  Current TIGA workaround is to use
+simple count of beta values supporting gene-trait association.
 
 ## Features of TIGA
 
@@ -67,4 +68,4 @@ how to update the TIGA dataset from sources.
 
 ## TIGA Application
 
-* Currently at <http://unmtid-shinyapps.net/tiga/>
+* <https://unmtid-shinyapps.net/tiga/>
