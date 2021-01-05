@@ -12,7 +12,11 @@ library(data.table, quietly=T)
 library(igraph, quietly=T)
 ###
 #
-efo <- read_delim("data/efo.tsv", "\t", col_types=cols(.default=col_character()))
+args <- commandArgs(trailingOnly=TRUE)
+ifile <- ifelse((length(args)>0), args[1], "data/efo.tsv")
+ofile <- ifelse((length(args)>1), args[2], "data/efo_graph.graphml")
+#
+efo <- read_delim(ifile, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo_node <- efo[node_or_edge == "node", .(id, uri, label, comment)]
 efo_node[['ontology']] <- sub("_.*$", "", efo_node$id)
@@ -52,8 +56,7 @@ efoG <- set_vertex_attr(efoG, "color", V(efoG), ontocolor(efo_node$ontology))
 
 ###
 # Save annotated graph to file for TIGA UI.
-write_graph(efoG, "data/efo_graph.graphml", format="graphml")
-system("gzip -f data/efo_graph.graphml")
+write_graph(efoG, ofile, format="graphml")
 #
 ###
 # Induce and plot subgraph. BFS finds all subclasses.
@@ -66,10 +69,12 @@ graph_attr(subg, "name") <- sprintf("EFO_SUBGRAPH:%s (subclasses)", v_this$efoId
 message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(subg, "name"), ifelse(is_directed(subg), "", "NOT_"), vcount(subg), ecount(subg)))
 writeLines(sprintf("%2d. %-44s %-18s \"%s\"", 1:vcount(subg), V(subg)$uri, V(subg)$efoId, V(subg)$description))
 ###
-# Plot
-tkplot(subg, canvas.width=800, canvas.height=600, layout=layout_as_tree, vertex.label=sprintf("%s\n%s", V(subg)$efoId, V(subg)$description), 
-       vertex.frame.color="#6666AA", vertex.size=30, edge.color="#6666AA", edge.width=2, edge.arrow.size=1,
-       edge.label="has_subclass")
+# Plot (if interactive)
+if (interactive()) {
+	tkplot(subg, canvas.width=800, canvas.height=600, layout=layout_as_tree, vertex.label=sprintf("%s\n%s", V(subg)$efoId, V(subg)$description), 
+       	vertex.frame.color="#6666AA", vertex.size=30, edge.color="#6666AA", edge.width=2, edge.arrow.size=1,
+       	edge.label="has_subclass")
+}
 #
 # CYJS not supported. (Can do igraph_utils.py graph2cyjs)
 subg <- set_vertex_attr(subg, "name", V(subg), sprintf("%s: %s", V(subg)$efoId, V(subg)$description))
@@ -77,10 +82,8 @@ write_graph(subg, sprintf("data/efo_subgraph_%s.graphml", efo_node[label == EFON
 #
 ###
 # Test that we can read graphml file ok.
-system("gunzip -f data/efo_graph.graphml.gz")
-efoG2 <- read_graph("data/efo_graph.graphml", format="graphml")
+efoG2 <- read_graph(ofile, format="graphml")
 message(sprintf("Graph \"%s\" (%sDIRECTED): vertices: %d; edges: %d", graph_attr(efoG2, "name"), ifelse(is_directed(efoG2), "", "NOT_"), vcount(efoG2), ecount(efoG2)))
 message(sprintf("TEST: %d =? %d (%s)", vcount(efoG2), vcount(efoG), ifelse(vcount(efoG2)==vcount(efoG), "OK", "NOT OK")))
 message(sprintf("TEST: %d =? %d (%s)", ecount(efoG2), ecount(efoG), ifelse(ecount(efoG2)==ecount(efoG), "OK", "NOT OK")))
-system("gzip -f data/efo_graph.graphml")
 #
