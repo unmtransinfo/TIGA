@@ -21,14 +21,22 @@ set -e
 #
 cwd=$(pwd)
 #
-SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/07/15"
+#SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/07/15"
+SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/12/16"
 DATADIR="${cwd}/data"
 #
 #Source files:
 gwasfile="${SRCDATADIR}/gwas-catalog-studies_ontology-annotated.tsv"
+if [ ! -f "${gwasfile}" ]; then
+	echo "ERROR: FILE NOT FOUND: ${gwasfile}"
+	exit
+fi
 #
-#assnfile="${SRCDATADIR}/gwas_catalog_v1.0.2-associations_e94_r2018-09-30.tsv"
 assnfile="${SRCDATADIR}/gwas-catalog-associations_ontology-annotated.tsv"
+if [ ! -f "${assnfile}" ]; then
+	echo "ERROR: FILE NOT FOUND: ${assnfile}"
+	exit
+fi
 ###
 #Output files:
 tsvfile_gwas="${DATADIR}/gwascat_gwas.tsv"
@@ -49,8 +57,8 @@ tsvfile_trait="${DATADIR}/gwascat_trait.tsv"
 # EFO:
 EFO_DIR="$HOME/../data/EFO/data"
 OWLFILE="$EFO_DIR/efo.owl"
-#EFO_URL="https://github.com/EBISPOT/efo/releases/download/v3.20.0/efo-base.owl"
-EFO_URL="https://github.com/EBISPOT/efo/releases/download/v3.20.0/efo.owl"
+#EFO_URL="https://github.com/EBISPOT/efo/releases/download/v3.20.0/efo.owl"
+EFO_URL="https://github.com/EBISPOT/efo/releases/download/v3.25.0/efo.owl"
 wget -q -O $OWLFILE $EFO_URL
 #
 LIBDIR="$HOME/../app/lib"
@@ -60,9 +68,10 @@ java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 	-ifile_ont ${OWLFILE} -vv -ont2tsv -o ${efofile}
 #
 ###
-# From efo.tsv create efo_graph.graphml.gz:
-${cwd}/R/efo_graph.R
-#
+# From efo.tsv create GraphML file:
+graphmlfile="${DATADIR}/efo_graph.graphml"
+${cwd}/R/efo_graph.R ${efofile} ${graphmlfile}
+gzip ${graphmlfile}
 #
 ###
 tsvfile_trait_sub="${DATADIR}/efo_sub_gwas.tsv"
@@ -142,15 +151,15 @@ cat $DATADIR/gwascat_upstream.ensg $DATADIR/gwascat_downstream.ensg $DATADIR/gwa
 ### Esp. "Genomic Mappings" (SNP-gene)
 ### However, in 2020 there are ENSGs in downloads, so API not needed for ENSGs.
 #
-cat $DATADIR/gwascat_gwas.tsv \
-	|sed -e '1d' |awk -F '\t' '{print $15}' \
-	>$DATADIR/gwascat_gwas.gcst
+#cat $DATADIR/gwascat_gwas.tsv \
+#	|sed -e '1d' |awk -F '\t' '{print $15}' \
+#	>$DATADIR/gwascat_gwas.gcst
 ###
 # ~3hr
-python3 -m BioClients.gwascatalog.Client get_studyAssociations \
-	--i $DATADIR/gwascat_gwas.gcst \
-	--o $DATADIR/gwascat_StudyAssociations.tsv
-gzip -f $DATADIR/gwascat_StudyAssociations.tsv
+#python3 -m BioClients.gwascatalog.Client get_studyAssociations \
+#	--i $DATADIR/gwascat_gwas.gcst \
+#	--o $DATADIR/gwascat_StudyAssociations.tsv
+#gzip -f $DATADIR/gwascat_StudyAssociations.tsv
 #
 # re.match(r'(rs|SNP|snp|chr)', val)
 cat $DATADIR/gwascat_snp2gene.tsv \
