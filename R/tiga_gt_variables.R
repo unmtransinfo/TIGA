@@ -3,7 +3,7 @@
 ### GENE-TRAIT VARIABLES
 ###   (1) tiga_gt_prepfilter.R - Merge input files, preprocess and filter.
 ###  (2a) tiga_gt_provenance.R - Produce gt_provenance.tsv.gz, for TIGA app.
-### *(2b) tiga_gt_variables.R - Produce gt_variables.tsv.gz
+### *(2b) tiga_gt_variables.R - Produce gt_variables.tsv.gz (~7hr)
 ###   (3) tiga_gt_stats.R, to produce gt_stats.tsv.gz, for TIGA app.
 #############################################################################
 ### SEE FOR ALL INPUT WORKFLOWS: Go_gwascat_GetData.sh

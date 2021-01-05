@@ -52,7 +52,7 @@ efoId2Subclasses <- function(G, id_this) {
 ########################################################################################
 APPNAME <- "TIGA"
 APPNAME_FULL <- "TIGA: Target Illumination GWAS Analytics"
-GWASCATALOG_RELEASE <- "2020-07-15"
+GWASCATALOG_RELEASE <- "2020-12-16"
 MIN_ASSN <- 1
 TDL_COLORS <- list(Tclin = "#B3D8FF", Tchem = "#B3FFCA", Tbio = "#FA838A", Tdark = "#A7A4A4")
 #
