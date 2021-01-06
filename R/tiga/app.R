@@ -7,7 +7,7 @@
 ###  filtered_studies.tsv       (from tiga_gt_prepfilter.R)
 ###  filtered_traits.tsv        (from tiga_gt_prepfilter.R)
 ###  filtered_genes.tsv         (from tiga_gt_prepfilter.R)
-###  gwascat_gwas.tsv.gz        (from gwascat_gwas.R)
+###  gwascat_gwas.tsv           (from gwascat_gwas.R)
 ###  efo_graph.graphml.gz       (from efo_graph.R)
 ########################################################################################
 ### DEPRECATED ### library(dqshiny, quietly=T)
@@ -52,7 +52,6 @@ efoId2Subclasses <- function(G, id_this) {
 ########################################################################################
 APPNAME <- "TIGA"
 APPNAME_FULL <- "TIGA: Target Illumination GWAS Analytics"
-GWASCATALOG_RELEASE <- "2020-12-16"
 MIN_ASSN <- 1
 TDL_COLORS <- list(Tclin = "#B3D8FF", Tchem = "#B3FFCA", Tbio = "#FA838A", Tdark = "#A7A4A4")
 #
@@ -111,7 +110,7 @@ if (!file.exists("tiga.Rdata")) {
   trait_menu <- as.list(trait_menu)
   gene_menu <- as.list(gene_menu)
   #
-  study_table <- read_delim("data/gwascat_gwas.tsv.gz", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
+  study_table <- read_delim("data/gwascat_gwas.tsv", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
   setDT(study_table)
   # Filter studies without TIGA evidence:
   study_table <- study_table[STUDY_ACCESSION %in% gt_prov$STUDY_ACCESSION]
@@ -121,7 +120,12 @@ if (!file.exists("tiga.Rdata")) {
   efoGraph <- read_graph("data/efo_graph.graphml", format="graphml")
   system("if [ -f \"data/efo_graph.graphml\" ]; then gzip -f data/efo_graph.graphml ; fi")
   #
-  save(gt, trait_table, gene_table, trait_menu, gene_menu, filtered_gene_menu, gt_prov, filtered, study_table, efoGraph, file="tiga.Rdata")
+  GWASCATALOG_RELEASE <- trimws(readr::read_file("data/gwascat_release.txt"))
+  EFO_RELEASE <- trimws(readr::read_file("data/efo_release.txt"))
+  tcrd_info <- read_delim("data/tcrd_info.tsv", "\t")
+  TCRD_RELEASE <- tcrd_info$data_ver[1]
+  #
+  save(gt, trait_table, gene_table, trait_menu, gene_menu, filtered_gene_menu, gt_prov, filtered, study_table, efoGraph, GWASCATALOG_RELEASE, EFO_RELEASE, TCRD_RELEASE, file="tiga.Rdata")
 } else {
   message(sprintf("Loading tiga.Rdata..."))
   load("tiga.Rdata")
@@ -153,11 +157,20 @@ Rather than a comprehensive analysis of GWAS for all biological implications and
 focused application provides a rational method by which GWAS findings can be 
 aggregated and filtered for applicable, actionable intelligence, with 
 evidence usable by drug discovery scientists to enrich prioritization of target hypotheses. 
-Data from the <A HREF=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">NHGRI-EBI GWAS Catalog</A>.
+<P>
+<B>Data sources:</B>
+<UL>
+<LI><a href=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">GWAS Catalog</a> [%s]
+<LI><a href=\"https://www.ebi.ac.uk/efo/\" TARGET=\"_blank\">Experimental Factor Ontology (EFO)</a> [%s]
+<LI><a href=\"http://juniper.health.unm.edu/tcrd/\" TARGET=\"_blank\">Target Central Resource Db (TCRD)</a> [%s]
+</UL>", GWASCATALOG_RELEASE, EFO_RELEASE, TCRD_RELEASE)
+  htm <- paste(sep="\n", htm, 
+"<B>Notes:</B>
 <UL>
 <LI>Traits are mapped to EFO, Experimental Factor Ontology.
-<LI>Mapped genes via Ensembl pipeline as per GWAS Catalog documentation. Reported genes ignored for consistency and accountable
-confidence assessment in this app and downstream.
+<LI>Mapped genes via Ensembl pipeline as per 
+<a href=\"https://www.ebi.ac.uk/gwas/docs/methods/curation\" TARGET=\"_blank\">GWAS Catalog documentation</a>. 
+Reported genes ignored for consistency and accountable confidence assessment in this app and downstream.
 <LI>In this version, effect size measure (1) odds ratio (OR) or (2) BETA required.
 <LI>Due to lack of reported, extracted, parsed and harmonized beta units, N_beta count is employed
 as simple, rational measure of effect evidence and confidence (but not magnitude).
@@ -190,11 +203,6 @@ Note that this app will accept query parameters <B>trait</B> (EFO_ID) and/or <B>
 <B><TT>?trait=EFO_1000654</TT></B>, <B><TT>?gene=ENSG00000094914</TT></B>,
 <B><TT>?trait=EFO_1000654&gene=ENSG00000094914</TT></B>.
 <BR/>
-<B>Sources:</B>
-<UL>
-<LI><a href=\"https://www.ebi.ac.uk/gwas/\">GWAS Catalog</a> (release: %s)
-<LI><a href=\"https://www.ebi.ac.uk/efo/\">Experimental Factor Ontology (EFO)</a>
-</UL>
 <B>Issues:</B>
 <UL>
 <LI>Query traits with apostrophes must be typed in full. Autocomplete autosuggests but does not complete.
@@ -211,7 +219,7 @@ Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and En
 <BR/>
 <B>Feedback welcome</B> to corresponding author  
 <a href=\"mailto:jjyang_AT_salud_DOT_unm_DOT_edu\">Jeremy Yang</a>.<br/>
-This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>", GWASCATALOG_RELEASE)
+This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
   htm <- paste(htm, sprintf("<hr>\nPowered by: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
 }
@@ -280,9 +288,9 @@ ui <- fluidPage(
         " and ",
         tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png"))),
         " built from ",
-        tags$a(href="https://www.ebi.ac.uk/gwas/", target="_blank", span("GWAS Catalog", tags$img(id="gwas_catalog_logo", height="50", valign="bottom", src="GWAS_Catalog_logo.png"))),
+        tags$a(href="https://www.ebi.ac.uk/gwas/", target="_blank", span(paste0("GWAS Catalog [", GWASCATALOG_RELEASE, "]"), tags$img(id="gwas_catalog_logo", height="50", valign="bottom", src="GWAS_Catalog_logo.png"))),
         " and ",
-        tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span("EFO", tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
+        tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span(paste0("EFO [", EFO_RELEASE, "]"), tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
   bsTooltip("goReset", "Reset.", "right"),
   #bsTooltip("clearTrait", "Clear trait.", "right"),

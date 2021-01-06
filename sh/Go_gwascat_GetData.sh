@@ -21,9 +21,18 @@ set -e
 #
 cwd=$(pwd)
 #
-#SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/07/15"
-SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/12/16"
 DATADIR="${cwd}/data"
+#
+###
+# GWASCatalog release:
+GC_REL_Y="2020"
+GC_REL_M="12"
+GC_REL_D="16"
+#
+#SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/07/15"
+SRCDATADIR="$HOME/../data/GWASCatalog/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
+#
+printf "${GC_REL_Y}-${GC_REL_M}-${GC_REL_D}\n" >${DATADIR}/gwascat_release.txt
 #
 #Source files:
 gwasfile="${SRCDATADIR}/gwas-catalog-studies_ontology-annotated.tsv"
@@ -57,8 +66,11 @@ tsvfile_trait="${DATADIR}/gwascat_trait.tsv"
 # EFO:
 EFO_DIR="$HOME/../data/EFO/data"
 OWLFILE="$EFO_DIR/efo.owl"
+EFO_RELEASE="3.25.0"
+printf "${EFO_RELEASE}\n" >${DATADIR}/efo_release.txt
+#
 #EFO_URL="https://github.com/EBISPOT/efo/releases/download/v3.20.0/efo.owl"
-EFO_URL="https://github.com/EBISPOT/efo/releases/download/v3.25.0/efo.owl"
+EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
 wget -q -O $OWLFILE $EFO_URL
 #
 LIBDIR="$HOME/../app/lib"
@@ -180,13 +192,14 @@ gzip -f $DATADIR/gwascat_Snps.tsv
 #
 ##
 # (Split semicolon-separated multi-ENSG's.)
-${cwd}/python/pandas_utils.py selectcols \
-	--i $DATADIR/gwascat_Snps.tsv.gz \
-	--coltags gene_ensemblGeneIds \
-	|perl -pe 's/;/\n/g' \
-	|sed -e '1d' |grep '^ENSG' |sort -u \
-	>$DATADIR/gwascat_Snps.ensg
-printf "Ensembl ID count: %d\n" "$(cat $DATADIR/gwascat_Snps.ensg |wc -l)"
+# (No longer needed since ENSGs in download files.)
+#${cwd}/python/pandas_utils.py selectcols \
+#	--i $DATADIR/gwascat_Snps.tsv.gz \
+#	--coltags gene_ensemblGeneIds \
+#	|perl -pe 's/;/\n/g' \
+#	|sed -e '1d' |grep '^ENSG' |sort -u \
+#	>$DATADIR/gwascat_Snps.ensg
+#printf "Ensembl ID count: %d\n" "$(cat $DATADIR/gwascat_Snps.ensg |wc -l)"
 #
 ###
 # ~13hr
@@ -195,16 +208,20 @@ printf "Ensembl ID count: %d\n" "$(cat $DATADIR/gwascat_Snps.ensg |wc -l)"
 #	--o $DATADIR/gwascat_Snps_EnsemblInfo.tsv
 #gzip -f $DATADIR/gwascat_Snps_EnsemblInfo.tsv
 #
-python3 -m BioClients.ensembl.Client get_info \
+python3 -m BioClients.ensembl.Client get_info -v \
 	--i $DATADIR/gwascat.ensg \
 	--o $DATADIR/gwascat_EnsemblInfo.tsv
 gzip -f $DATADIR/gwascat_EnsemblInfo.tsv
 #
 ###
 # TCRD:
+TCRD_DBNAME="tcrd660"
 python3 -m BioClients.idg.tcrd.Client listTargets \
-	--dbname "tcrd660" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
+	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
 	--o $DATADIR/tcrd_targets.tsv
+python3 -m BioClients.idg.tcrd.Client info \
+	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
+	--o $DATADIR/tcrd_info.tsv
 #
 ###
 # gwascat_counts.tsv from Go_gwascat_DbCreate.sh
@@ -238,3 +255,15 @@ ${cwd}/R/tiga_gt_stats.R \
 	$DATADIR/gt_variables.tsv.gz \
 	$DATADIR/gt_stats.tsv.gz
 #
+cp \
+	${DATADIR}/gwascat_gwas.tsv \
+	${DATADIR}/filtered_studies.tsv \
+	${DATADIR}/filtered_genes.tsv \
+	${DATADIR}/filtered_traits.tsv \
+	${DATADIR}/gt_provenance.tsv.gz \
+	${DATADIR}/gt_stats.tsv.gz \
+	${DATADIR}/efo_graph.graphml.gz \
+	${DATADIR}/gwascat_release.txt \
+	${DATADIR}/efo_release.txt \
+	${DATADIR}/tcrd_info.tsv \
+	${cwd}/R/tiga/data/
