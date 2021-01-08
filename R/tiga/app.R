@@ -57,7 +57,10 @@ TDL_COLORS <- list(Tclin = "#B3D8FF", Tchem = "#B3FFCA", Tbio = "#FA838A", Tdark
 #
 if (!file.exists("tiga.Rdata")) {
   message(sprintf("Loading dataset from files, writing Rdata..."))
-  gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), n_beta=col_double(), study_N_mean=col_double(), rcras=col_double(), meanRank=col_double(), meanRankScore=col_double()))
+  gt <- read_delim("data/gt_stats.tsv.gz", '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(),
+pvalue_mlog_median=col_double(),
+pvalue_mlog_max=col_double(),
+or_median=col_double(), n_beta=col_double(), study_N_mean=col_double(), rcras=col_double(), meanRank=col_double(), meanRankScore=col_double()))
   setDT(gt)
   setnames(gt, old=c("geneIdgTdl"), new=c("TDL"))
   #
@@ -177,7 +180,7 @@ as simple, rational measure of effect evidence and confidence (but not magnitude
 </UL>
 <B>Datatypes:</B>
 <UL>
-  <LI><B>pVal_mLog<SUP>*</SUP></B>: median(-Log(pValue)) supporting gene-trait association.
+  <LI><B>pVal_mLog<SUP>*</SUP></B>: max(-Log(pValue)) supporting gene-trait association.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (iCite RCR) Aggregated Score.
   <LI><B>N_snpw<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
   <LI><B>N_study</B>: studies supporting gene-trait association.
@@ -256,7 +259,7 @@ ui <- fluidPage(
       wellPanel(
         sliderInput("maxHits", "MaxHits:", 25, 200, 50, step=25),
 	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "N_beta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T),
-        radioButtons("markerSizeBy", "MarkerSizeBy:", choiceNames=c("RCRAS", "pValue", "None"), choiceValues=c("rcras", "pvalue_mlog_median", NA), selected="rcras", inline=T)
+        radioButtons("markerSizeBy", "MarkerSizeBy:", choiceNames=c("RCRAS", "pValue", "None"), choiceValues=c("rcras", "pvalue_mlog_max", NA), selected="rcras", inline=T)
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
 	wellPanel(htmlOutput(outputId="resultHtm"))
@@ -425,20 +428,20 @@ server <- function(input, output, session) {
     if (hitType()=="trait") {
       gt_this <- gt[ensemblId==qryIds()$gene]
       if (nrow(gt_this)==0) { return(NULL) }
-      gt_this <- gt_this[, .(efoId, trait, pvalue_mlog_median, rcras, n_snpw, meanRankScore, n_study, study_N_mean, n_snp, traitNgene, or_median, n_beta)]
+      gt_this <- gt_this[, .(efoId, trait, pvalue_mlog_max, rcras, n_snpw, meanRankScore, n_study, study_N_mean, n_snp, traitNgene, or_median, n_beta)]
       setorder(gt_this, -meanRankScore)
       gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
     } else if (hitType()=="gene") {
       gt_this <- gt[efoId==qryIds()$trait]
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
-      gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, pvalue_mlog_median, rcras, n_snpw, meanRankScore, n_study, study_N_mean, n_snp, geneNtrait, or_median, n_beta)]
+      gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, pvalue_mlog_max, rcras, n_snpw, meanRankScore, n_study, study_N_mean, n_snp, geneNtrait, or_median, n_beta)]
       setorder(gt_this, -meanRankScore)
       gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
     } else { #hitType=="genetrait"
       # These data appear in Provenance tab.
       gt_this <- gt[ensemblId==qryIds()$gene & efoId==qryIds()$trait]
-      gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, pvalue_mlog_median, rcras, n_snpw, n_study, study_N_mean, n_snp, traitNgene, or_median, n_beta)]
+      gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, pvalue_mlog_max, rcras, n_snpw, n_study, study_N_mean, n_snp, traitNgene, or_median, n_beta)]
       gt_this[, ok2plot := T]
     }
     if (hitType() %in% c("trait", "gene")) {
@@ -535,8 +538,8 @@ server <- function(input, output, session) {
   markerSize <- reactive({
     if (input$markerSizeBy=="rcras") {
       size <- 5*Hits()[(ok2plot), rcras]
-    } else if (input$markerSizeBy=="pvalue_mlog_median") {
-      size <- 5*Hits()[(ok2plot), pvalue_mlog_median]
+    } else if (input$markerSizeBy=="pvalue_mlog_max") {
+      size <- 5*Hits()[(ok2plot), pvalue_mlog_max]
     } else { #NA
       size <- rep(10, nrow(Hits()[(ok2plot)]))
     }
@@ -562,7 +565,7 @@ server <- function(input, output, session) {
     ";<br>N_snpw = ", Hits()[(ok2plot), n_snpw],
     "; OR = ", round(Hits()[(ok2plot), or_median], digits=2), 
     "; N_beta = ", Hits()[(ok2plot), n_beta],
-    "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok2plot), pvalue_mlog_median])),
+    "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok2plot), pvalue_mlog_max])),
     "; RCRAS = ", round(Hits()[(ok2plot), rcras], digits=2)
     # ";<br>DEBUG: .I = ", Hits()[(ok2plot), .I]
       )
@@ -581,7 +584,7 @@ server <- function(input, output, session) {
     ";<br>N_snpw = ", Hits()[(ok2plot), n_snpw],
     "; OR = ", round(Hits()[(ok2plot), or_median], digits=2), 
     "; N_beta = ", Hits()[(ok2plot), n_beta],
-    "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok2plot), pvalue_mlog_median])),
+    "; pVal = ", sprintf("%.2g", 10^(-Hits()[(ok2plot), pvalue_mlog_max])),
     "; RCRAS = ", round(Hits()[(ok2plot), rcras], digits=2))
     return(text)
   })
@@ -657,7 +660,7 @@ server <- function(input, output, session) {
   })
 
   #DT numbers cols from 0.
-  #"ensemblId","geneSymbol","geneName","geneFamily","TDL","pvalue_mlog_median","rcras","n_snpw","meanRankScore","n_study","study_N_mean","n_snp","geneNtrait","or_median","n_beta"
+  #"ensemblId","geneSymbol","geneName","geneFamily","TDL","pvalue_mlog_max","rcras","n_snpw","meanRankScore","n_study","study_N_mean","n_snp","geneNtrait","or_median","n_beta"
   output$hitrows <- DT::renderDataTable({
     if (is.null(Hits())) return(NULL)
     if (hitType()=="gene") {
@@ -671,8 +674,8 @@ server <- function(input, output, session) {
           	               list(visible=F, targets=c(0, ncol(HitsWithHtm())-1)) #Hide EnsemblId
 				)
 			)
-	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRankScore"), digits=2)
-    %>% DT::formatStyle(c("pvalue_mlog_median", "rcras", "n_snpw"), fontWeight="bold")
+	) %>% DT::formatRound(columns=c("pvalue_mlog_max", "or_median", "rcras", "n_snpw", "meanRankScore"), digits=2)
+    %>% DT::formatStyle(c("pvalue_mlog_max", "rcras", "n_snpw"), fontWeight="bold")
     %>% DT::formatStyle(c("meanRankScore"), color="black", fontWeight="bold")
     %>% DT::formatStyle("TDL", backgroundColor=styleEqual(c("Tclin", "Tchem", "Tbio", "Tdark"), c(TDL_COLORS[["Tclin"]], TDL_COLORS[["Tchem"]], TDL_COLORS[["Tbio"]], TDL_COLORS[["Tdark"]]))
   )
@@ -688,8 +691,8 @@ server <- function(input, output, session) {
 				list(visible=F, targets=c(ncol(HitsWithHtm())-1))
 				)
 			)
-	) %>% DT::formatRound(columns=c("pvalue_mlog_median", "or_median", "rcras", "n_snpw", "meanRankScore"), digits=2)
-    %>% DT::formatStyle(c("pvalue_mlog_median", "rcras", "n_snpw"), fontWeight="bold")
+	) %>% DT::formatRound(columns=c("pvalue_mlog_max", "or_median", "rcras", "n_snpw", "meanRankScore"), digits=2)
+    %>% DT::formatStyle(c("pvalue_mlog_max", "rcras", "n_snpw"), fontWeight="bold")
     %>% DT::formatStyle(c("meanRankScore"), color="black", fontWeight="bold")
 	) 
   }
@@ -759,11 +762,11 @@ server <- function(input, output, session) {
     if (hitType()=="gene") {
       hits_out[["efoId"]] <- qryIds()$trait
       hits_out[["trait"]] <- traitQryName()
-      hits_out <- hits_out[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_median, rcras, meanRankScore, study_N_mean, n_snp, n_snpw, geneNtrait, or_median, n_beta)]
+      hits_out <- hits_out[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, n_study, pvalue_mlog_max, rcras, meanRankScore, study_N_mean, n_snp, n_snpw, geneNtrait, or_median, n_beta)]
     } else if (hitType()=="trait") {
       hits_out[["ensemblId"]] <- qryIds()$gene
       hits_out[["geneName"]] <- geneQryName()
-      hits_out <- hits_out[, .(ensemblId, geneName, efoId, trait, n_study, pvalue_mlog_median, rcras, meanRankScore, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
+      hits_out <- hits_out[, .(ensemblId, geneName, efoId, trait, n_study, pvalue_mlog_max, rcras, meanRankScore, study_N_mean, n_snp, n_snpw, traitNgene, or_median, n_beta)]
     }
     return(hits_out)
   })

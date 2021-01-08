@@ -6,12 +6,12 @@
 ### *(2b) tiga_gt_variables.R - Produce gt_variables.tsv.gz (~7hr)
 ###   (3) tiga_gt_stats.R, to produce gt_stats.tsv.gz, for TIGA app.
 #############################################################################
-### SEE FOR ALL INPUT WORKFLOWS: Go_gwascat_GetData.sh
+### SEE FOR ALL INPUT WORKFLOWS: Go_TIGA_Workflow.sh
 #############################################################################
 # Now using mean-rank instead of mu_scores.
 # Based on DISEASES benchmark results, using only variables:
 #   * n_study
-#   * pvalue_mlog_median
+#   * pvalue_mlog_median (MAYBE CHANGING TO pvalue_mlog_max)
 #   * rcras
 #############################################################################
 library(readr, quietly=T)
@@ -92,6 +92,7 @@ gt_stats <- data.table(ensemblId=rep(NA, NROW),
 	traitNgene=as.integer(rep(NA, NROW)),
 	traitNstudy=as.integer(rep(NA, NROW)),
 	pvalue_mlog_median=as.numeric(rep(NA, NROW)),
+	pvalue_mlog_max=as.numeric(rep(NA, NROW)),
 	or_median=as.numeric(rep(NA, NROW)),
 	n_beta=as.integer(rep(NA, NROW)), #simple count of beta values
 	study_N_mean=as.numeric(rep(NA, NROW)),
@@ -118,6 +119,7 @@ for (ensg in unique(g2t$ensemblId)) {
     gt_stats$traitNstudy[i_gt] <- g2t[TRAIT_URI==trait_uri, traitNstudy][1]
     gt_stats$n_study[i_gt] <- uniqueN(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])
     gt_stats$pvalue_mlog_median[i_gt] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
+    gt_stats$pvalue_mlog_max[i_gt] <- max(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, PVALUE_MLOG], na.rm=T)
     gt_stats$or_median[i_gt] <- median(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, oddsratio], na.rm=T) #NA if no ORs
     gt_stats$n_beta[i_gt] <- g2t[ensemblId==ensg & TRAIT_URI==trait_uri & !is.na(beta), .N] #0 if no betas
     gt_stats$study_N_mean[i_gt] <- round(mean(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, study_N], na.rm=T), 1)
@@ -145,6 +147,7 @@ gt_stats[, geneNtrait := .N, by="ensemblId"]
 #
 gt_stats$or_median <- round(as.double(gt_stats$or_median), 3)
 gt_stats$pvalue_mlog_median <- round(as.double(gt_stats$pvalue_mlog_median), 3)
+gt_stats$pvalue_mlog_max <- round(as.double(gt_stats$pvalue_mlog_max), 3)
 gt_stats$rcras <- round(as.double(gt_stats$rcras), 3)
 gt_stats$n_snpw <- round(as.double(gt_stats$n_snpw), 3)
 #
@@ -156,6 +159,7 @@ message(sprintf("traitNgene: [%d,%d]", min(gt_stats$traitNgene), max(gt_stats$tr
 message(sprintf("traitNstudy: [%d,%d]", min(gt_stats$traitNstudy), max(gt_stats$traitNstudy)))
 message(sprintf("geneNtrait: [%d,%d]", min(gt_stats$geneNtrait), max(gt_stats$geneNtrait)))
 message(sprintf("pvalue_mlog_median: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_median, na.rm=T), max(gt_stats$pvalue_mlog_median, na.rm=T)))
+message(sprintf("pvalue_mlog_max: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_max, na.rm=T), max(gt_stats$pvalue_mlog_max, na.rm=T)))
 message(sprintf("or_median: [%.2f,%.2f]", min(gt_stats$or_median, na.rm=T), max(gt_stats$or_median, na.rm=T)))
 message(sprintf("n_beta: [%d,%d]", min(gt_stats$n_beta, na.rm=T), max(gt_stats$n_beta, na.rm=T)))
 message(sprintf("study_N_mean: [%.1f,%.1f]", min(gt_stats$study_N_mean, na.rm=T), max(gt_stats$study_N_mean, na.rm=T)))

@@ -6,7 +6,7 @@
 ###  (2b) tiga_gt_variables.R - Produce gt_variables.tsv.gz
 ###   (3) tiga_gt_stats.R, to produce gt_stats.tsv.gz, for TIGA app.
 #############################################################################
-### SEE FOR ALL INPUT WORKFLOWS: Go_gwascat_GetData.sh
+### SEE FOR ALL INPUT WORKFLOWS: Go_TIGA_Workflow.sh
 #############################################################################
 # Writes gt_provenance file with TRAIT_URI, ensemblId, STUDY_ACCESSION and PUBMEDID.
 #############################################################################

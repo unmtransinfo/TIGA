@@ -7,7 +7,7 @@
 ### (2b) tiga_gt_variables.R - Produce gt_variables.tsv.gz
 ### (3) tiga_gt_stats.R, to produce gt_stats.tsv.gz, for TIGA app.
 #############################################################################
-### SEE FOR FULL WORKFLOW: Go_gwascat_GetData.sh
+### SEE FOR FULL WORKFLOW: Go_TIGA_Workflow.sh
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)

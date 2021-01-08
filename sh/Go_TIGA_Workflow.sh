@@ -193,7 +193,7 @@ gzip -f $DATADIR/gwascat_Snps.tsv
 ##
 # (Split semicolon-separated multi-ENSG's.)
 # (No longer needed since ENSGs in download files.)
-#${cwd}/python/pandas_utils.py selectcols \
+#python3 -m BioClients.util.pandas.Utils selectcols \ 
 #	--i $DATADIR/gwascat_Snps.tsv.gz \
 #	--coltags gene_ensemblGeneIds \
 #	|perl -pe 's/;/\n/g' \

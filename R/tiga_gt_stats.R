@@ -7,7 +7,7 @@
 # Now using mean-rank or median-rank instead of mu_scores.
 # Based on DISEASES benchmark results, using only variables:
 #   * n_study
-#   * pvalue_mlog_median
+#   * pvalue_mlog_median (MAYBE CHANGING TO pvalue_mlog_max)
 #   * rcras
 #############################################################################
 ### Previously we computed meanRank for (1) genes for a given trait, and
@@ -49,6 +49,7 @@ geneNstudy = col_integer(),
 traitNgene = col_integer(),
 traitNstudy = col_integer(),
 pvalue_mlog_median = col_double(),
+pvalue_mlog_max = col_double(),
 or_median = col_double(),
 n_beta = col_integer(),
 study_N_mean = col_double(),
@@ -57,7 +58,7 @@ geneIdgList = col_logical()))
 setDT(gt_stats)
 #
 gt_stats <- gt_stats[!is.na(efoId)] #Should be in tiga_gt_prepfilter.R
-gt_stats <- gt_stats[!is.na(pvalue_mlog_median)] #Should be in tiga_gt_prepfilter.R
+gt_stats <- gt_stats[!is.na(pvalue_mlog_max)] #Should be in tiga_gt_prepfilter.R
 #
 ###
 # Mean-rank computation. For each variable in defined set, 
@@ -74,7 +75,7 @@ my_rank <- function(v) {
 }
 #
 ###
-TAGS_FOR_RANKING <- c("pvalue_mlog_median", "rcras", "n_snpw")
+TAGS_FOR_RANKING <- c("pvalue_mlog_max", "rcras", "n_snpw")
 ###
 ranks_this <- list()
 for (tag in TAGS_FOR_RANKING) {
