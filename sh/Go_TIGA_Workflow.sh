@@ -224,7 +224,12 @@ python3 -m BioClients.idg.tcrd.Client info \
 	--o $DATADIR/tcrd_info.tsv
 #
 ###
-# gwascat_counts.tsv from Go_gwascat_DbCreate.sh
+# gwascat_counts.tsv from Go_gwascat_DbCreate.sh, with input files:
+#	gwascat_gwas.tsv
+#	gwascat_assn.tsv
+#	gwascat_snp2gene.tsv
+#	gwascat_trait.tsv
+#	gwascat_icite.tsv
 ###
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.

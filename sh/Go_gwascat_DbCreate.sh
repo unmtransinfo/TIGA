@@ -24,16 +24,41 @@ DBNAME="gwascatalog"
 #
 DATADIR="${cwd}/data"
 #
+# INPUT FILES:
+gwasfile="${DATADIR}/gwascat_gwas.tsv"
+assnfile="${DATADIR}/gwascat_assn.tsv"
+snp2genefile="${DATADIR}/gwascat_snp2gene.tsv"
+traitfile="${DATADIR}/gwascat_trait.tsv"
+icitefile="${DATADIR}/gwascat_icite.tsv"
+#
+error=""
+for f in $gwasfile $assnfile $snp2genefile $traitfile $icitefile ; do
+	if [ ! -f "${f}" ]; then
+		printf "ERROR: Input file not found: %s\n" "${f}"
+		error="TRUE"
+	fi
+done
+if [ "$error" ]; then
+	printf "Quitting due to missing file[s].\n"
+	exit
+fi
+#
+# OUTPUT FILES:
+ofile_gwas="${DATADIR}/gwascat_counts.tsv"
+ofile_trait="${DATADIR}/trait_counts.tsv"
+#
 mysql -v -e "DROP DATABASE $DBNAME"
 mysql -v -e "CREATE DATABASE $DBNAME"
 #
 mysql -D $DBNAME <${cwd}/sql/gwascatalog_create_tables.sql
 ###
-mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_gwas.tsv' INTO TABLE gwas FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
-mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_assn.tsv' INTO TABLE assn FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
-mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_snp2gene.tsv' INTO TABLE snp2gene FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
-mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_trait.tsv' INTO TABLE trait2study FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
-mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${DATADIR}/gwascat_icite.tsv' INTO TABLE icite FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+mysql -D $DBNAME -e "SET GLOBAL local_infile = true"
+#
+mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${gwasfile}' INTO TABLE gwas FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${assnfile}' INTO TABLE assn FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${snp2genefile}' INTO TABLE snp2gene FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${traitfile}' INTO TABLE trait2study FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
+mysql -D $DBNAME -e "LOAD DATA LOCAL INFILE '${icitefile}' INTO TABLE icite FIELDS TERMINATED BY '\t' IGNORE 1 LINES;"
 #
 ###
 mysql -D $DBNAME -e "UPDATE trait2study SET mapped_trait = NULL WHERE mapped_trait IN ('', 'NA')"
@@ -56,12 +81,14 @@ mysql -D $DBNAME -e "CREATE INDEX gs2g_snp_idx ON snp2gene (snp)"
 mysql -D $DBNAME -e "CREATE INDEX gs2g_gsymb_idx ON snp2gene (gsymb)"
 #
 ###
-printf "Creating gwas_counts table; saving to TSV.\n"
+printf "Creating gwas_counts table.\n"
 # Tables required: gwas, snp2gene, trait2study, assn.
 mysql -D $DBNAME <${cwd}/sql/create_gwas_counts_table.sql
-mysql -D $DBNAME -ABr --execute="SELECT * FROM gwas_counts" >${DATADIR}/gwas_counts.tsv
+#
+printf "Writing gwas_counts table to: %s\n" "${ofile_gwas}"
+mysql -D $DBNAME -ABr --execute="SELECT * FROM gwas_counts" >${ofile_gwas}
 ###
-printf "Saving trait_counts TSV.\n"
+printf "Writing trait_counts table to: %s\n" "${ofile_trait}"
 (mysql -D $DBNAME <<__EOF__
 SELECT
 	mapped_trait_uri,
@@ -76,7 +103,7 @@ ORDER BY
 	n_study DESC
 	;
 __EOF__
-) >${DATADIR}/trait_counts.tsv
+) >${ofile_trait}
 #
 #
 printf "Done: %s\n" "$(date)"

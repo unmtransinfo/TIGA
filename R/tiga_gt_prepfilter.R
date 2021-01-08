@@ -29,13 +29,14 @@ if (length(args)==10) {
   (ifile_tcrd	<- args[9])
   (ofile	<- args[10])
 } else if (length(args)==0) {
-  ifile_gwas <- "data/gwascat_gwas.tsv.gz"	#gwascat_gwas.R
+  ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
   ifile_counts <- "data/gwascat_counts.tsv"	#Go_gwascat_DbCreate.sh
   ifile_assn <- "data/gwascat_assn.tsv"	#gwascat_assn.R
   ifile_snp2gene <- "data/gwascat_snp2gene.tsv" #snp2gene_mapped.pl, snp2gene_reported.pl
   ifile_trait <- "data/gwascat_trait.tsv"	#gwascat_trait.R
   ifile_icite <- "data/gwascat_icite.tsv" #BioClients.icite API
-  ifile_snps <- "data/gwascat_Snps.tsv.gz" #BioClients.gwascatalog API (for addl data)
+  #ifile_snps <- "data/gwascat_Snps.tsv.gz" #BioClients.gwascatalog API (for addl data)
+  ifile_snps <- "data/gwascat_Snps-20200813.tsv.gz"
   ifile_ensembl <- "data/gwascat_EnsemblInfo.tsv.gz" #BioClients.ensembl API
   ifile_tcrd <- "data/tcrd_targets.tsv" #BioClients.idg API
   ofile <- "data/gt_prepfilter.Rdata"
@@ -49,6 +50,7 @@ writeLines(sprintf("Input assn file: %s", ifile_assn))
 writeLines(sprintf("Input snp2gene file: %s", ifile_snp2gene))
 writeLines(sprintf("Input trait file: %s", ifile_trait))
 writeLines(sprintf("Input iCite file: %s", ifile_icite))
+writeLines(sprintf("Input Snps file: %s", ifile_snps))
 writeLines(sprintf("Input TCRD file: %s", ifile_tcrd))
 writeLines(sprintf("Input Ensembl file: %s", ifile_ensembl))
 writeLines(sprintf("Output prepfilter file: %s", ofile))
@@ -79,7 +81,7 @@ setDT(ensemblInfo)
 #
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
-setnames(trait, old=c("MAPPED_TRAIT_URI", "MAPPED_TRAIT"), new=c("TRAIT_URI", "TRAIT"))
+setnames(trait, old=c("MAPPED_TRAIT_URI", "MAPPED_TRAIT", "TRAIT"), new=c("TRAIT_URI", "TRAIT", "TRAIT_ORIG"))
 trait[, TRAIT := iconv(TRAIT, from="latin1", to="UTF-8")]
 #
 ###
@@ -144,7 +146,8 @@ writeLines(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwa
 ### g2t should have one row for each gene-snp-study-trait association. Only 1 PUBMEDID per study.
 g2t <- unique(snp2gene[, .(ensemblId, ensemblSymb, SNP, STUDY_ACCESSION)])
 g2t <- merge(g2t, gwas[, .(STUDY_ACCESSION, PUBMEDID, study_N)], by="STUDY_ACCESSION", all.x=T, all.y=F)
-g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE, oddsratio, beta)], all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
+g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE, oddsratio, beta)], 
+             all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
 #
 trait[, traitNstudy := fifelse(is.na(TRAIT_URI), as.integer(NA), uniqueN(STUDY_ACCESSION)), by="TRAIT_URI"]
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
@@ -213,6 +216,9 @@ message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[
 filtered_genes_effect[, uniqueN(ensemblId)], 100*filtered_genes_effect[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
 filtered_genes <- rbindlist(list(filtered_genes, filtered_genes_effect))
 #
+###
+# Informative: Any studies with BOTH OR and beta?
+message(sprintf("Studies with BOTH OR and beta: %d", g2t[(!is.na(g2t$oddsratio) & !is.na(g2t$beta)), uniqueN(STUDY_ACCESSION)]))
 ###
 filtered_studies <- filtered_studies[, reason := paste0(reason, collapse=" ; "), by=c("STUDY_ACCESSION", "STUDY")]
 filtered_traits <- filtered_traits[, reason := paste0(reason, collapse=" ; "), by=c("TRAIT_URI", "TRAIT")]
