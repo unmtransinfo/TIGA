@@ -24,10 +24,9 @@ if (length(args)==10) {
   (ifile_snp2gene	<- args[4])
   (ifile_trait	<- args[5])
   (ifile_icite	<- args[6])
-  (ifile_snps	<- args[7])
-  (ifile_ensembl	<- args[8])
-  (ifile_tcrd	<- args[9])
-  (ofile	<- args[10])
+  (ifile_ensembl	<- args[7])
+  (ifile_tcrd	<- args[8])
+  (ofile	<- args[9])
 } else if (length(args)==0) {
   ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
   ifile_counts <- "data/gwascat_counts.tsv"	#Go_gwascat_DbCreate.sh
@@ -35,8 +34,6 @@ if (length(args)==10) {
   ifile_snp2gene <- "data/gwascat_snp2gene.tsv" #snp2gene_mapped.pl, snp2gene_reported.pl
   ifile_trait <- "data/gwascat_trait.tsv"	#gwascat_trait.R
   ifile_icite <- "data/gwascat_icite.tsv" #BioClients.icite API
-  #ifile_snps <- "data/gwascat_Snps.tsv.gz" #BioClients.gwascatalog API (for addl data)
-  ifile_snps <- "data/gwascat_Snps-20200813.tsv.gz"
   ifile_ensembl <- "data/gwascat_EnsemblInfo.tsv.gz" #BioClients.ensembl API
   ifile_tcrd <- "data/tcrd_targets.tsv" #BioClients.idg API
   ofile <- "data/gt_prepfilter.Rdata"
@@ -50,7 +47,6 @@ writeLines(sprintf("Input assn file: %s", ifile_assn))
 writeLines(sprintf("Input snp2gene file: %s", ifile_snp2gene))
 writeLines(sprintf("Input trait file: %s", ifile_trait))
 writeLines(sprintf("Input iCite file: %s", ifile_icite))
-writeLines(sprintf("Input Snps file: %s", ifile_snps))
 writeLines(sprintf("Input TCRD file: %s", ifile_tcrd))
 writeLines(sprintf("Input Ensembl file: %s", ifile_ensembl))
 writeLines(sprintf("Output prepfilter file: %s", ofile))
@@ -90,8 +86,8 @@ icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(), 
 setDT(icite)
 rcr_median <- median(icite$relative_citation_ratio, na.rm=T) #global median ignoring NAs.
 year_this <- as.integer(format(Sys.time(), "%Y"))
-message(sprintf("Estimating undefined RCR for new publications [%d-%d] (and any undefined) as global median.", year_this-1, year_this))
-icite[is.na(relative_citation_ratio) & (year>=year_this-1) , relative_citation_ratio := rcr_median]
+message(sprintf("Estimating undefined RCR for new publications (and any undefined) as global median."))
+#icite[is.na(relative_citation_ratio) & (year>=year_this-1) , relative_citation_ratio := rcr_median] #redundant
 icite[is.na(relative_citation_ratio), relative_citation_ratio := rcr_median]
 #
 icite_gwas <- merge(icite[, .(pmid, relative_citation_ratio, year)], gwas[, .(PUBMEDID, STUDY_ACCESSION)], by.x="pmid", by.y="PUBMEDID", all.x=T, all.y=T)
@@ -99,6 +95,10 @@ icite_gwas <- merge(icite_gwas, gwas_counts[, .(study_accession, trait_count, ge
 icite_gwas <- merge(icite_gwas, icite_gwas[, .(study_perpmid_count = uniqueN(STUDY_ACCESSION)), by="pmid"], by="pmid")
 ###
 # RCRAS = RCR-Aggregated-Score
+# rcras_pmid is per-publication RCRAS normalized by study count in publication.
+# rcras_study is per-study RCRAS, summing rcras_pmid, normalized by gene count in study.
+# rcras_gt is per gene-trait association, computed in tiga_gt_variables.R, from rcras_study.
+#
 icite_gwas[, rcras_pmid := log2(relative_citation_ratio+1)/study_perpmid_count]
 icite_gwas <- icite_gwas[gene_r_count>0 | gene_m_count>0] #Need genes to be useful
 icite_gwas[gene_r_count==0, gene_r_count := NA]
@@ -110,13 +110,11 @@ setkey(icite_gwas, pmid, STUDY_ACCESSION) #Ensures unique study-pmid pairs each 
 ###
 # Link to Ensembl via IDs from Catalog.
 # (In 2020 (not 2018), EnsemblIDs available in downloads, so API not required.)
-studySnps <- read_delim(ifile_snps, "\t", col_types=cols(.default=col_character(), merged=col_logical(), lastUpdateDate=col_datetime(),   genomicContext_isIntergenic = col_logical(), genomicContext_isUpstream = col_logical(), genomicContext_isDownstream = col_logical(), genomicContext_distance = col_double(), genomicContext_isClosestGene = col_logical(), loc_chromosomePosition = col_double()))
-setDT(studySnps)
 ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, ensemblSymb=display_name)][, protein_coding := T]
-proteinSnps <- merge(studySnps[, .(rsId, ensemblId=gene_ensemblGeneIds, geneName=gene_geneName)], ensemblInfo, by="ensemblId", all.x=F)
-snp2gene <- unique(merge(snp2gene, proteinSnps, by.x="SNP", by.y="rsId", all.x=F, all.y=F, allow.cartesian=T))
-snp2gene[, `:=`(GSYMB=NULL, geneName=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
-snp2gene <- unique(snp2gene)
+snp2gene <- merge(snp2gene, ensemblInfo, by.x="ENSG", by.y="ensemblId", all.x=F, all.y=F, allow.cartesian=T)
+snp2gene[, `:=`(GSYMB=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
+setnames(snp2gene, "ENSG", "ensemblId")
+snp2gene <- unique(snp2gene[, .(STUDY_ACCESSION, SNP, ensemblId, ensemblSymb)])
 #
 ###
 tcrd <- read_delim(ifile_tcrd, "\t", na=c("", "NA", "NULL"), col_types=cols(.default=col_character(), idgList=col_logical()))
@@ -171,10 +169,11 @@ filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_traitu
 filtered_genes[, reason := reason_txt]
 message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes[, uniqueN(ensemblId)], filtered_genes[, uniqueN(ensemblId)], 100*filtered_genes[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
 ###
-# (2) P-value filter: must exceed standard threshold for significance (pvalue <= 1e-8, pvalue_mlog >= 8)
+# (2) P-value filter: must exceed standard threshold for significance (pvalue <= 5e-8, pvalue_mlog >= 7.3).
+# Usual genome-wide significance in GWAS, per LJJ 8/10/20 email.
 pval_threshold <- 5e-8
-pval_mlog_threshold <- -log10(5e-8)
-reason_txt <- sprintf("P-value fails significance threshold (%g)", pval_threshold)
+pval_mlog_threshold <- -log10(pval_threshold)
+reason_txt <- sprintf("P-value fails significance threshold (%g) (mlog=%.1f)", pval_threshold, pval_mlog_threshold)
 badrows_pval <- (g2t$PVALUE_MLOG<pval_mlog_threshold)
 print(sprintf("%s: rows: %d", reason_txt, sum(badrows_pval, na.rm=T)))
 filtered_studies_pval <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_pval]$STUDY_ACCESSION, g2t[!badrows_pval]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))

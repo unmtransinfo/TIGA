@@ -3,7 +3,7 @@
 ### GENE-TRAIT VARIABLES
 ###   (1) tiga_gt_prepfilter.R - Merge input files, preprocess and filter.
 ###  (2a) tiga_gt_provenance.R - Produce gt_provenance.tsv.gz, for TIGA app.
-### *(2b) tiga_gt_variables.R - Produce gt_variables.tsv.gz (~7hr)
+### *(2b) tiga_gt_variables.R - Produce gt_variables.tsv.gz
 ###   (3) tiga_gt_stats.R, to produce gt_stats.tsv.gz, for TIGA app.
 #############################################################################
 ### SEE FOR ALL INPUT WORKFLOWS: Go_TIGA_Workflow.sh
@@ -43,36 +43,34 @@ message(sprintf("g2t rows: %d", nrow(g2t)))
 message(sprintf("g2t studies (STUDY_ACCESSION): %d", g2t[, uniqueN(STUDY_ACCESSION)]))
 message(sprintf("g2t papers (PUBMEDID): %d", g2t[, uniqueN(PUBMEDID)]))
 message(sprintf("g2t study_N (instances): %d (%.1f%%)", nrow(g2t[!is.na(study_N)]),
-                100 * nrow(g2t[!is.na(study_N)]) /nrow(g2t)))
+                100*nrow(g2t[!is.na(study_N)]) /nrow(g2t)))
 message(sprintf("g2t traitNstudy (instances): %d (%.1f%%)", nrow(g2t[!is.na(traitNstudy)]),
-                100 * nrow(g2t[!is.na(traitNstudy)]) /nrow(g2t)))
+                100*nrow(g2t[!is.na(traitNstudy)]) /nrow(g2t)))
 message(sprintf("g2t PVALUE_MLOG (instances): %d (%.1f%%)", nrow(g2t[!is.na(PVALUE_MLOG)]),
-                100 * nrow(g2t[!is.na(PVALUE_MLOG)]) /nrow(g2t)))
+                100*nrow(g2t[!is.na(PVALUE_MLOG)]) /nrow(g2t)))
 message(sprintf("g2t oddsratio (instances): %d (%.1f%%)", nrow(g2t[!is.na(oddsratio)]),
-                100 * nrow(g2t[!is.na(oddsratio)]) /nrow(g2t)))
+                100*nrow(g2t[!is.na(oddsratio)]) /nrow(g2t)))
 message(sprintf("g2t beta (instances): %d (%.1f%%)", nrow(g2t[!is.na(beta)]),
-                100 * nrow(g2t[!is.na(beta)]) /nrow(g2t)))
+                100*nrow(g2t[!is.na(beta)]) /nrow(g2t)))
 #
 message(sprintf("icite_gwas rows: %d", nrow(icite_gwas)))
 message(sprintf("icite_gwas studies (STUDY_ACCESSION): %d", icite_gwas[, uniqueN(STUDY_ACCESSION)]))
 message(sprintf("icite_gwas relative_citation_ratio (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(relative_citation_ratio)]),
-                100 * nrow(icite_gwas[!is.na(relative_citation_ratio)]) /nrow(icite_gwas)))
+                100*nrow(icite_gwas[!is.na(relative_citation_ratio)]) /nrow(icite_gwas)))
 message(sprintf("icite_gwas study_perpmid_count (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(study_perpmid_count)]),
-                100 * nrow(icite_gwas[!is.na(study_perpmid_count)]) /nrow(icite_gwas)))
+                100*nrow(icite_gwas[!is.na(study_perpmid_count)]) /nrow(icite_gwas)))
 message(sprintf("icite_gwas rcras_pmid (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(rcras_pmid)]),
-                100 * nrow(icite_gwas[!is.na(rcras_pmid)]) /nrow(icite_gwas)))
+                100*nrow(icite_gwas[!is.na(rcras_pmid)]) /nrow(icite_gwas)))
 message(sprintf("icite_gwas rcras_study (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(rcras_study)]),
-                100 * nrow(icite_gwas[!is.na(rcras_study)]) /nrow(icite_gwas)))
+                100*nrow(icite_gwas[!is.na(rcras_study)]) /nrow(icite_gwas)))
 message(sprintf("icite_gwas gene_m_count (instances): %d (%.1f%%)", nrow(icite_gwas[!is.na(gene_m_count)]),
-                100 * nrow(icite_gwas[!is.na(gene_m_count)]) /nrow(icite_gwas)))
-
+                100*nrow(icite_gwas[!is.na(gene_m_count)]) /nrow(icite_gwas)))
 #
 message(sprintf("tcrd rows: %d", nrow(tcrd)))
 ###
 # Gene-distance weighting function.
 g2t[, GDistWt := 2^(-pmin(g2t$UPSTREAM_GENE_DISTANCE, g2t$DOWNSTREAM_GENE_DISTANCE, na.rm=T)/5e4)]
-message(sprintf("DEBUG: GDistWt: count: %d / %d (%.1f%%)", 
-                sum(!is.na(g2t$GDistWt)), nrow(g2t), 100*sum(!is.na(g2t$GDistWt))/nrow(g2t)))
+message(sprintf("DEBUG: GDistWt: count: %d / %d (%.1f%%)", sum(!is.na(g2t$GDistWt)), nrow(g2t), 100*sum(!is.na(g2t$GDistWt))/nrow(g2t)))
 #
 ###
 ### GENE-TRAIT stats
@@ -127,19 +125,8 @@ for (ensg in unique(g2t$ensemblId)) {
     # Deduplicate (group-by) SNPs for `n_snpw` computation. 
     gt_stats$n_snpw[i_gt] <- sum(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, .(GDistWt = median(GDistWt, na.rm=T)), by="SNP"][, GDistWt], na.rm=T)
     #
-    rcras <- 0
-    for (stacc in unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])) {
-      rcras_study <- 0
-      for (pmid_this in icite_gwas[STUDY_ACCESSION==stacc, pmid]) {
-        if (nrow(icite_gwas[STUDY_ACCESSION==stacc & pmid==pmid_this])==0) { next }
-        spp <- icite_gwas[STUDY_ACCESSION==stacc & pmid==pmid_this]$study_perpmid_count[1]
-        rcr <- icite_gwas[STUDY_ACCESSION==stacc & pmid==pmid_this]$relative_citation_ratio[1]
-        if (is.na(rcr) | spp==0) { next; }
-        rcras_study <- rcras_study + log2(rcr+1)/spp
-      }
-      rcras <- rcras + rcras_study
-    }
-    gt_stats$rcras[i_gt] <- rcras
+    staccs <- unique(g2t[ensemblId==ensg & TRAIT_URI==trait_uri, STUDY_ACCESSION])
+    gt_stats$rcras[i_gt] <- icite_gwas[STUDY_ACCESSION %in% staccs, sum(rcras_study)]
   }
 }
 gt_stats[, traitNgene := .N, by="efoId"]

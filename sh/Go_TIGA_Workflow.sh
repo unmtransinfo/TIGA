@@ -8,13 +8,14 @@
 ### ftp://ftp.ebi.ac.uk/pub/databases/gwas/releases/{YYYY}/{MM}/{DD}/
 ### Note that "v1.0.1", "v1.0.2", "v1.0.3" refer to formats, not releases.
 #############################################################################
-### According to EBI, additional information is available via the API,
-### see https://www.ebi.ac.uk/gwas/docs/api,https://www.ebi.ac.uk/gwas/docs/faq,
-### especially "Genomic Mappings" (SNP-gene). The API additional data includes
-### Ensembl IDs for mapped genes, from which we query the Ensembl API
-### for additional annotations including gene biotype, thereby filtering for
-### protein_coding.
-### Also it appears beta and OR values separated better.
+### Previously (2018), additional information is available via the API,
+### "Genomic Mappings" with EnsemblIDs for mapped genes, now available via
+### download assn file.
+### From EnsemblIDs, we query Ensembl API for annotations including gene biotype,
+### thereby filtering for protein_coding.
+#############################################################################
+# Install BioClients from https://github.com/jeremyjyang/BioClients
+# or with "pip3 install BioClients".
 #############################################################################
 #
 set -e
@@ -98,12 +99,11 @@ snp2genefile="${DATADIR}/gwascat_snp2gene.tsv"
 #############################################################################
 ### REPORTED GENES (ignored by TIGA):
 #
-printf "STUDY_ACCESSION\tGSYMB\tSNP\tREPORTED_OR_MAPPED\n" >${snp2genefile}
+printf "STUDY_ACCESSION\tSNP\tGSYMB\tENSG\tREPORTED_OR_MAPPED\n" >${snp2genefile}
 #
 # "REPORTED_GENE(S),SNPS,STUDY_ACCESSION" (14, 22, 37)
 ###
-cat $tsvfile_assn \
-	|sed -e '1d' \
+cat $tsvfile_assn |sed -e '1d' \
 	|perl -n perl/snp2gene_reported.pl \
 	>>${snp2genefile}
 #
@@ -113,10 +113,9 @@ cat $tsvfile_assn \
 # "m" - mapped within gene
 # "mu" - mapped to upstream gene
 # "md" - mapped to downstream gene
-# "MAPPED_GENE(S),SNPS,STUDY_ACCESSION" (15, 22, 37)
+# UPSTREAM_GENE_ID,DOWNSTREAM_GENE_ID,SNP_GENE_IDS,SNPS,STUDY_ACCESSION (16,17,18,22,37)
 ###
-cat $tsvfile_assn \
-	|sed -e '1d' \
+cat $tsvfile_assn |sed -e '1d' \
 	|perl -n perl/snp2gene_mapped.pl \
 	>>${snp2genefile}
 #
@@ -128,27 +127,23 @@ cat $tsvfile_gwas \
 	|sort -nu >$DATADIR/gwascat.pmid
 printf "PMIDS: %d\n" $(cat $DATADIR/gwascat.pmid |wc -l)
 ###
-# https://github.com/jeremyjyang/BioClients
 python3 -m BioClients.icite.Client get_stats \
 	--i $DATADIR/gwascat.pmid \
 	--o $DATADIR/gwascat_icite.tsv
 #
 #############################################################################
 ### Entrez gene IDs: UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS
-cat $tsvfile_assn \
-	|sed -e '1d' \
+cat $tsvfile_assn |sed -e '1d' \
 	|awk -F '\t' '{print $16}' \
 	|egrep -v '(^$|^NA$)' \
 	|sort -u \
 	>$DATADIR/gwascat_upstream.ensg
-cat $tsvfile_assn \
-	|sed -e '1d' \
+cat $tsvfile_assn |sed -e '1d' \
 	|awk -F '\t' '{print $17}' \
 	|egrep -v '(^$|^NA$)' \
 	|sort -u \
 	>$DATADIR/gwascat_downstream.ensg
-cat $tsvfile_assn \
-	|sed -e '1d' \
+cat $tsvfile_assn |sed -e '1d' \
 	|awk -F '\t' '{print $18}' \
 	|egrep -v '(^$|^NA$)' \
 	|perl -ne 'print join("\n",split(/, */))' \
@@ -158,56 +153,8 @@ cat $DATADIR/gwascat_upstream.ensg $DATADIR/gwascat_downstream.ensg $DATADIR/gwa
 	|sort -u \
 	>$DATADIR/gwascat.ensg
 #
-#############################################################################
-### Additional information via the API:
-### Esp. "Genomic Mappings" (SNP-gene)
-### However, in 2020 there are ENSGs in downloads, so API not needed for ENSGs.
-#
-#cat $DATADIR/gwascat_gwas.tsv \
-#	|sed -e '1d' |awk -F '\t' '{print $15}' \
-#	>$DATADIR/gwascat_gwas.gcst
-###
-# ~3hr
-#python3 -m BioClients.gwascatalog.Client get_studyAssociations \
-#	--i $DATADIR/gwascat_gwas.gcst \
-#	--o $DATADIR/gwascat_StudyAssociations.tsv
-#gzip -f $DATADIR/gwascat_StudyAssociations.tsv
-#
-# re.match(r'(rs|SNP|snp|chr)', val)
-cat $DATADIR/gwascat_snp2gene.tsv \
-	|sed -e '1d' |awk -F '\t' '{print $3}' \
-	|sort -u \
-	>$DATADIR/gwascat_snp2gene.snpId
-printf "SNPs: %d\n" $(cat $DATADIR/gwascat_snp2gene.snpId |wc -l)
-cat $DATADIR/gwascat_snp2gene.snpId |grep '^rs' \
-	>$DATADIR/gwascat_snp2gene.rs
-printf "SNPs (rs*): %d\n" $(cat $DATADIR/gwascat_snp2gene.rs |wc -l)
-#
-###
-# ~15hr
-python3 -m BioClients.gwascatalog.Client get_snps \
-	--i $DATADIR/gwascat_snp2gene.rs \
-	--o $DATADIR/gwascat_Snps.tsv
-gzip -f $DATADIR/gwascat_Snps.tsv
-#
-##
-# (Split semicolon-separated multi-ENSG's.)
-# (No longer needed since ENSGs in download files.)
-#python3 -m BioClients.util.pandas.Utils selectcols \ 
-#	--i $DATADIR/gwascat_Snps.tsv.gz \
-#	--coltags gene_ensemblGeneIds \
-#	|perl -pe 's/;/\n/g' \
-#	|sed -e '1d' |grep '^ENSG' |sort -u \
-#	>$DATADIR/gwascat_Snps.ensg
-#printf "Ensembl ID count: %d\n" "$(cat $DATADIR/gwascat_Snps.ensg |wc -l)"
-#
 ###
 # ~13hr
-#python3 -m BioClients.ensembl.Client get_info \
-#	--i $DATADIR/gwascat_Snps.ensg \
-#	--o $DATADIR/gwascat_Snps_EnsemblInfo.tsv
-#gzip -f $DATADIR/gwascat_Snps_EnsemblInfo.tsv
-#
 python3 -m BioClients.ensembl.Client get_info -v \
 	--i $DATADIR/gwascat.ensg \
 	--o $DATADIR/gwascat_EnsemblInfo.tsv
@@ -233,6 +180,7 @@ python3 -m BioClients.idg.tcrd.Client info \
 ###
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.
+# $DATADIR/gwascat_Snps.tsv.gz (NO LONGER NEEDED)
 ${cwd}/R/tiga_gt_prepfilter.R \
 	$DATADIR/gwascat_gwas.tsv \
 	$DATADIR/gwascat_counts.tsv \
@@ -240,7 +188,6 @@ ${cwd}/R/tiga_gt_prepfilter.R \
 	$DATADIR/gwascat_snp2gene.tsv \
 	$DATADIR/gwascat_trait.tsv \
 	$DATADIR/gwascat_icite.tsv \
-	$DATADIR/gwascat_Snps.tsv.gz \
 	$DATADIR/gwascat_EnsemblInfo.tsv.gz \
 	$DATADIR/tcrd_targets.tsv \
 	$DATADIR/gt_prepfilter.Rdata

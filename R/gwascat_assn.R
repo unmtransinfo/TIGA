@@ -15,6 +15,9 @@
 #############################################################################
 ### No filtering by this code.
 #############################################################################
+# See also: gwascat_assn_describe.R (descriptive only)
+# See also: gwascat_beta.R
+#############################################################################
 library(readr)
 library(data.table)
 
@@ -23,7 +26,7 @@ if (length(args)==2) {
   (ifile <- args[1])
   (ofile <- args[2])
 } else if (length(args)==0) {
-  ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/07/15/gwas-catalog-associations_ontology-annotated.tsv")
+  ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/12/16/gwas-catalog-associations_ontology-annotated.tsv")
   ofile <- "data/gwascat_assn.tsv"
 } else {
   message("ERROR: Syntax: gwascat_assn.R ASSNFILE OFILE\n\t...or no args for defaults.")
@@ -56,27 +59,24 @@ message(sprintf("Studies with SNPS and DISEASE_TRAIT and OR_or_BETA: %d", assn[(
 message(sprintf("Associations with OR_or_BETA values: %d (%.1f%%)", nrow(assn[!is.na(OR_or_BETA)]), 100*nrow(assn[!is.na(OR_or_BETA)])/nrow(assn)))
 #
 ###
-message("NOTE: `PVALUE_MLOG` (not `P-VALUE`) used for TIGA.")
+pval_threshold <- 5e-8
+pval_mlog_threshold <- -log10(5e-8)
+message("NOTE: PVALUE_MLOG (not P-VALUE) used for TIGA.")
 message(sprintf("Studies with P-VALUE: %d", assn[!is.na(`P-VALUE`), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Associations with P-VALUE: %d; missing: %d", nrow(assn[!is.na(`P-VALUE`)]), nrow(assn[is.na(`P-VALUE`)])))
 message(sprintf("Studies with PVALUE_MLOG: %d", assn[!is.na(PVALUE_MLOG), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Associations with PVALUE_MLOG: %d; missing: %d", nrow(assn[!is.na(PVALUE_MLOG)]), nrow(assn[is.na(PVALUE_MLOG)])))
-message(sprintf("Studies with PVALUE_MLOG>=8: %d", assn[PVALUE_MLOG>8, uniqueN(STUDY_ACCESSION)]))
-message(sprintf("Associations with PVALUE_MLOG>=8: %d", nrow(assn[PVALUE_MLOG>8])))
+message(sprintf("Studies with PVALUE_MLOG>=%.1f: %d", pval_mlog_threshold, assn[PVALUE_MLOG>pval_mlog_threshold, uniqueN(STUDY_ACCESSION)]))
+message(sprintf("Associations with PVALUE_MLOG>=%.1f: %d", pval_mlog_threshold, nrow(assn[PVALUE_MLOG>pval_mlog_threshold])))
 #
 ###
-assn[, risk_allele_freq := sub(" (.*)$", "", RISK_ALLELE_FREQUENCY)]
+assn$risk_allele_freq <- assn$RISK_ALLELE_FREQUENCY #data.table bug/warning workaround.
+assn[, risk_allele_freq := sub(" (.*)$", "", risk_allele_freq)]
 assn[risk_allele_freq=="NR", risk_allele_freq := NA]
 assn[, risk_allele_freq := as.double(risk_allele_freq)]
 #
 ###
 # Parsing oddsratio and beta from OR_or_BETA
-tag="OR_or_BETA"
-assn[[tag]] <- as.double(assn[[tag]])
-qs <- quantile(assn[[tag]][!is.na(assn[[tag]])], c(0, .25, .5, .75, seq(.9, 1, .01)))
-writeLines(sprintf("%s %4s-ile: %9.1f", tag, names(qs), qs))
-#
-###
 assn[, oddsratio := as.double(NA)]
 assn[, beta := as.double(NA)]
 staccs <- sort(unique(assn[, STUDY_ACCESSION]))
@@ -104,56 +104,9 @@ for (stacc in staccs) {
 message(sprintf("Studies with all values >1 (OR?): %d", n_all_or))
 message(sprintf("Studies with all values<=1 (BETA?): %d", n_all_beta))
 message(sprintf("Studies with both values <=1 and >1: %d", n_both))
+message(sprintf("Studies with either OR or beta: %6d", assn[(!is.na(oddsratio) | !is.na(beta)), uniqueN(STUDY_ACCESSION)]))
+message(sprintf("Studies with both OR and beta: %6d", assn[(!is.na(oddsratio) & !is.na(beta)), uniqueN(STUDY_ACCESSION)]))
 
-message(sprintf("Studies with associations and effect size (OR or beta): %6d", assn[(!is.na(oddsratio) | !is.na(beta)), uniqueN(STUDY_ACCESSION)]))
-
-###
-# Descriptive only, no more changes to assn.
-# See also: gwascat_beta.R
-###
-
-# CONTEXT (aka functionalClass, and cleaner, via API)
-# Multiple values correspond with multiple MAPPED_GENE values.
-fix_context <- function(context) {
-  paste(sort(unique(unlist(strsplit(context, '\\s*;\\s*')))), collapse = " ; ")
-}
-assn[, CONTEXT := sapply(CONTEXT, fix_context)]
-context_counts <- assn[, .(.N), by="CONTEXT"][order(-N)]
-for (i in 1:nrow(context_counts)) {
-  if (!grepl(" [;x] ", context_counts[i]$CONTEXT))
-    writeLines(sprintf("%d. (N=%d) %s", i, context_counts[i]$N, context_counts[i]$CONTEXT))
-}
-writeLines(sprintf("Multiple: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
-
-###
-# SNPS formats
-message(sprintf("SNPS with pattern \"chr\\d+: *\\d+\": %d", nrow(assn[grepl("^chr\\d+: \\d+$", SNPS)])))
-message(sprintf("SNPS with pattern \"Chr:\\d+: *\\d+\": %d", nrow(assn[grepl("^Chr:\\d+: *\\d+$", SNPS)])))
-prefix_counts <- data.table(prefix = sub("[^A-Za-z].*$", "", assn$SNPS))[, .(.N), by=prefix][order(-N)]
-message("SNP common prefix counts:")
-writeLines(sprintf("%2d. %6d: %s", 1:12, prefix_counts[1:12]$N, prefix_counts[1:12]$prefix))
-
-# SNPS delimiters (semantic difference?)
-message(sprintf("SNPS multiple with delimiter \";\": %d", nrow(assn[grepl(";", SNPS)])))
-message(sprintf("SNPS multiple with delimiter \"x\": %d", nrow(assn[grepl(" x ", SNPS)])))
-message(sprintf("SNPS multiple with delimiter \",\": %d", nrow(assn[grepl(",", SNPS)])))
-
-###
-# SNP_GENE_IDS, UPSTREAM_GENE_ID and DOWNSTREAM_GENE_ID are Ensembl gene IDs, previously only available via API.
-# Now we could use these for snp2gene mappings and avoid use of API. (To do.)
-
-###
-# GENOTYPING_TECHNOLOGY
-tech_counts <- assn[, .(N_study = uniqueN(STUDY_ACCESSION)), by="GENOTYPING_TECHNOLOGY"][order(-N_study)]
-print(tech_counts)
-
-###
-# Missing (UP|DOWN)STREM_GENE_DISTANCE implies within_gene.
-writeLines(sprintf("Associations with MAPPED_GENE: %d (%.1f%%)", nrow(assn[!is.na(MAPPED_GENE)]), 100*nrow(assn[!is.na(MAPPED_GENE)])/nrow(assn)))
-writeLines(sprintf("Associations within MAPPED_GENE: %d (%.1f%%)", 
-  nrow(assn[!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)]), 100*nrow(assn[!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)])/nrow(assn)))
-writeLines(sprintf("Associations with MAPPED_GENE and (UP|DOWN)STREAM_GENE_DISTANCE: %d (%.1f%%)", 
-  nrow(assn[!is.na(MAPPED_GENE) & (!is.na(UPSTREAM_GENE_DISTANCE) | !is.na(DOWNSTREAM_GENE_DISTANCE))]), 100*nrow(assn[!is.na(MAPPED_GENE) & (!is.na(UPSTREAM_GENE_DISTANCE) | !is.na(DOWNSTREAM_GENE_DISTANCE))])/nrow(assn)))
 ###
 # Write file:
 write_delim(assn, ofile, delim="\t")
