@@ -150,6 +150,12 @@ g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, UPSTREAM_GENE_DIS
 trait[, traitNstudy := fifelse(is.na(TRAIT_URI), as.integer(NA), uniqueN(STUDY_ACCESSION)), by="TRAIT_URI"]
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
 #
+debug_test <- function(ensg_test, g2t) {
+  g2t_test <- g2t[ensemblId==ensg_test]
+  message(sprintf("DEBUG: %s (%s) rows: %d", ensg_test, g2t_test$ensemblSymb[1], nrow(g2t_test)))
+  print(g2t_test[, .(STUDY_ACCESSION, ensemblSymb, oddsratio, beta, PVALUE_MLOG, TRAIT, efoId)])
+}
+debug_test("ENSG00000170312", g2t)
 ###
 # FILTERS:
 ###
@@ -168,6 +174,7 @@ message(sprintf("Filtered traits (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t
 filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_traituri]$ensemblId, g2t[!badrows_traituri]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
 filtered_genes[, reason := reason_txt]
 message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes[, uniqueN(ensemblId)], filtered_genes[, uniqueN(ensemblId)], 100*filtered_genes[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
+debug_test("ENSG00000170312", g2t[!badrows_traituri])
 ###
 # (2) P-value filter: must exceed standard threshold for significance (pvalue <= 5e-8, pvalue_mlog >= 7.3).
 # Usual genome-wide significance in GWAS, per LJJ 8/10/20 email.
@@ -192,6 +199,7 @@ filtered_genes_pval[, reason := reason_txt]
 message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes_pval[, uniqueN(ensemblId)],
 filtered_genes_pval[, uniqueN(ensemblId)], 100*filtered_genes_pval[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
 filtered_genes <- rbindlist(list(filtered_genes, filtered_genes_pval))
+debug_test("ENSG00000170312", g2t[!badrows_pval])
 ###
 # (3) Effect size filter: either OR or beta required.
 badrows_effect <- (is.na(g2t$oddsratio) & is.na(g2t$beta))

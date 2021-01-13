@@ -108,15 +108,13 @@ message(sprintf("meanRankScore monotonically decreasing: %s", all(gt_stats$meanR
 frequent_meanRank <- gt_stats[, .(N = as.integer(.N)), by=meanRank][order(-N)]
 writeLines(sprintf("Frequent meanRank (tied values) #%2d: %12.2f (N=%4d)", 1:10, frequent_meanRank[1:10, meanRank], frequent_meanRank[1:10, N]))
 message(sprintf("Total tied values: %d / %d (%.1f%%)", frequent_meanRank[N>1, sum(N)], frequent_meanRank[, sum(N)], 100*frequent_meanRank[N>1, sum(N)]/frequent_meanRank[, sum(N)]))
-if (interactive()) { #Inspecting discontinuities.
-  ecdf_this <- ecdf(gt_stats$meanRank)
-  print(summary(ecdf_this))
-  plot(ecdf_this)
-  plot(x=gt_stats$meanRank, y=gt_stats$meanRankScore, type="p", main="meanRankScore vs meanRank", col="dark red", cex=.1)
-  scores_suspicious <- gt_stats[meanRank>55000 & meanRank<60000, .(meanRank, meanRankScore)]
-  plot(x=scores_suspicious$meanRank, y=scores_suspicious$meanRankScore, cex=.1)
-  #library(plotly)
-  #plot_ly(scores_suspicious, x=~meanRank, y=~meanRankScore, type="scatter", mode="markers")
+ecdf_meanRank <- ecdf(gt_stats$meanRank)
+print(summary(ecdf_meanRank))
+ecdf_meanRankScore <- ecdf(gt_stats$meanRankScore)
+print(summary(ecdf_meanRankScore))
+if (interactive()) {
+  plot(ecdf_meanRank)
+  plot(ecdf_meanRankScore)
 }
 #
 t_elapsed <- (Sys.time()-t_start)

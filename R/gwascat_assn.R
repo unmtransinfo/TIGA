@@ -58,7 +58,16 @@ message(sprintf("Studies with OR_or_BETA: %d", assn[!is.na(OR_or_BETA), uniqueN(
 message(sprintf("Studies with SNPS and DISEASE_TRAIT and OR_or_BETA: %d", assn[(!is.na(DISEASE_TRAIT) & !is.na(SNPS) & !is.na(OR_or_BETA)), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Associations with OR_or_BETA values: %d (%.1f%%)", nrow(assn[!is.na(OR_or_BETA)]), 100*nrow(assn[!is.na(OR_or_BETA)])/nrow(assn)))
 #
-###
+debug_test <- function(ensg_test, assn) {
+  assn_test <- assn[SNP_GENE_IDS==ensg_test | UPSTREAM_GENE_ID==ensg_test | DOWNSTREAM_GENE_ID==ensg_test]
+  message(sprintf("DEBUG: %s rows: %d", ensg_test, nrow(assn_test)))
+  print(assn_test[, .(STUDY_ACCESSION, MAPPED_GENE, OR_or_BETA, `P-VALUE`, PVALUE_MLOG, MAPPED_TRAIT)])
+}
+ensg_test <- "ENSG00000170312"
+debug_test(ensg_test, assn) #CDK1 
+#print(assn[grepl("heel bone mineral density", MAPPED_TRAIT) & (grepl("CDK1", MAPPED_GENE) | grepl(ensg_test, SNP_GENE_IDS) | grepl(ensg_test, UPSTREAM_GENE_ID) | grepl(ensg_test, DOWNSTREAM_GENE_ID)), .(MAPPED_GENE, `P-VALUE`, SNP_GENE_IDS, UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID)])
+print(assn[(grepl(ensg_test, SNP_GENE_IDS) | grepl(ensg_test, UPSTREAM_GENE_ID) | grepl(ensg_test, DOWNSTREAM_GENE_ID)), .(STUDY_ACCESSION, MAPPED_TRAIT, MAPPED_GENE, `P-VALUE`, SNP_GENE_IDS, UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID)])
+#
 pval_threshold <- 5e-8
 pval_mlog_threshold <- -log10(5e-8)
 message("NOTE: PVALUE_MLOG (not P-VALUE) used for TIGA.")
