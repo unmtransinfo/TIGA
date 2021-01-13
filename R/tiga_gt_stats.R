@@ -98,7 +98,6 @@ gt_stats[, meanRankScore := ranks2pctiles(meanRank)]
 write_delim(gt_stats, ofile, delim="\t")
 writeLines(sprintf("Output file written: %s", ofile))
 #
-# 
 message("Testing and checking behavior of meanRankScore vs meanRank:")
 message(sprintf("meanRank values: %d; unique values: %d", nrow(gt_stats[!is.na(meanRank)]), gt_stats[, uniqueN(meanRank)]))
 message(sprintf("meanRankScore values: %d; unique values: %d", nrow(gt_stats[!is.na(meanRankScore)]), gt_stats[, uniqueN(meanRankScore)]))

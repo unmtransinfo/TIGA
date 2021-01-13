@@ -15,13 +15,13 @@ builds upon the __GWAS Catalog__ with more specific applications and use cases,
 focused on protein-coding genes and well defined traits semantically related to disease
 states relevant to discovery of drugs and druggable targets.
 
-See related [poster](https://www.slideshare.net/jeremyjyang/gwas-explorer-drug-target-illumination-by-evidence-aggregation-and-multivariate-mu-scoring) presented at Open Targets - IDG meeting, Wellcome Genome Campus, Hinxton UK, Nov 15, 2019.
+Manuscript in review ([preprint](https://www.biorxiv.org/content/10.1101/2020.11.11.378596v1)): "TIGA: Target illumination GWAS analytics", Jeremy Yang, Dhouha Grissa, Christophe Lambert, Cristian Bologa, Stephen Mathias, Anna Waller, David Wild,  Lars Juhl Jensen, Tudor Oprea.
 
 ## Dependencies
 
-* Python 3.6+; package [BioClients](https://github.com/jeremyjyang/BioClients) 
-* R 3.6+; packages readr, data.table, shiny, DT, shinyBS, plotly, igraph
-* [shinysky](https://github.com/AnalytixWare/ShinySky)
+* R 3.6+; readr, data.table, igraph, muStat, RMySQL (Webapp: shiny, DT, shinyBS, [shinysky](https://github.com/AnalytixWare/ShinySky), plotly)
+* Python 3.7+; pandas, [BioClients](https://github.com/jeremyjyang/BioClients)
+* Java 8+; Jena, [IU_IDSL_JENA](https://github.com/IUIDSL/iu_idsl_jena)
 
 ## GWAS Catalog features
 
@@ -32,17 +32,11 @@ SNP risk allele. Note that if an OR &lt;1 is reported this is inverted, along wi
 the reported allele, so that all ORs included in the Catalog are &gt;1. Appropriate
 unit and increase/decrease are included for beta coefficients.
 * `MAPPED_GENE`: Gene(s) mapped to the strongest SNP. If the SNP is located
-within a gene, that gene is listed. If the SNP is intergenic, the upstream
-and downstream genes are listed, separated by a hyphen. May be chromosomal
+within a gene, that gene is listed. If the SNP is intergenic, upstream
+and downstream genes are listed. May be chromosomal
 location or range (e.g. "LOC102723594 - LOC285043").
-* Documentation:
-  * <https://www.ebi.ac.uk/gwas/docs/fileheaders>
-  * <https://www.ebi.ac.uk/gwas/docs/methods>
-  * <https://www.ebi.ac.uk/gwas/docs/methods/curation>
-* Reference: Welter D, MacArthur J, Morales J, Burdett T, Hall P, Junkins H,
-Klemm A, Flicek P, Manolio T, Hindorff L, and Parkinson H. The NHGRI
-GWAS Catalog, a curated resource of SNP-trait associations. Nucleic
-Acids Research, 2014, Vol. 42 (Database issue): D1001-D1006.
+* Documentation: [methods](https://www.ebi.ac.uk/gwas/docs/methods); [curation](https://www.ebi.ac.uk/gwas/docs/methods/curation); [fileheaders](https://www.ebi.ac.uk/gwas/docs/fileheaders)
+* Reference: Buniello, A. et al. (2019) The NHGRI-EBI GWAS Catalog of published genome-wide association studies, targeted arrays and summary statistics 2019. Nucleic Acids Res., 47, D1005–D1012.
 
 ### Issues
 
