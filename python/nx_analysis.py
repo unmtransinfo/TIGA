@@ -44,23 +44,23 @@ def Groups2TSV(groups, fout):
 ###
 def GraphSummary(G):
   logging.info(nx.info(G))
-  logging.info("nodes: {0}; edges: {1}; directed: {2}".format(G.number_of_nodes(), G.number_of_edges(), G.is_directed()))
-  logging.info("connected: {0}".format(nx.is_weakly_connected(G)))
-  logging.info("connected components: {0}".format(nx.number_weakly_connected_components(G)))
-  logging.info("DAG (mono-hierarchy): {0}".format(nx.is_directed_acyclic_graph(G)))
-  logging.info("Tree: {0}".format(nx.is_tree(G)))
-  logging.info("Forest: {0}".format(nx.is_forest(G)))
+  logging.info(f"nodes: {G.number_of_nodes()}; edges: {G.number_of_edges()}; directed: {G.is_directed()}")
+  logging.info(f"connected: {nx.is_weakly_connected(G)}")
+  logging.info(f"connected components: {nx.number_weakly_connected_components(G)}")
+  logging.info(f"DAG (mono-hierarchy): {nx.is_directed_acyclic_graph(G)}")
+  logging.info(f"Tree: {nx.is_tree(G)}")
+  logging.info(f"Forest: {nx.is_forest(G)}")
   #
   roots = [n for n,d in G.in_degree() if d==0] 
-  logging.info("Roots: {0}".format(len(roots)))
+  logging.info(f"Roots: {len(roots)}")
   for root in roots:
-    logging.info("root: {0}: {1}".format(root, nx.get_node_attributes(G, 'label')[root] if root in nx.get_node_attributes(G, 'label') else ''))
+    logging.info("root: {}: {}".format(root, nx.get_node_attributes(G, 'label')[root] if root in nx.get_node_attributes(G, 'label') else ''))
   #
   leafs = [n for n,d in G.out_degree() if d==0] 
-  logging.info("Leafs: {0}".format(len(leafs)))
+  logging.info(f"Leafs: {len(leafs)}")
   #
   singles = set(roots) & set(leafs)
-  logging.info("Singles: {0}".format(len(singles)))
+  logging.info(f"Singles: {len(singles)}")
 ###
 def Cluster(G, nodeSet, min_groupsize, max_level, setname):
   roots = [n for n,d in G.in_degree() if d==0] 
@@ -76,18 +76,18 @@ def Cluster(G, nodeSet, min_groupsize, max_level, setname):
     #is_root = bool(n in roots)
     N_sub_set = SubclassCount_InSet(G, n, nodeSet)
     if N_sub_set >= min_groupsize:
-      logging.debug("{}/{}. {}: {}; level={}; N_sub={}; N_sub_{}={}".format(i_node, G.number_of_nodes(), n, label, level, N_sub, setname, N_sub_set))
+      logging.debug(f"{i_node}/{G.number_of_nodes()}. {n}: {label}; level={level}; N_sub={N_sub}; N_sub_{setname}={N_sub_set}")
       grouplist.append((n,label,level,in_set,N_sub,N_sub_set))
   groups = pd.DataFrame({
 	'Id': [Id for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
 	'label': [label for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
 	'level': [level for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'in_{}'.format(setname): [in_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
+	f'in_{setname}': [in_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
 	'N_sub': [N_sub for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
-	'N_sub_{}'.format(setname): [N_sub_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist]
-	}).sort_values(by=['N_sub_{}'.format(setname), 'N_sub'], ascending=False)
+	f'N_sub_{setname}': [N_sub_set for Id,label,level,in_set,N_sub,N_sub_set in grouplist]
+	}).sort_values(by=[f'N_sub_{setname}', 'N_sub'], ascending=False)
   #print(groups.head(10)) #DEBUG
-  print(groups[groups['in_{}'.format(setname)]].head(18)) #DEBUG
+  print(groups[groups[f'in_{setname}']].head(18)) #DEBUG
   return(groups)
 
 #############################################################################
@@ -110,7 +110,7 @@ if __name__=="__main__":
 
   t0 = time.time()
 
-  logging.info("Reading {0}".format(args.ifile_edge))
+  logging.info(f"Reading {args.ifile_edge}")
   efo_edges = pd.read_csv(args.ifile_edge, "\t", dtype=str)
   G = from_pandas_edgelist(efo_edges, source="source", target="target", edge_attr="edge_attr", create_using=nx.DiGraph)
   G.graph['name'] = args.graphname
@@ -119,7 +119,7 @@ if __name__=="__main__":
 
   ###
   if args.ifile_node_attr:
-    logging.info("Reading {0}".format(args.ifile_node_attr))
+    logging.info(f"Reading {args.ifile_node_attr}")
     efo_nodes = pd.read_csv(args.ifile_node_attr, "\t", index_col="id")
     node_attr = efo_nodes.to_dict(orient='index')
     nx.set_node_attributes(G, node_attr)
@@ -127,11 +127,11 @@ if __name__=="__main__":
   ###
   if args.ifile_node_set:
     nodeSetIds=set()
-    logging.info("Reading {0}".format(args.ifile_node_set))
+    logging.info(f"Reading {args.ifile_node_set}")
     with open(args.ifile_node_set) as fin:
       for line in fin:
         nodeSetIds.add(line.strip())
-    logging.info("nodeSetIds in {0}: {1}".format(args.setname, len(nodeSetIds)))
+    logging.info(f"nodeSetIds in {args.setname}: {len(nodeSetIds)}")
     nx.set_node_attributes(G, {nodeId:{'in_%s'%args.setname:True} for nodeId in nodeSetIds})
 
   ###
@@ -139,7 +139,7 @@ if __name__=="__main__":
     GraphSummary(G)
   #
   elif args.op == 'graph2cyjs':
-    logging.info("Writing {0}".format(args.ofile))
+    logging.info(f"Writing {args.ofile}")
     Graph2CYJS(G, fout)
   #
   ###

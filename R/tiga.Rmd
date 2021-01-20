@@ -20,13 +20,12 @@ via metrics, methods, and interactive visualization.  Each inferred gene-trait
 association is evaluated for confidence, with scores solely derived
 from aggregated statistics, linking a protein-coding gene and phenotype.
 
-* Updated to [GWAS Catalog](https://www.ebi.ac.uk/gwas/) format v1.0.2, July 15, 2020.
+* Data source: [GWAS Catalog](https://www.ebi.ac.uk/gwas/).
 * Workflow designed for integration with TCRD & Pharos
 * RCRAS, Relative Citation Ratio (RCR) Aggregated Score based on iCite-RCR.
 * Confidence higher (and provenance/accountability) for `mapped` over `reported` SNP-gene associations.
 * BETA not comparable for different units, thus using N_beta counts for TIGA.
-* Ensembl IDs (from API) used rather than gene symbols for more accurate gene mapping.
-* Prototype RShiny app: <http://unmtid-shinyapps.net/tiga/>
+* RShiny app: <http://unmtid-shinyapps.net/tiga/>
 
 ## About NHGRI-EBI GWAS Catalog
 
@@ -55,7 +54,7 @@ Key definitions:
 	additional array information (ex. Immunochip or Exome array) in brackets.
 
 *  Buniello A, MacArthur JAL, Cerezo M, Harris LW, Hayhurst J, Malangone C, et al. The NHGRI-EBI GWAS Catalog of published genome-wide association studies, targeted arrays and summary statistics 2019. Nucleic Acids Res. 2019;47: D1005–D1012.
-
+ 
 
 ```{r echo=FALSE}
 knitr::opts_chunk$set(echo=FALSE, message=FALSE)
@@ -166,7 +165,7 @@ knitr::kable(gwas_journals[1:12], caption="Top journals by N_gwas")
 # Relative Citation Ratio (RCR)
 
 RCR annotations from iCite API; PMIDs from GWASCatalog.
-New publications may lack RCR. We impute RCR=median as reasonable prior.
+We estimate RCR=median as reasonable prior for new publications and any lacking RCR from iCite. 
 
 ```{r warning=FALSE}
 icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
@@ -198,7 +197,7 @@ plot_ly(gwas_icite,
         type="box",
         text=sprintf("%s: %s, <i>%s</i> (%d)", gwas_icite$PUBMEDID, wordwrap(gwas_icite$title, 40), gwas_icite$journal, gwas_icite$year)) %>%
   layout(title = 'iCite Relative Citation Ratio<br>for top journals by GWAS publication count',
-         xaxis = list(title="", range=c(2015, 2019), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
+         xaxis = list(title="", range=c(2016, 2020), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
          yaxis = list(title="RCR", range=c(0,25), showgrid=T),
          margin = list(t=100, l=100, r=100),
          font = list(family="monospace", size=18),
@@ -271,10 +270,7 @@ subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
 
 # SNP to gene mappings
 
-* Catalog mapping via __Ensembl Post-GWAS Analysis Pipeline (POSTGAP)__:
-   * [POSTGAP Documentation](https://uswest.ensembl.org/Help/View?db=core;id=596)
-   * [POSTGAP Wiki](https://github.com/Ensembl/postgap/wiki/How-do-I-use-POSTGAP-output%3F)
-   * [POSTGAP GitHub](https://github.com/Ensembl/postgap/) (_"This script is designed to automatically finemap and highlight the causal variants behind GWAS results by cross-examining GWAS, population genetic, epigenetic and cis-regulatory datasets."_)
+* Catalog mapping via __Ensembl Pipeline__:
 * `GSYMB`, `MAPPED_GENE` fields may include chromosomal locations or be "intergenic".
 * Chromosomal locations (LOC*) may be non-coding RNA, etc.
 * Mappings _within_ gene stronger associations than _upstream_ or _downstream_.
@@ -298,7 +294,7 @@ The API provides additional data and/or rigorous formatting (JSON) for ___mapped
 the Ensembl API for additional annotations including gene ___biotype___, thereby filtering for __protein_coding__.
 
 ```{r}
-ensbInfo <- read_delim("data/gwascat_Snps_EnsemblInfo.tsv.gz", "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
+ensbInfo <- read_delim("data/gwascat_EnsemblInfo.tsv.gz", "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
 setDT(ensbInfo)
 biotypes <- ensbInfo[, .(N_gene = .N), by="biotype"][order(-N_gene)]
 knitr::kable(biotypes[, Percent := round(100 * N_gene / sum(N_gene), 1)][N_gene >= 100])
@@ -472,10 +468,10 @@ Which traits are most studied, based on N_study? But also, which of these may be
 be suitably specific for drug discovery?
 
 ```{r}
-trait_top <- trait[, .(TRAIT, N_study=uniqueN(STUDY_ACCESSION)), by="efoId"]
+trait_top <- trait[, .(MAPPED_TRAIT, N_study=uniqueN(STUDY_ACCESSION)), by="efoId"]
 trait_top <- unique(merge(trait_top, gt[, .(N_genes=uniqueN(ensemblId)), by="efoId"], by="efoId", all.x=T, all.y=F))
-knitr::kable(trait_top[order(-N_study), .(TRAIT, N_study, N_genes)][1:18], caption="Most-studied traits")
-knitr::kable(trait_top[order(-N_genes), .(TRAIT, N_study, N_genes)][1:18], caption="Most-polygenic traits")
+knitr::kable(trait_top[order(-N_study), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-studied traits")
+knitr::kable(trait_top[order(-N_genes), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-polygenic traits")
 ```
 
 # Prototype TIGA web app.
@@ -487,7 +483,7 @@ TIGA: Target Illumination GWAS Analytics
 * X-axis: Evidence (`meanRankScore`)
 * Y-axis: Effect (`OR` or `N_beta`)
 * Variables used in `meanRankScore`:
- * `pVal` - median of trait-SNP pValues
+ * `pVal` - max of trait-SNP pValues
  * `N_snpw` - # SNPs implicating gene, weighted by genomic distance
  * `RCRAS` - Relative Citation Ratio Aggregated Score 
 * Other variables:
@@ -545,7 +541,7 @@ t2g$geneIdgTdl <- factor(t2g$geneIdgTdl, levels=c("Tclin", "Tchem", "Tbio", "Tda
 t2g[, markersize := 10*n_study]
 t2g[, text := paste0("<b>", geneSymbol, "</b> (", ensemblId, ")<br><b>", geneName, "</b><br>", "Family: ", geneFamily, "<br>", "TDL: ", geneIdgTdl, "<br>", "N_traits=", geneNtrait, " ; N_snp=", n_snp, " ; N_study=", n_study, "study_N = ",
 "OR = ", or_median, "; ",  study_N_mean, "; ",
-" ; pVal=", sprintf("%.2g",10^(-pvalue_mlog_median)), "RCRAS = ", rcras, "; ", 
+" ; pVal=", sprintf("%.2g",10^(-pvalue_mlog_max)), "RCRAS = ", rcras, "; ", 
 "meanRankScore = ", meanRankScore, "; ","meanRank = ", meanRank, "; ")]
 plot_ly(type='scatter', mode='markers', data=t2g[(ok2plot)], 
   color=~geneIdgTdl, colors=c("blue", "green", "red", "black", "gray"),
