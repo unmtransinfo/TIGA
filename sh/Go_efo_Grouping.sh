@@ -16,20 +16,21 @@ LIBDIR="$HOME/../app/lib"
 ###
 # CYJS: Not needed now but maybe later?
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
-	-ontfile ${OWLFILE} -vv -ont2cyjs -o ${DATADIR}/efo.cyjs
+	-ifile_ont ${OWLFILE} -vv -ont2cyjs -o ${DATADIR}/efo.cyjs
 ###
 # Edgelist and nodelist
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
-	-ontfile ${OWLFILE} -vv -ont2edgelist -o ${DATADIR}/efo_edgelist.tsv
+	-ifile_ont ${OWLFILE} -vv -ont2edgelist -o ${DATADIR}/efo_edgelist.tsv
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
-	-ontfile ${OWLFILE} -vv -ont2nodelist -o ${DATADIR}/efo_nodelist.tsv
+	-ifile_ont ${OWLFILE} -vv -ont2nodelist -o ${DATADIR}/efo_nodelist.tsv
 #
 #############################################################################
 ###
 # Grouping:
 cat $DATADIR/gwascat_trait.tsv \
-	|sed -e '1d' |awk -F '\t' '{print $4}' |sort -u \
+	|sed -e '1d' |awk -F '\t' '{print $5}' |sort -u \
 	>$DATADIR/gwascatalog.efoid
+printf "EFO IDs: %d\n" $(cat $DATADIR/gwascatalog.efoid |grep '^EFO' |wc -l)
 ###
 ${cwd}/python/nx_analysis.py cluster --min_groupsize 2 --max_level 10 \
 	--i_edge $DATADIR/efo_edgelist.tsv \

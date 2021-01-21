@@ -5,7 +5,7 @@ For each class, associate (cluster) with an ancestral group of defined
 size or other criteria.
 """
 ###
-import sys,os,json,logging,argparse,time
+import sys,os,json,logging,argparse,time,tqdm
 import pandas as pd
 import networkx as nx
 from networkx.convert_matrix import from_pandas_edgelist
@@ -40,6 +40,8 @@ def Graph2CYJS(G, ofile):
   fout.write(json.dumps(cyjs, indent=2))
 ###
 def Groups2TSV(groups, fout):
+  if groups is None: return
+  logging.info(f"Output rows: {groups.shape[0]}; cols: {groups.shape[1]}")
   groups.to_csv(fout, '\t', index=False)
 ###
 def GraphSummary(G):
@@ -62,12 +64,28 @@ def GraphSummary(G):
   singles = set(roots) & set(leafs)
   logging.info(f"Singles: {len(singles)}")
 ###
-def Cluster(G, nodeSet, min_groupsize, max_level, setname):
-  roots = [n for n,d in G.in_degree() if d==0] 
-  grouplist=[];
-  i_node=0;
+def GraphCount_InSet(G, nodeset):
+  N_in = 0
   for n in G.nodes:
-    i_node += 1
+    if n in nodeset:
+      N_in+=1
+  return N_in
+###
+def Cluster(G, nodeSet, min_groupsize, max_level, setname):
+  """Find ancestors with N_subclasses >= min_groupsize."""
+  i_node=0; grouplist=[]; tq=None;
+  roots = [n for n,d in G.in_degree() if d==0] 
+  logging.debug(f"Roots: {len(roots)}")
+  N_inset = GraphCount_InSet(G, nodeSet)
+  logging.info(f"nodeSet count: {len(nodeSet)}")
+  logging.info(f"Graph nodes in nodeSet: {N_inset}")
+  if N_inset==0:
+    logging.error("Zero graph nodes in nodeSet.")
+    return None
+  for n in G.nodes:
+    if tq is None: tq = tqdm.tqdm(total=len(G.nodes), unit="nodes")
+    tq.update()
+    i_node+=1
     level = Level(G, n)
     if level>max_level: continue
     N_sub = SubclassCount(G, n)
@@ -75,8 +93,9 @@ def Cluster(G, nodeSet, min_groupsize, max_level, setname):
     in_set = bool(n in nodeSet)
     #is_root = bool(n in roots)
     N_sub_set = SubclassCount_InSet(G, n, nodeSet)
+    logging.debug(f"{i_node}/{G.number_of_nodes()}. {n}: {label}; level={level}; N_sub={N_sub}; N_sub_{setname}={N_sub_set}")
     if N_sub_set >= min_groupsize:
-      logging.debug(f"{i_node}/{G.number_of_nodes()}. {n}: {label}; level={level}; N_sub={N_sub}; N_sub_{setname}={N_sub_set}")
+      logging.debug(f"{i_node}/{G.number_of_nodes()}. {n}: {label}; level={level}; N_sub={N_sub}; N_sub_{setname}={N_sub_set} (> min_groupsize={min_groupsize}")
       grouplist.append((n,label,level,in_set,N_sub,N_sub_set))
   groups = pd.DataFrame({
 	'Id': [Id for Id,label,level,in_set,N_sub,N_sub_set in grouplist],
@@ -88,19 +107,19 @@ def Cluster(G, nodeSet, min_groupsize, max_level, setname):
 	}).sort_values(by=[f'N_sub_{setname}', 'N_sub'], ascending=False)
   #print(groups.head(10)) #DEBUG
   print(groups[groups[f'in_{setname}']].head(18)) #DEBUG
-  return(groups)
+  return groups
 
 #############################################################################
 if __name__=="__main__":
   parser = argparse.ArgumentParser(description="NetworkX analytics, from edgelist, optional node list, attributes.", epilog="Clustering into groups by common ancestor. Designed for EFO.")
-  ops = ['summary', 'graph2cyjs', 'cluster']
-  parser.add_argument("op", choices=ops, help='operation')
-  parser.add_argument("--i_edge", required=True, dest="ifile_edge", help="input edgelist (TSV)")
-  parser.add_argument("--i_node_set", dest="ifile_node_set", help="input node set (IDs)")
-  parser.add_argument("--i_node_attr", dest="ifile_node_attr", help="input node attributes (TSV)")
-  parser.add_argument("--setname", default="myset", help="node set name")
+  OPS = ['summary', 'graph2cyjs', 'cluster']
+  parser.add_argument("op", choices=OPS, help='OPERATION')
+  parser.add_argument("--i_edge", required=True, dest="ifile_edge", help="Input edgelist (TSV)")
+  parser.add_argument("--i_node_set", dest="ifile_node_set", help="Input node set (IDs)")
+  parser.add_argument("--i_node_attr", dest="ifile_node_attr", help="Input node attributes (TSV)")
   parser.add_argument("--o", dest="ofile", help="output (TSV|CYJS|etc.)")
-  parser.add_argument("--graphname", help="assign this name to graph")
+  parser.add_argument("--setname", default="myset", help="Node set name")
+  parser.add_argument("--graphname", help="Assign this name to graph.")
   parser.add_argument("--min_groupsize", type=int, default=100)
   parser.add_argument("--max_level", type=int, default=10)
   parser.add_argument("-v", "--verbose", action="count", default=0)
@@ -126,7 +145,7 @@ if __name__=="__main__":
   #
   ###
   if args.ifile_node_set:
-    nodeSetIds=set()
+    nodeSetIds = set()
     logging.info(f"Reading {args.ifile_node_set}")
     with open(args.ifile_node_set) as fin:
       for line in fin:
@@ -143,10 +162,10 @@ if __name__=="__main__":
     Graph2CYJS(G, fout)
   #
   ###
-  # Find ancestors with N_subclasses >= MIN_CLUSTER_SIZE.
   elif args.op == 'cluster':
     if not args.ifile_node_set:
-      parser.error('--i_node_set required for cluster operation.')
+      parser.error(f"--i_node_set required for: {args.op}")
+    GraphSummary(G)
     groups = Cluster(G, nodeSetIds, args.min_groupsize, args.max_level, args.setname)
     Groups2TSV(groups, fout)
 
