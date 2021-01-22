@@ -15,6 +15,17 @@ ifile <- ifelse((length(args)>0), args[1], "data/efo_graph.graphml")
 ###
 efoG <- read_graph(ifile, format="graphml")
 #
+ontocolor <- function(ont) {
+ ifelse(ont=="EFO", "#CCCCFF",
+ ifelse(ont=="Orphanet", "green",
+ ifelse(ont=="MONDO", "orange",
+ ifelse(ont=="CHEBI", "pink",
+ ifelse(ont=="NCBITaxon", "yellow",
+ ifelse(ont=="HP", "cyan",
+ ifelse(ont=="UBERON", "aqua",
+ "#CCCCCC")))))))
+}
+efoG <- set_vertex_attr(efoG, "color", V(efoG), ontocolor(efo_node$ontology))
 ###
 # Induce and plot subgraph. BFS finds all subclasses.
 EFONAME <- "mood disorder" #EFO_0004247 (11 subclasses)

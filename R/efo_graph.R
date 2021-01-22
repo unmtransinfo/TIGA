@@ -13,10 +13,11 @@ library(igraph, quietly=T)
 ###
 #
 args <- commandArgs(trailingOnly=TRUE)
-ifile <- ifelse((length(args)>0), args[1], "data/efo.tsv")
-ofile <- ifelse((length(args)>1), args[2], "data/efo_graph.graphml")
+efofile <- ifelse((length(args)>0), args[1], "data/efo.tsv")
+efosubgwasfile <- ifelse((length(args)>1), args[2], "data/efo_sub_gwas.tsv") #from gwascat_trait.R
+ofile <- ifelse((length(args)>2), args[3], "data/efo_graph.graphml")
 #
-efo <- read_delim(ifile, "\t", col_types=cols(.default=col_character()))
+efo <- read_delim(efofile, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo_node <- efo[node_or_edge == "node", .(id, uri, label, comment)]
 efo_node[['ontology']] <- sub("_.*$", "", efo_node$id)
@@ -42,20 +43,15 @@ efoG <- set_vertex_attr(efoG, "description", V(efoG), efo_node$label)
 efoG <- set_vertex_attr(efoG, "uri", V(efoG), efo_node$uri)
 efoG <- set_vertex_attr(efoG, "efoId", V(efoG), efo_node$id)
 efoG <- set_vertex_attr(efoG, "ontology", V(efoG), efo_node$ontology)
-ontocolor <- function(ont) {
-  ifelse(ont=="EFO", "#CCCCFF",
-  ifelse(ont=="Orphanet", "green",
-  ifelse(ont=="MONDO", "orange",
-  ifelse(ont=="CHEBI", "pink",
-  ifelse(ont=="NCBITaxon", "yellow",
-  ifelse(ont=="HP", "cyan",
-  ifelse(ont=="UBERON", "aqua",
-         "#CCCCCC")))))))
-}
-efoG <- set_vertex_attr(efoG, "color", V(efoG), ontocolor(efo_node$ontology))
-
+#
+efo_sub_gwas <- read_delim(efosubgwasfile, "\t")
+setDT(efo_sub_gwas)
+efo_sub_gwas_counts <- unique(efo_sub_gwas[, .(trait, subclass_trait, N_gwas = uniqueN(study_accession), N_sub_gwas = uniqueN(study_accession_subclass)), by=c("trait_uri", "subclass_uri")])
+efo_node <- merge(efo_node, efo_sub_gwas_counts[, .(trait_uri, N_gwas)], by.x="uri", by.y="trait_uri", all.x=T, all.y=F)
+efo_node[is.na(N_gwas), N_gwas := 0]
+efoG <- set_vertex_attr(efoG, "N_gwas", V(efoG), efo_node$N_gwas)
 ###
-# Save annotated graph to file for TIGA UI.
+# Save annotated graph to file.
 write_graph(efoG, ofile, format="graphml")
 #
 ###
