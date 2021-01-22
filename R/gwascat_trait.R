@@ -14,10 +14,6 @@ library(data.table, quietly=T)
 
 ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/07/15/gwas-catalog-studies_ontology-annotated.tsv")
 
-efofile_default <- "data/efo.tsv"
-ofile_default <- "data/gwascat_trait.tsv"
-ofile_subclass_default <- "data/efo_sub_gwas.tsv"
-
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)==4) {
   (ifile <- args[1])
@@ -26,9 +22,9 @@ if (length(args)==4) {
   (ofile_subclass <- args[4])
 } else if (length(args)==0) {
   ifile <- ifile_default
-  efofile <- efofile_default
-  ofile <- ofile_default
-  ofile_subclass <- ofile_subclass_default
+  efofile <- "data/efo.tsv"
+  ofile <- "data/gwascat_trait.tsv"
+  ofile_subclass <- "data/efo_sub_gwas.tsv"
 } else {
   message("ERROR: Syntax: gwascat_trait.R GWASFILE EFOFILE OFILE OFILE_SUBCLASS")
   quit()
@@ -36,6 +32,7 @@ if (length(args)==4) {
 message(sprintf("Input: %s", ifile))
 message(sprintf("Input EFO: %s", efofile))
 message(sprintf("Output: %s", ofile))
+message(sprintf("Output subclass: %s", ofile_subclass))
 
 trait <- read_delim(ifile, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
@@ -121,5 +118,8 @@ efo_sub <- merge(efo_sub, unique(trait[, .(study_accession_subclass = STUDY_ACCE
 
 efo_sub <- unique(efo_sub[, .(study_accession, trait, trait_uri, study_accession_subclass, subclass_trait, subclass_uri)])
 
+#Example
+unique(efo_sub[grepl("(mood|bipolar)", trait), .(efoId = sub("^.*/", "", trait_uri), subclass_efoId = sub("^.*/", "", subclass_uri), N_study = uniqueN(study_accession), N_study_subclass = uniqueN(study_accession_subclass)), by=c("trait", "subclass_trait")])
+#
 write_delim(efo_sub, ofile_subclass, "\t")
 

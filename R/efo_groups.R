@@ -8,9 +8,20 @@ library(readr)
 library(data.table, quietly=T)
 library(igraph, quietly=T)
 
+args <- commandArgs(trailingOnly=TRUE)
+condition <- ifelse((length(args)>1), args[1], "mood disorder")
+efofile <- ifelse((length(args)>1), args[2], "data/efo.tsv")
+groupfile <- ifelse((length(args)>0), args[3], "data/efo_groups.tsv")
+ofile <- ifelse((length(args)>2), args[4], "data/efo_subgraph.graphml")
+
+message(sprintf("Condition: \"%s\"", condition))
+message(sprintf("EFO file: \"%s\"", efofile))
+message(sprintf("EFO group file: \"%s\"", groupfile))
+message(sprintf("Output file: \"%s\"", ofile))
+
 ###
 # File from nx_analysis.py.
-efo_groups <- read_delim("data/efo_groups.tsv", "\t", col_types=cols(.default=col_character(), level=col_integer(), N_sub=col_integer(), N_sub_gwc=col_integer(), in_gwc=col_logical()))
+efo_groups <- read_delim(groupfile, "\t", col_types=cols(.default=col_character(), level=col_integer(), N_sub=col_integer(), N_sub_gwc=col_integer(), in_gwc=col_logical()))
 setDT(efo_groups)
 setorder(efo_groups, level, -N_sub)
 #
@@ -19,7 +30,7 @@ setorder(efo_groups, level, -N_sub)
 # considered for associated genes. But which query traits are allowed? How high level?
 # Need statistics mapping all EFO to GWAS Catalog with parentage considered.
 #
-efo <- read_delim("data/efo.tsv", "\t", col_types=cols(.default=col_character()))
+efo <- read_delim(efofile, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo_node <- efo[node_or_edge == "node", .(id, uri, label, comment)]
 efo_node[['ontology']] <- sub("_.*$", "", efo_node$id)
@@ -56,7 +67,9 @@ efoGraph <- set_vertex_attr(efoGraph, "color", V(efoGraph), ontocolor(efo_node$o
 
 # Plot subgraph. BFS finds all subclasses.
 #
-bfs_this <- igraph::bfs(efoGraph, V(efoGraph)[efo_node[label == "mood disorder"]$vId], neimode="out", unreachable=F)
+efoId <- efo_node[label == condition]$id
+message(sprintf("Query condition: \"%s\" (%s)", condition, efoId))
+bfs_this <- igraph::bfs(efoGraph, V(efoGraph)[efo_node[label == condition]$vId], neimode="out", unreachable=F)
 subg <- induced_subgraph(efoGraph, bfs_this$order[1:sum(!is.na(bfs_this$order))])
 message(sprintf("Graph (%sDIRECTED): vertices: %d; edges: %d", ifelse(is_directed(subg), "", "NOT_"), vcount(subg), ecount(subg)))
 tkplot(subg, canvas.width=800, canvas.height=600, layout=layout_as_tree, vertex.label=sprintf("%s\n%s", V(subg)$efoId, V(subg)$description), 
@@ -65,4 +78,4 @@ tkplot(subg, canvas.width=800, canvas.height=600, layout=layout_as_tree, vertex.
 
 # CYJS not supported. (Can do igraph_utils.py graph2cyjs)
 subg <- set_vertex_attr(subg, "name", V(subg), sprintf("%s: %s", V(subg)$efoId, V(subg)$description))
-write_graph(subg, sprintf("data/efo_subgraph_%s.graphml", efo_node[label == "mood disorder"]$id), format="graphml")
+write_graph(subg, ofile, format="graphml")

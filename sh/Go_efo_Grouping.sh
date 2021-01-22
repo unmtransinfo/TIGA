@@ -39,6 +39,12 @@ ${cwd}/python/nx_analysis.py cluster --min_groupsize 2 --max_level 10 \
 	--setname gwc --graphname "EFO" \
 	--o $DATADIR/efo_groups.tsv
 #
+#
+${cwd}/R/efo_groups.R \
+	"mood disorder" \
+	$DATADIR/efo.tsv \
+	$DATADIR/efo_groups.tsv \
+	$DATADIR/efo_subgraph.graphml \
 ###
 # To do:
 #   * Groups file usable by TIGA app for marker color and selection.
