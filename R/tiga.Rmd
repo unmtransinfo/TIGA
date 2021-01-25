@@ -72,7 +72,7 @@ library(plotly, quietly=T)
 From GWAS Catalog, TCRD, and EFO.
 
 ```{r}
-ifile_gwas <- "data/gwascat_gwas.tsv.gz"
+ifile_gwas <- "data/gwascat_gwas.tsv"
 ifile_assn <- "data/gwascat_assn.tsv"
 ifile_snp2gene <- "data/gwascat_snp2gene.tsv"
 ifile_trait <- "data/gwascat_trait.tsv"
@@ -393,8 +393,8 @@ efo_sub <- efo_sub[(source_in_gwas) & (target_in_gwas)]
 efo_sub[, `:=`(source_in_gwas=NULL, target_in_gwas=NULL, label=NULL)]
 setnames(efo_sub, old=c("source", "target"), new=c("efoId", "subclass_id"))
 trait_counts <- trait[, .(N_study = uniqueN(STUDY_ACCESSION)), by=c("efoId", "TRAIT")]
-efo_sub <- merge(efo_sub, trait_counts[, .(efoId, trait_N_study=N_study, trait_name=MAPPED_TRAIT)], by="efoId", all.x=T, all.y=F)
-efo_sub <- merge(efo_sub, trait_counts[, .(efoId, subclass_N_study=N_study, subclass_name=MAPPED_TRAIT)], by.x="subclass_id", by.y="efoId", all.x=T, all.y=F)
+efo_sub <- merge(efo_sub, trait_counts[, .(efoId, trait_N_study=N_study, trait_name=TRAIT)], by="efoId", all.x=T, all.y=F)
+efo_sub <- merge(efo_sub, trait_counts[, .(efoId, subclass_N_study=N_study, subclass_name=TRAIT)], by.x="subclass_id", by.y="efoId", all.x=T, all.y=F)
 efo_sub <- efo_sub[, .(efoId, trait_name, subclass_id, subclass_name, trait_N_study, subclass_N_study)]
 sprintf("GWAS trait-subclass pairs: %d", nrow(efo_sub))
 setorder(efo_sub, -trait_N_study, -subclass_N_study)
@@ -472,6 +472,7 @@ trait_top <- trait[, .(MAPPED_TRAIT, N_study=uniqueN(STUDY_ACCESSION)), by="efoI
 trait_top <- unique(merge(trait_top, gt[, .(N_genes=uniqueN(ensemblId)), by="efoId"], by="efoId", all.x=T, all.y=F))
 knitr::kable(trait_top[order(-N_study), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-studied traits")
 knitr::kable(trait_top[order(-N_genes), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-polygenic traits")
+write_delim(trait_top[, .(efoId, MAPPED_TRAIT, N_study, N_genes)], "data/trait_counts.tsv", "\t")
 ```
 
 # Prototype TIGA web app.
