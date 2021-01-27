@@ -10,10 +10,6 @@
 ###  gwascat_gwas.tsv           (from gwascat_gwas.R)
 ###  efo_graph.graphml.gz       (from efo_graph.R)
 ########################################################################################
-### DEPRECATED ### library(dqshiny, quietly=T)
-### DEPRECATED ### remotes::install_github("daqana/dqshiny")
-### DEPRECATED ### Requires dev version late 2019; fussy and/or buggy.
-########################################################################################
 ### Requires shinysky, devtools::install_github("AnalytixWare/ShinySky")
 ########################################################################################
 library(readr)
@@ -200,6 +196,9 @@ Hits are ranked based on meanRankScore
 Scatterplot axes are Effect (OR or beta) vs. Evidence as measured by <B>meanRankScore</B>.
 Odds ratio (OR) is the median, beta is a count of non-zero beta values, hence a
 measure of effect-evidence but not magnitude. Nonexistent ORs plotted as zero.
+Note that for a given trait or gene, studies and associations may have ORs, betas, or collectively, both,
+though the plot displays only the datatype selected or auto-chosen.
+By default the axis is auto-chosen to reflect the predominant type.
 <BR/>
 Note that this app will accept query parameters <B>trait</B> (EFO_ID) and/or <B>gene</B>
 (ENSEMBL_ID) via URL, e.g.
@@ -287,7 +286,7 @@ ui <- fluidPage(
   hr(),
   fluidRow(
     column(12, tags$em(strong(sprintf("%s", APPNAME)), " web app from ", 
-        tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
+        tags$a(href="https://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
         " and ",
         tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png"))),
         " built from ",
@@ -296,8 +295,7 @@ ui <- fluidPage(
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span(paste0("EFO [", EFO_RELEASE, "]"), tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
   bsTooltip("goReset", "Reset.", "right"),
-  #bsTooltip("clearTrait", "Clear trait.", "right"),
-  #bsTooltip("clearGene", "Clear gene.", "right"),
+  bsTooltip("yAxis", "Auto chooses predominant effect size datatype. Datatype not selected viewable via hits table.", "right"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
   bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),

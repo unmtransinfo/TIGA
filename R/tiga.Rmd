@@ -116,7 +116,7 @@ plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="Not Reported",
   add_trace(y = ~Affymetrix, name="Affymetrix") %>%
   add_trace(y = ~Illumina, name="Illumina") %>%
   layout(title = 'GWAS counts by year &amp; vendor',
-         xaxis = list(title="", showgrid=F, range=c(2005, 2019), dtick=1, tickangle=45),
+         xaxis = list(title="", showgrid=F, range=c(2005, 2020), dtick=1, tickangle=45),
          yaxis = list(title="", showgrid=F),
          margin = list(t=100, l=100),
          font = list(family="monospace", size=24),
@@ -197,7 +197,7 @@ plot_ly(gwas_icite,
         type="box",
         text=sprintf("%s: %s, <i>%s</i> (%d)", gwas_icite$PUBMEDID, wordwrap(gwas_icite$title, 40), gwas_icite$journal, gwas_icite$year)) %>%
   layout(title = 'iCite Relative Citation Ratio<br>for top journals by GWAS publication count',
-         xaxis = list(title="", range=c(2016, 2020), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
+         xaxis = list(title="", range=c(2015.5, 2020.5), showgrid=F, dtick=1, tickangle=45, tickfont=list(size=14)),
          yaxis = list(title="RCR", range=c(0,25), showgrid=T),
          margin = list(t=100, l=100, r=100),
          font = list(family="monospace", size=18),
@@ -217,6 +217,7 @@ sprintf("Associations total: %d ; SNPs: %d ; traits: %d ; PMIDs: %d", nrow(assn)
 funClass <- assn[, .N, by="CONTEXT"]
 funClass <- unique(funClass[grepl(";", CONTEXT), `:=`(CONTEXT = "Multiple", N = sum(N))])
 setorder(funClass, -N)
+write_delim(funClass, "data/snp_context_counts.tsv", "\t")
 knitr::kable(funClass[N>=10], caption="SNP functional classes (aka CONTEXT), N>=10")
 plot_ly(type="pie", values=funClass$N, labels=paste0(funClass$CONTEXT, " (", funClass$N, ")"), textinfo="label+percent", textfont=list(size=12) ) %>%
   layout(title="SNP functional classes (aka CONTEXT)",
@@ -288,16 +289,17 @@ snp2gene[, REPORTED_OR_MAPPED := sub('^md$', 'mapped_downstream', REPORTED_OR_MA
 snp2gene_counts <- snp2gene[, .(N_snp = .N), by="REPORTED_OR_MAPPED"]
 knitr::kable(snp2gene_counts)
 ```
-# GWAS Catalog API, Ensembl IDs, Ensemble API and annotations
+# Ensemble annotations
 
-The API provides additional data and/or rigorous formatting (JSON) for ___mapped genes___. Using Ensembl IDs, we query 
-the Ensembl API for additional annotations including gene ___biotype___, thereby filtering for __protein_coding__.
+Using Ensembl IDs, we query the Ensembl API for additional annotations including gene ___biotype___, thereby filtering for __protein_coding__.
 
 ```{r}
 ensbInfo <- read_delim("data/gwascat_EnsemblInfo.tsv.gz", "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
 setDT(ensbInfo)
 biotypes <- ensbInfo[, .(N_gene = .N), by="biotype"][order(-N_gene)]
-knitr::kable(biotypes[, Percent := round(100 * N_gene / sum(N_gene), 1)][N_gene >= 100])
+biotypes <- biotypes[, Percent := 100 * N_gene / sum(N_gene)]
+write_delim(biotypes, "data/gene_biotype_counts.tsv", "\t")
+knitr::kable(biotypes[N_gene >= 100], digits=1)
 ```
 
 # Gene counts
@@ -393,8 +395,8 @@ efo_sub <- efo_sub[(source_in_gwas) & (target_in_gwas)]
 efo_sub[, `:=`(source_in_gwas=NULL, target_in_gwas=NULL, label=NULL)]
 setnames(efo_sub, old=c("source", "target"), new=c("efoId", "subclass_id"))
 trait_counts <- trait[, .(N_study = uniqueN(STUDY_ACCESSION)), by=c("efoId", "TRAIT")]
-efo_sub <- merge(efo_sub, trait_counts[, .(efoId, trait_N_study=N_study, trait_name=TRAIT)], by="efoId", all.x=T, all.y=F)
-efo_sub <- merge(efo_sub, trait_counts[, .(efoId, subclass_N_study=N_study, subclass_name=TRAIT)], by.x="subclass_id", by.y="efoId", all.x=T, all.y=F)
+efo_sub <- merge(efo_sub, trait_counts[, .(efoId, trait_N_study=N_study, trait_name=TRAIT)], by="efoId", all.x=T, all.y=F, allow.cartesian=T)
+efo_sub <- merge(efo_sub, trait_counts[, .(efoId, subclass_N_study=N_study, subclass_name=TRAIT)], by.x="subclass_id", by.y="efoId", all.x=T, all.y=F, allow.cartesian=T)
 efo_sub <- efo_sub[, .(efoId, trait_name, subclass_id, subclass_name, trait_N_study, subclass_N_study)]
 sprintf("GWAS trait-subclass pairs: %d", nrow(efo_sub))
 setorder(efo_sub, -trait_N_study, -subclass_N_study)
@@ -446,7 +448,7 @@ studies, for each gene-trait association.
 
 ```{r}
 gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
-n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), geneNtrait=col_integer(), traitNgene=col_integer(), pvalue_mlog_median=col_double(),
+n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), geneNtrait=col_integer(), traitNgene=col_integer(), pvalue_mlog_max=col_double(),
 or_median=col_double(), n_beta=col_integer(),
 meanRank=col_double(), meanRankScore=col_double()))
 setDT(gt)
