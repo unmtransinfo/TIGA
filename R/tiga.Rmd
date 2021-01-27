@@ -108,11 +108,11 @@ vendor.
 ```{r}
 sprintf("Studies: %d; traits: %d ; PMIDs: %d", uniqueN(gwas$STUDY_ACCESSION), uniqueN(gwas$DISEASE_TRAIT), uniqueN(gwas$PUBMEDID))
 gwas[, `:=`(YEAR = format(DATE,"%Y"), PLATFORM = sub("[, ].*$", "", `PLATFORM_[SNPS_PASSING_QC]`))]
+gwas[, YEAR := as.integer(YEAR)]
 gwas_platforms <- gwas[, .(.N), by=c("YEAR", "PLATFORM")]
 setorder(gwas_platforms, YEAR, PLATFORM)
 gwas_platforms_cast <- dcast(gwas_platforms, YEAR ~ PLATFORM, value.var="N", fill=0)
-plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="Not Reported",
-                type="scatter", mode="markers", fill="tonexty") %>%
+plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="Not Reported", type="scatter", mode="markers", fill="tonexty") %>%
   add_trace(y = ~Affymetrix, name="Affymetrix") %>%
   add_trace(y = ~Illumina, name="Illumina") %>%
   layout(title = 'GWAS counts by year &amp; vendor',
