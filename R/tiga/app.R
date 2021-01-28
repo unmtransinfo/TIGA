@@ -174,7 +174,7 @@ Reported genes ignored for consistency and accountable confidence assessment in 
 <LI>Due to lack of reported, extracted, parsed and harmonized beta units, N_beta count is employed
 as simple, rational measure of effect evidence and confidence (but not magnitude).
 </UL>
-<B>Datatypes:</B>
+<B>Aggregate statistics and scores:</B>
 <UL>
   <LI><B>pVal_mLog<SUP>*</SUP></B>: max(-Log(pValue)) supporting gene-trait association.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (iCite RCR) Aggregated Score.
@@ -191,6 +191,16 @@ as simple, rational measure of effect evidence and confidence (but not magnitude
 <SUP>*</SUP>Variable used in <B>meanRankScore</B>.
 <BR/>
 Hits are ranked based on meanRankScore
+<BR/>
+<B>Other datatypes:</B>
+<UL>
+  <LI><B>ENSG</B>: Ensembl Gene ID.
+  <LI><B>efoId</B>: EFO trait ID.
+  <LI><B>STUDY_ACCESSION</B>: GWAS Catalog study ID.
+  <LI><B>PMID</B>: PubMed ID.
+  <LI><B>TDL</B>: IDG Target Development Level, a knowledge based classification. Tclin = high-confidence drug targets; Tchem = small-molecule modulator exists; Tbio = biological
+function elucidated; Tdark = minimal knowledge.
+</UL>
 <BR/>
 <B>UI:</B>
 Scatterplot axes are Effect (OR or beta) vs. Evidence as measured by <B>meanRankScore</B>.
