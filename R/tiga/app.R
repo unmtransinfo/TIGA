@@ -179,13 +179,13 @@ as simple, rational measure of effect evidence and confidence (but not magnitude
   <LI><B>pVal_mLog<SUP>*</SUP></B>: max(-Log(pValue)) supporting gene-trait association.
   <LI><B>RCRAS<SUP>*</SUP></B>: Relative Citation Ratio (iCite RCR) Aggregated Score.
   <LI><B>N_snpw<SUP>*</SUP></B>: N_snp weighted by distance inverse exponential.
-  <LI><B>N_study</B>: studies supporting gene-trait association.
+  <LI><B>N_study</B>: studies supporting gene-trait association (unique count).
   <LI><B>OR</B>: median(odds ratio, inverted if &lt;1) supporting gene-trait association (1 if missing).
   <LI><B>N_beta</B>: simple count of beta values with 95%% confidence intervals supporting gene-trait association.
-  <LI><B>N_snp</B>: SNPs involved with gene-trait association.
+  <LI><B>N_snp</B>: SNPs involved with gene-trait association (unique count).
   <LI><B>study_N</B>: mean(SAMPLE_SIZE) supporting gene-trait association.
-  <LI><B>geneNtrait</B>: total traits associated with gene.
-  <LI><B>traitNgene</B>: total genes associated with trait.
+  <LI><B>geneNtrait</B>: total traits associated with gene (unique count).
+  <LI><B>traitNgene</B>: total genes associated with trait (unique count).
   <LI><B>meanRankScore</B>: Gene-trait pairs (GTs) are ranked based on selected variables, determined by benchmarking versus gold standard associations.  meanRankScore = 100 - Percentile(meanRank).
 </UL>
 <SUP>*</SUP>Variable used in <B>meanRankScore</B>.
@@ -294,12 +294,15 @@ ui <- fluidPage(
         " and ",
         tags$a(href="https://www.ebi.ac.uk/efo/", target="_blank", span(paste0("EFO [", EFO_RELEASE, "]"), tags$img(id="efo_logo", height="50", valign="bottom", src="EFO_logo.png")))
         ))),
-  bsTooltip("goReset", "Reset.", "right"),
-  bsTooltip("yAxis", "Auto chooses predominant effect size datatype. Datatype not selected viewable via hits table.", "right"),
-  bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
-  bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "right"),
-  bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "right"),
-  bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "right")
+  bsTooltip("traitQry", "Enter trait name fragment for autosuggest and resolution to EFO ID.", "bottom"),
+  bsTooltip("geneQry", "Enter gene symbol or name fragment for autosuggest and resolution to Ensembl ID.", "bottom"),
+  bsTooltip("goReset", "Reset.", "bottom"),
+  bsTooltip("yAxis", "Auto chooses predominant effect size datatype. Datatype not selected viewable via hits table.", "top"),
+  bsTooltip("maxHits", "Affects plot display only; hits table is complete regardless.", "top"),
+  bsTooltip("unm_logo", "UNM Translational Informatics Division", "top"),
+  bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "top"),
+  bsTooltip("efo_logo", "Experimental Factor Ontology (EFO)", "top"),
+  bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "top")
 )
 
 ##########################################################################################
