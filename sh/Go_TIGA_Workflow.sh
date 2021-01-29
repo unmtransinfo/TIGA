@@ -22,35 +22,40 @@ set -e
 #
 cwd=$(pwd)
 #
-DATADIR="${cwd}/data"
-#
+DATADIR="${cwd}/data/"
 ###
 # GWASCatalog release:
 GC_REL_Y="2020"
+#GC_REL_M="07"
 GC_REL_M="12"
+#GC_REL_D="15"
 GC_REL_D="16"
 #
-#SRCDATADIR="$HOME/../data/GWASCatalog/releases/2020/07/15"
-SRCDATADIR="$HOME/../data/GWASCatalog/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
+ODIR="${DATADIR}/${GC_REL_Y}${GC_REL_M}${GC_REL_D}"
+if [ ! -d $ODIR ]; then
+	mkdir -p $ODIR
+fi
 #
-printf "${GC_REL_Y}-${GC_REL_M}-${GC_REL_D}\n" >${DATADIR}/gwascat_release.txt
+SRCDIR="$HOME/../data/GWASCatalog/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
+#
+printf "${GC_REL_Y}-${GC_REL_M}-${GC_REL_D}\n" >${ODIR}/gwascat_release.txt
 #
 #Source files:
-gwasfile="${SRCDATADIR}/gwas-catalog-studies_ontology-annotated.tsv"
+gwasfile="${SRCDIR}/gwas-catalog-studies_ontology-annotated.tsv"
 if [ ! -f "${gwasfile}" ]; then
 	echo "ERROR: FILE NOT FOUND: ${gwasfile}"
 	exit
 fi
 #
-assnfile="${SRCDATADIR}/gwas-catalog-associations_ontology-annotated.tsv"
+assnfile="${SRCDIR}/gwas-catalog-associations_ontology-annotated.tsv"
 if [ ! -f "${assnfile}" ]; then
 	echo "ERROR: FILE NOT FOUND: ${assnfile}"
 	exit
 fi
 ###
 #Output files:
-tsvfile_gwas="${DATADIR}/gwascat_gwas.tsv"
-tsvfile_assn="${DATADIR}/gwascat_assn.tsv"
+tsvfile_gwas="${ODIR}/gwascat_gwas.tsv"
+tsvfile_assn="${ODIR}/gwascat_assn.tsv"
 ###
 #Clean studies:
 ${cwd}/R/gwascat_gwas.R $gwasfile $tsvfile_gwas
@@ -62,39 +67,40 @@ ${cwd}/R/gwascat_assn.R $assnfile $tsvfile_assn
 #############################################################################
 ### TRAITS:
 #
-tsvfile_trait="${DATADIR}/gwascat_trait.tsv"
+tsvfile_trait="${ODIR}/gwascat_trait.tsv"
 ###
 # EFO:
 EFO_DIR="$HOME/../data/EFO/data"
 OWLFILE="$EFO_DIR/efo.owl"
+#EFO_RELEASE="3.20.0"
 EFO_RELEASE="3.25.0"
-printf "${EFO_RELEASE}\n" >${DATADIR}/efo_release.txt
+printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
 #
-#EFO_URL="https://github.com/EBISPOT/efo/releases/download/v3.20.0/efo.owl"
 EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
 wget -q -O $OWLFILE $EFO_URL
 #
 LIBDIR="$HOME/../app/lib"
-efofile="${DATADIR}/efo.tsv"
+efofile="${ODIR}/efo.tsv"
 ###
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 	-ifile_ont ${OWLFILE} -vv -ont2tsv -o ${efofile}
 #
 ###
-# From efo.tsv create GraphML file:
-graphmlfile="${DATADIR}/efo_graph.graphml"
-${cwd}/R/efo_graph.R ${efofile} ${graphmlfile}
-gzip ${graphmlfile}
-#
-###
-tsvfile_trait_sub="${DATADIR}/efo_sub_gwas.tsv"
+tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv"
 #
 ${cwd}/R/gwascat_trait.R $gwasfile $efofile $tsvfile_trait $tsvfile_trait_sub
+#
+###
+# From efo.tsv create GraphML file:
+graphmlfile="${ODIR}/efo_graph.graphml"
+${cwd}/R/efo_graph.R ${efofile} ${tsvfile_trait_sub} ${graphmlfile}
+gzip ${graphmlfile}
+#
 #
 #############################################################################
 ### GENES:
 #SNP to gene links:
-snp2genefile="${DATADIR}/gwascat_snp2gene.tsv"
+snp2genefile="${ODIR}/gwascat_snp2gene.tsv"
 #
 #############################################################################
 ### REPORTED GENES (ignored by TIGA):
@@ -124,12 +130,12 @@ cat $tsvfile_assn |sed -e '1d' \
 cat $tsvfile_gwas \
 	|sed -e '1d' \
 	|awk -F '\t' '{print $2}' \
-	|sort -nu >$DATADIR/gwascat.pmid
-printf "PMIDS: %d\n" $(cat $DATADIR/gwascat.pmid |wc -l)
+	|sort -nu >$ODIR/gwascat.pmid
+printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
 ###
 python3 -m BioClients.icite.Client get_stats \
-	--i $DATADIR/gwascat.pmid \
-	--o $DATADIR/gwascat_icite.tsv
+	--i $ODIR/gwascat.pmid \
+	--o $ODIR/gwascat_icite.tsv
 #
 #############################################################################
 ### Entrez gene IDs: UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS
@@ -137,85 +143,90 @@ cat $tsvfile_assn |sed -e '1d' \
 	|awk -F '\t' '{print $16}' \
 	|egrep -v '(^$|^NA$)' \
 	|sort -u \
-	>$DATADIR/gwascat_upstream.ensg
+	>$ODIR/gwascat_upstream.ensg
 cat $tsvfile_assn |sed -e '1d' \
 	|awk -F '\t' '{print $17}' \
 	|egrep -v '(^$|^NA$)' \
 	|sort -u \
-	>$DATADIR/gwascat_downstream.ensg
+	>$ODIR/gwascat_downstream.ensg
 cat $tsvfile_assn |sed -e '1d' \
 	|awk -F '\t' '{print $18}' \
 	|egrep -v '(^$|^NA$)' \
 	|perl -ne 'print join("\n",split(/, */))' \
 	|sort -u \
-	>$DATADIR/gwascat_snp.ensg
-cat $DATADIR/gwascat_upstream.ensg $DATADIR/gwascat_downstream.ensg $DATADIR/gwascat_snp.ensg \
+	>$ODIR/gwascat_snp.ensg
+cat $ODIR/gwascat_upstream.ensg $ODIR/gwascat_downstream.ensg $ODIR/gwascat_snp.ensg \
 	|sort -u \
-	>$DATADIR/gwascat.ensg
+	>$ODIR/gwascat.ensg
 #
 ###
 # ~13hr
 python3 -m BioClients.ensembl.Client get_info -v \
-	--i $DATADIR/gwascat.ensg \
-	--o $DATADIR/gwascat_EnsemblInfo.tsv
-gzip -f $DATADIR/gwascat_EnsemblInfo.tsv
+	--i $ODIR/gwascat.ensg \
+	--o $ODIR/gwascat_EnsemblInfo.tsv
+gzip -f $ODIR/gwascat_EnsemblInfo.tsv
 #
 ###
 # TCRD:
-TCRD_DBNAME="tcrd660"
+TCRD_DBNAME="tcrd684"
 python3 -m BioClients.idg.tcrd.Client listTargets \
 	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
-	--o $DATADIR/tcrd_targets.tsv
+	--o $ODIR/tcrd_targets.tsv
 python3 -m BioClients.idg.tcrd.Client info \
 	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
-	--o $DATADIR/tcrd_info.tsv
+	--o $ODIR/tcrd_info.tsv
 #
 ###
-# gwascat_counts.tsv from Go_gwascat_DbCreate.sh, with input files:
+# Go_TIGA_DbCreate.sh
+# input:
 #	gwascat_gwas.tsv
 #	gwascat_assn.tsv
 #	gwascat_snp2gene.tsv
 #	gwascat_trait.tsv
 #	gwascat_icite.tsv
+# output:
+#	gwascat_counts.tsv
+${cwd}/sh/Go_TIGA_DbCreate.sh ${ODIR}
+#
 ###
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.
-# $DATADIR/gwascat_Snps.tsv.gz (NO LONGER NEEDED)
+# $ODIR/gwascat_Snps.tsv.gz (NO LONGER NEEDED)
 ${cwd}/R/tiga_gt_prepfilter.R \
-	$DATADIR/gwascat_gwas.tsv \
-	$DATADIR/gwascat_counts.tsv \
-	$DATADIR/gwascat_assn.tsv \
-	$DATADIR/gwascat_snp2gene.tsv \
-	$DATADIR/gwascat_trait.tsv \
-	$DATADIR/gwascat_icite.tsv \
-	$DATADIR/gwascat_EnsemblInfo.tsv.gz \
-	$DATADIR/tcrd_targets.tsv \
-	$DATADIR/gt_prepfilter.Rdata
+	$ODIR/gwascat_gwas.tsv \
+	$ODIR/gwascat_counts.tsv \
+	$ODIR/gwascat_assn.tsv \
+	$ODIR/gwascat_snp2gene.tsv \
+	$ODIR/gwascat_trait.tsv \
+	$ODIR/gwascat_icite.tsv \
+	$ODIR/gwascat_EnsemblInfo.tsv.gz \
+	$ODIR/tcrd_targets.tsv \
+	$ODIR/gt_prepfilter.Rdata
 ###
 # Provenance for gene-trait pairs (STUDY_ACCESSION, PUBMEDID).
 ${cwd}/R/tiga_gt_provenance.R \
-	$DATADIR/gt_prepfilter.Rdata \
-	$DATADIR/gt_provenance.tsv.gz
+	$ODIR/gt_prepfilter.Rdata \
+	$ODIR/gt_provenance.tsv.gz
 ###
 # Generates variables, statistics, evidence features for gene-trait pairs.
 ${cwd}/R/tiga_gt_variables.R \
-	$DATADIR/gt_prepfilter.Rdata \
-	$DATADIR/gt_variables.tsv.gz
+	$ODIR/gt_prepfilter.Rdata \
+	$ODIR/gt_variables.tsv.gz
 ###
 # Scores and ranks gene-trait pairs based on selected variables.
 ${cwd}/R/tiga_gt_stats.R \
-	$DATADIR/gt_variables.tsv.gz \
-	$DATADIR/gt_stats.tsv.gz
+	$ODIR/gt_variables.tsv.gz \
+	$ODIR/gt_stats.tsv.gz
 #
 cp \
-	${DATADIR}/gwascat_gwas.tsv \
-	${DATADIR}/filtered_studies.tsv \
-	${DATADIR}/filtered_genes.tsv \
-	${DATADIR}/filtered_traits.tsv \
-	${DATADIR}/gt_provenance.tsv.gz \
-	${DATADIR}/gt_stats.tsv.gz \
-	${DATADIR}/efo_graph.graphml.gz \
-	${DATADIR}/gwascat_release.txt \
-	${DATADIR}/efo_release.txt \
-	${DATADIR}/tcrd_info.tsv \
+	${ODIR}/gwascat_gwas.tsv \
+	${ODIR}/filtered_studies.tsv \
+	${ODIR}/filtered_genes.tsv \
+	${ODIR}/filtered_traits.tsv \
+	${ODIR}/gt_provenance.tsv.gz \
+	${ODIR}/gt_stats.tsv.gz \
+	${ODIR}/efo_graph.graphml.gz \
+	${ODIR}/tcrd_info.tsv \
+	${ODIR}/gwascat_release.txt \
+	${ODIR}/efo_release.txt \
 	${cwd}/R/tiga/data/

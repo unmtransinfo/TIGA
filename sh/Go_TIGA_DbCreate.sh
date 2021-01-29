@@ -1,6 +1,6 @@
 #!/bin/bash
 #############################################################################
-### Go_gwascat_DbCreate.sh (MySql) 
+### Go_TIGA_DbCreate.sh (MySql) 
 #############################################################################
 ### PROBABLY SHOULD OBSOLETE THIS AND IMPLEMENT ALL IN R.
 #############################################################################
@@ -20,9 +20,14 @@ cwd=$(pwd)
 #
 printf "Started: %s\n" "$(date)"
 #
-DBNAME="gwascatalog"
+DBNAME="tiga"
 #
-DATADIR="${cwd}/data"
+if [ $# -eq 1 ]; then
+	DATADIR=$1
+else
+	DATADIR="${cwd}/data"
+fi
+printf "Input DATADIR: %s\n" "${DATADIR}"
 #
 # INPUT FILES:
 gwasfile="${DATADIR}/gwascat_gwas.tsv"

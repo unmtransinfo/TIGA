@@ -17,6 +17,10 @@ efofile <- ifelse((length(args)>0), args[1], "data/efo.tsv")
 efosubgwasfile <- ifelse((length(args)>1), args[2], "data/efo_sub_gwas.tsv") #from gwascat_trait.R
 ofile <- ifelse((length(args)>2), args[3], "data/efo_graph.graphml")
 #
+message(sprintf("efofile: %s", efofile))
+message(sprintf("efosubgwasfile: %s", efosubgwasfile))
+message(sprintf("ofile: %s", ofile))
+#
 efo <- read_delim(efofile, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo_node <- efo[node_or_edge == "node", .(id, uri, label, comment)]
