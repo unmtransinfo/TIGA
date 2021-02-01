@@ -17,45 +17,45 @@ message(t_start)
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
-if (length(args)==10) {
-  (ifile_gwas	<- args[1])
-  (ifile_counts	<- args[2])
-  (ifile_assn	<- args[3])
-  (ifile_snp2gene	<- args[4])
-  (ifile_trait	<- args[5])
-  (ifile_icite	<- args[6])
-  (ifile_ensembl	<- args[7])
-  (ifile_tcrd	<- args[8])
-  (ofile	<- args[9])
-} else if (length(args)==0) {
-  ifile_gwas <- "data/gwascat_gwas.tsv"	#gwascat_gwas.R
-  ifile_counts <- "data/gwascat_counts.tsv"	#Go_gwascat_DbCreate.sh
-  ifile_assn <- "data/gwascat_assn.tsv"	#gwascat_assn.R
-  ifile_snp2gene <- "data/gwascat_snp2gene.tsv" #snp2gene_mapped.pl, snp2gene_reported.pl
-  ifile_trait <- "data/gwascat_trait.tsv"	#gwascat_trait.R
-  ifile_icite <- "data/gwascat_icite.tsv" #BioClients.icite API
-  ifile_ensembl <- "data/gwascat_EnsemblInfo.tsv.gz" #BioClients.ensembl API
-  ifile_tcrd <- "data/tcrd_targets.tsv" #BioClients.idg API
-  ofile <- "data/gt_prepfilter.Rdata"
-} else {
-  message("ERROR: Syntax: tiga_gt_prepfilter.R GWASFILE COUNTSFILE ASSNFILE SNP2GENEFILE TRAITFILE ICITEFILE TCRDFILE ENSEMBLFILE OFILE \n...or... no args for defaults")
+#ODIR <- "data"
+ODIR <- "data/20201216"
+#
+ifile_gwas <-	ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_gwas.tsv")) #gwascat_gwas.R
+ifile_counts <-	ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_counts.tsv")) #Go_gwascat_DbCreate.sh
+ifile_assn <-	ifelse((length(args)>2), args[3], paste0(ODIR, "/gwascat_assn.tsv")) #gwascat_assn.R
+ifile_snp2gene <-ifelse((length(args)>3), args[4], paste0(ODIR, "/gwascat_snp2gene.tsv")) #snp2gene_mapped.pl, snp2gene_reported.pl
+ifile_trait <-	ifelse((length(args)>4), args[5], paste0(ODIR, "/gwascat_trait.tsv")) #gwascat_trait.R
+ifile_icite <-	ifelse((length(args)>5), args[6], paste0(ODIR, "/gwascat_icite.tsv")) #BioClients.icite API
+ifile_ensembl <-ifelse((length(args)>6), args[7], paste0(ODIR, "/gwascat_EnsemblInfo.tsv.gz")) #BioClients.ensembl API
+ifile_tcrd <-	ifelse((length(args)>7), args[8], paste0(ODIR, "/tcrd_targets.tsv")) #BioClients.idg API
+ofile <-	ifelse((length(args)>8), args[9], paste0(ODIR, "/gt_prepfilter.Rdata"))
+ofile_filtered_studies <- ifelse((length(args)>9), args[10], paste0(ODIR, "/filtered_studies.tsv"))
+ofile_filtered_traits <- ifelse((length(args)>10), args[11], paste0(ODIR, "/filtered_traits.tsv"))
+ofile_filtered_genes <-	ifelse((length(args)>11), args[12], paste0(ODIR, "/filtered_genes.tsv"))
+#
+if (length(args)>12) {
+  message("ERROR: Syntax: tiga_gt_prepfilter.R GWASFILE [COUNTSFILE [ASSNFILE [SNP2GENEFILE [TRAITFILE [ICITEFILE [TCRDFILE [ENSEMBLFILE [OFILE [OFILE_FILTERED_STUDIES [OFILE_FILTERED_TRAITS [OFILE_FILTERED_GENES]]]]]]]]]]]]\n...or... no args for defaults")
   quit()
 }
-writeLines(sprintf("Input gwas file: %s", ifile_gwas))
-writeLines(sprintf("Input counts file: %s", ifile_counts))
-writeLines(sprintf("Input assn file: %s", ifile_assn))
-writeLines(sprintf("Input snp2gene file: %s", ifile_snp2gene))
-writeLines(sprintf("Input trait file: %s", ifile_trait))
-writeLines(sprintf("Input iCite file: %s", ifile_icite))
-writeLines(sprintf("Input TCRD file: %s", ifile_tcrd))
-writeLines(sprintf("Input Ensembl file: %s", ifile_ensembl))
-writeLines(sprintf("Output prepfilter file: %s", ofile))
+message(sprintf("Input gwas file: %s", ifile_gwas))
+message(sprintf("Input counts file: %s", ifile_counts))
+message(sprintf("Input assn file: %s", ifile_assn))
+message(sprintf("Input snp2gene file: %s", ifile_snp2gene))
+message(sprintf("Input trait file: %s", ifile_trait))
+message(sprintf("Input iCite file: %s", ifile_icite))
+message(sprintf("Input TCRD file: %s", ifile_tcrd))
+message(sprintf("Input Ensembl file: %s", ifile_ensembl))
+message(sprintf("Output prepfilter file: %s", ofile))
+message(sprintf("Output filtered studies file: %s", ofile_filtered_studies))
+message(sprintf("Output filtered traits file: %s", ofile_filtered_traits))
+message(sprintf("Output filtered genes file: %s", ofile_filtered_genes))
 #
 ###
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"), ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
 setDT(gwas)
 gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), study_accession=col_character()))
 setDT(gwas_counts)
+message(sprintf("GWAS with mapped genes: %d", gwas_counts[gene_m_count>0, uniqueN(study_accession)]))
 #
 assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(), 
 	DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"), 
@@ -93,6 +93,8 @@ icite[is.na(relative_citation_ratio), relative_citation_ratio := rcr_median]
 icite_gwas <- merge(icite[, .(pmid, relative_citation_ratio, year)], gwas[, .(PUBMEDID, STUDY_ACCESSION)], by.x="pmid", by.y="PUBMEDID", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, gwas_counts[, .(study_accession, trait_count, gene_r_count, gene_m_count)], by.x="STUDY_ACCESSION", by.y="study_accession", all.x=T, all.y=T)
 icite_gwas <- merge(icite_gwas, icite_gwas[, .(study_perpmid_count = uniqueN(STUDY_ACCESSION)), by="pmid"], by="pmid")
+message(sprintf("icite_gwas rows: %d", nrow(icite_gwas)))
+message(sprintf("icite_gwas studies (STUDY_ACCESSION): %d", icite_gwas[, uniqueN(STUDY_ACCESSION)]))
 ###
 # RCRAS = RCR-Aggregated-Score
 # rcras_pmid is per-publication RCRAS normalized by study count in publication.
@@ -235,9 +237,9 @@ filtered_genes <- merge(filtered_genes, tcrd[, .(ensemblGeneId, geneName=tcrdTar
 filtered_genes <- filtered_genes[, .(ensemblId, ensemblSymb, geneName, geneFamily, TDL, reason)]
 #
 # Write files accounting for filtered studies, traits and genes.
-write_delim(filtered_studies, "data/filtered_studies.tsv", delim="\t")
-write_delim(filtered_traits, "data/filtered_traits.tsv", delim="\t")
-write_delim(filtered_genes, "data/filtered_genes.tsv", delim="\t")
+write_delim(filtered_studies, ofile_filtered_studies, delim="\t")
+write_delim(filtered_traits, ofile_filtered_traits, delim="\t")
+write_delim(filtered_genes, ofile_filtered_genes, delim="\t")
 #
 badrows <- (badrows_traituri | badrows_pval | badrows_effect)
 message(sprintf("Filtered associations (total): %d -> %d (-%d; -%.1f%%)", nrow(g2t), nrow(g2t)-sum(badrows), sum(badrows), 100*sum(badrows)/nrow(g2t)))

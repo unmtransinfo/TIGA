@@ -30,11 +30,17 @@ fi
 printf "Input DATADIR: %s\n" "${DATADIR}"
 #
 # INPUT FILES:
-gwasfile="${DATADIR}/gwascat_gwas.tsv"
-assnfile="${DATADIR}/gwascat_assn.tsv"
-snp2genefile="${DATADIR}/gwascat_snp2gene.tsv"
-traitfile="${DATADIR}/gwascat_trait.tsv"
-icitefile="${DATADIR}/gwascat_icite.tsv"
+gwasfile="${DATADIR}/gwascat_gwas.tsv" #gwascat_gwas.R
+assnfile="${DATADIR}/gwascat_assn.tsv" #gwascat_assn.R
+snp2genefile="${DATADIR}/gwascat_snp2gene.tsv" #Go_TIGA_Workflow.sh,snp2gene_reported.pl,snp2gene_mapped.pl
+traitfile="${DATADIR}/gwascat_trait.tsv" #gwascat_trait.R
+icitefile="${DATADIR}/gwascat_icite.tsv" #BioClients.icite.Client
+#
+printf "gwasfile: %s\n" "$gwasfile"
+printf "assnfile: %s\n" "$assnfile"
+printf "snp2genefile: %s\n" "$snp2genefile"
+printf "traitfile: %s\n" "$traitfile"
+printf "icitefile: %s\n" "$icitefile"
 #
 error=""
 for f in $gwasfile $assnfile $snp2genefile $traitfile $icitefile ; do
@@ -51,11 +57,13 @@ fi
 # OUTPUT FILES:
 ofile_gwas="${DATADIR}/gwascat_counts.tsv"
 ofile_trait="${DATADIR}/trait_counts.tsv"
+printf "Output gwas counts: %s\n" "$ofile_gwas"
+printf "Output trait counts: %s\n" "$ofile_trait"
 #
 mysql -v -e "DROP DATABASE $DBNAME"
 mysql -v -e "CREATE DATABASE $DBNAME"
 #
-mysql -D $DBNAME <${cwd}/sql/gwascatalog_create_tables.sql
+mysql -D $DBNAME <${cwd}/sql/tiga_create_tables.sql
 ###
 mysql -D $DBNAME -e "SET GLOBAL local_infile = true"
 #

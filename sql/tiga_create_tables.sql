@@ -60,8 +60,9 @@ CREATE TABLE assn (
 );
 CREATE TABLE snp2gene (
 	study_accession VARCHAR(16),
-	gsymb VARCHAR(16),
 	snp VARCHAR(32),
+	gsymb VARCHAR(16),
+	ensg VARCHAR(32),
 	reported_or_mapped VARCHAR(4)
 );
 CREATE TABLE trait2study (

@@ -21,13 +21,10 @@ t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
-if (length(args)==2) {
-  (ifile	<- args[1])
-  (ofile	<- args[2])
-} else if (length(args)==0) {
-  ifile <- "data/gt_prepfilter.Rdata"
-  ofile <- "data/gt_variables.tsv.gz"
-} else {
+ifile	<- ifelse(length(args)>0, args[1], "data/gt_prepfilter.Rdata")
+ofile	<- ifelse(length(args)>1, args[2], "data/gt_variables.tsv.gz")
+#
+if (length(args)>2) {
   message("ERROR: Syntax: tiga_gt_variables.R GT_PREPFILTER_FILE OFILE\n...or... no args for defaults")
   quit()
 }

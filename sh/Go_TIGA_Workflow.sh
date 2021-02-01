@@ -1,10 +1,8 @@
 #!/bin/bash
 #############################################################################
-### Go_gwascat_GetData.sh - Create TSV files.
-### gt_stats.tsv is used by TIGA web app.
-### NHGRI-EBI GWAS Catalog: http://www.ebi.ac.uk/gwas/
+### Go_TIGA_Workflow.sh - TSVs for TIGA web app, DISEASES, TCRD.
 #############################################################################
-### Download releases from:
+### NHGRI-EBI GWAS Catalog: http://www.ebi.ac.uk/gwas/
 ### ftp://ftp.ebi.ac.uk/pub/databases/gwas/releases/{YYYY}/{MM}/{DD}/
 ### Note that "v1.0.1", "v1.0.2", "v1.0.3" refer to formats, not releases.
 #############################################################################
@@ -20,9 +18,11 @@
 #
 set -e
 #
+T0=$(date +%s)
+#
 cwd=$(pwd)
 #
-DATADIR="${cwd}/data/"
+DATADIR="${cwd}/data"
 ###
 # GWASCatalog release:
 GC_REL_Y="2020"
@@ -94,7 +94,7 @@ ${cwd}/R/gwascat_trait.R $gwasfile $efofile $tsvfile_trait $tsvfile_trait_sub
 # From efo.tsv create GraphML file:
 graphmlfile="${ODIR}/efo_graph.graphml"
 ${cwd}/R/efo_graph.R ${efofile} ${tsvfile_trait_sub} ${graphmlfile}
-gzip ${graphmlfile}
+gzip -f ${graphmlfile}
 #
 #
 #############################################################################
@@ -133,38 +133,40 @@ cat $tsvfile_gwas \
 	|sort -nu >$ODIR/gwascat.pmid
 printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
 ###
-python3 -m BioClients.icite.Client get_stats \
-	--i $ODIR/gwascat.pmid \
-	--o $ODIR/gwascat_icite.tsv
+if [ ! -f "$ODIR/gwascat_icite.tsv" ]; then
+	python3 -m BioClients.icite.Client get_stats \
+		--i $ODIR/gwascat.pmid \
+		--o $ODIR/gwascat_icite.tsv
+fi
 #
 #############################################################################
 ### Entrez gene IDs: UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS
-cat $tsvfile_assn |sed -e '1d' \
-	|awk -F '\t' '{print $16}' \
-	|egrep -v '(^$|^NA$)' \
-	|sort -u \
-	>$ODIR/gwascat_upstream.ensg
-cat $tsvfile_assn |sed -e '1d' \
-	|awk -F '\t' '{print $17}' \
-	|egrep -v '(^$|^NA$)' \
-	|sort -u \
-	>$ODIR/gwascat_downstream.ensg
-cat $tsvfile_assn |sed -e '1d' \
-	|awk -F '\t' '{print $18}' \
-	|egrep -v '(^$|^NA$)' \
-	|perl -ne 'print join("\n",split(/, */))' \
-	|sort -u \
-	>$ODIR/gwascat_snp.ensg
-cat $ODIR/gwascat_upstream.ensg $ODIR/gwascat_downstream.ensg $ODIR/gwascat_snp.ensg \
-	|sort -u \
-	>$ODIR/gwascat.ensg
-#
-###
-# ~13hr
-python3 -m BioClients.ensembl.Client get_info -v \
-	--i $ODIR/gwascat.ensg \
-	--o $ODIR/gwascat_EnsemblInfo.tsv
-gzip -f $ODIR/gwascat_EnsemblInfo.tsv
+if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
+	cat $tsvfile_assn |sed -e '1d' \
+		|awk -F '\t' '{print $16}' \
+		|egrep -v '(^$|^NA$)' \
+		|sort -u \
+		>$ODIR/gwascat_upstream.ensg
+	cat $tsvfile_assn |sed -e '1d' \
+		|awk -F '\t' '{print $17}' \
+		|egrep -v '(^$|^NA$)' \
+		|sort -u \
+		>$ODIR/gwascat_downstream.ensg
+	cat $tsvfile_assn |sed -e '1d' \
+		|awk -F '\t' '{print $18}' \
+		|egrep -v '(^$|^NA$)' \
+		|perl -ne 'print join("\n",split(/, */))' \
+		|sort -u \
+		>$ODIR/gwascat_snp.ensg
+	cat $ODIR/gwascat_upstream.ensg $ODIR/gwascat_downstream.ensg $ODIR/gwascat_snp.ensg \
+		|sort -u \
+		>$ODIR/gwascat.ensg
+	#
+	# ~13hr
+	python3 -m BioClients.ensembl.Client get_info -v \
+		--i $ODIR/gwascat.ensg |gzip -c \
+		>$ODIR/gwascat_EnsemblInfo.tsv.gz
+fi
 #
 ###
 # TCRD:
@@ -201,7 +203,10 @@ ${cwd}/R/tiga_gt_prepfilter.R \
 	$ODIR/gwascat_icite.tsv \
 	$ODIR/gwascat_EnsemblInfo.tsv.gz \
 	$ODIR/tcrd_targets.tsv \
-	$ODIR/gt_prepfilter.Rdata
+	$ODIR/gt_prepfilter.Rdata \
+	$ODIR/filtered_studies.tsv \
+	$ODIR/filtered_traits.tsv \
+	$ODIR/filtered_genes.tsv
 ###
 # Provenance for gene-trait pairs (STUDY_ACCESSION, PUBMEDID).
 ${cwd}/R/tiga_gt_provenance.R \
@@ -230,3 +235,6 @@ cp \
 	${ODIR}/gwascat_release.txt \
 	${ODIR}/efo_release.txt \
 	${cwd}/R/tiga/data/
+#
+printf "Elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
+#

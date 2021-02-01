@@ -25,14 +25,11 @@ t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
-if (length(args)==2) {
-  (ifile	<- args[1])
-  (ofile	<- args[2])
-} else if (length(args)==0) {
-  ifile <- "data/gt_variables.tsv.gz"
-  ofile <- "data/gt_stats.tsv.gz"
-} else {
-  message("ERROR: Syntax: tiga_gt_stats.R VARIABLESFILE OFILE\n...or... no args for defaults")
+ifile	<- ifelse(length(args)>0, args[1], "data/gt_variables.tsv.gz")
+ofile	<- ifelse(length(args)>1, args[2], "data/gt_stats.tsv.gz")
+#
+if (length(args)>2) {
+  message("ERROR: Syntax: tiga_gt_stats.R [VARIABLESFILE [OFILE]]\n...or... no args for defaults")
   quit()
 }
 writeLines(sprintf("Input file: %s", ifile))
