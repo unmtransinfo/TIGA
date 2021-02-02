@@ -20,14 +20,19 @@ cwd=$(pwd)
 #
 printf "Started: %s\n" "$(date)"
 #
-DBNAME="tiga"
-#
-if [ $# -eq 1 ]; then
+if [ $# -gt 0 ]; then
 	DATADIR=$1
 else
 	DATADIR="${cwd}/data"
 fi
 printf "Input DATADIR: %s\n" "${DATADIR}"
+#
+if [ $# -gt 1 ]; then
+	DBNAME=$2
+else
+	DBNAME="tiga"
+fi
+printf "DBNAME: %s\n" "${DBNAME}"
 #
 # INPUT FILES:
 gwasfile="${DATADIR}/gwascat_gwas.tsv" #gwascat_gwas.R

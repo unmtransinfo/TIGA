@@ -25,16 +25,29 @@ cwd=$(pwd)
 DATADIR="${cwd}/data"
 ###
 # GWASCatalog release:
-GC_REL_Y="2020"
-#GC_REL_M="07"
-GC_REL_M="12"
-#GC_REL_D="15"
-GC_REL_D="16"
+if [ $# -gt 0 ]; then
+	GC_REL=$1
+else
+	#GC_REL="2020-07-15"
+	GC_REL="2020-12-16"
+fi
+#
+GC_REL_Y=$(echo $GC_REL |sed 's/-.*$//')
+GC_REL_M=$(echo $GC_REL |sed 's/^.*-\(.*\)-.*$/\1/')
+GC_REL_D=$(echo $GC_REL |sed 's/^.*-//')
+#
+printf "GWASCatalog release: \"%s\" (Y=%s,M=%s,D=%s)\n" "$GC_REL" "$GC_REL_Y" "$GC_REL_M" "$GC_REL_D"
+#
+if [ ! "$GC_REL_Y" -o  ! "$GC_REL_M" -o  ! "$GC_REL_D" ]; then
+	printf "ERROR: Badly formed GWASCatalog release (YYYY-MM-DD): \"%s\"\n" "$GC_REL"
+	exit
+fi 
 #
 ODIR="${DATADIR}/${GC_REL_Y}${GC_REL_M}${GC_REL_D}"
 if [ ! -d $ODIR ]; then
 	mkdir -p $ODIR
 fi
+#exit #DEBUG
 #
 SRCDIR="$HOME/../data/GWASCatalog/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
 #
@@ -188,7 +201,7 @@ python3 -m BioClients.idg.tcrd.Client info \
 #	gwascat_icite.tsv
 # output:
 #	gwascat_counts.tsv
-${cwd}/sh/Go_TIGA_DbCreate.sh ${ODIR}
+${cwd}/sh/Go_TIGA_DbCreate.sh "${ODIR}" "tiga_${GC_REL_Y}${GC_REL_M}${GC_REL_D}"
 #
 ###
 # Pre-process and filter. Studies, genes and traits may be removed
