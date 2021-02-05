@@ -235,7 +235,12 @@ ${cwd}/R/tiga_gt_variables.R \
 ${cwd}/R/tiga_gt_stats.R \
 	$ODIR/gt_variables.tsv.gz \
 	$ODIR/gt_stats.tsv.gz
-#
+# Mu scores for benchmark comparision.
+${cwd}/R/tiga_gt_stats_mu.R \
+	$ODIR/gt_variables.tsv.gz \
+	$ODIR/gt_stats_mu.tsv.gz
+###
+# Copy for TIGA web app.
 cp \
 	${ODIR}/gwascat_gwas.tsv \
 	${ODIR}/filtered_studies.tsv \

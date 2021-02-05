@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #############################################################################
-### GENE-TRAIT stats
+### GENE-TRAIT STATS (MU VERSION)
 ### tiga_gt_stats_mu.R - Produce mu scores.
 #############################################################################
 # Multivariable non-parametric ranking via &mu; scores.
@@ -31,13 +31,10 @@ t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
-if (length(args)==2) {
-  (ifile        <- args[1])
-  (ofile        <- args[2])
-} else if (length(args)==0) {
-  ifile <- "data/gt_variables.tsv.gz"
-  ofile <- "data/gt_stats_mu.tsv.gz"
-} else {
+ifile   <- ifelse(length(args)>0, args[1], "data/gt_variables.tsv.gz")
+ofile   <- ifelse(length(args)>1, args[2], "data/gt_stats_mu.tsv.gz")
+#
+if (length(args)>2) {
   message("ERROR: Syntax: tiga_gt_stats.R VARIABLESFILE OFILE\n...or... no args for defaults")
   quit()
 }
@@ -65,7 +62,8 @@ setDT(gt_stats)
 gt_stats[, geneNtrait_inv := 1 / geneNtrait]
 gt_stats[, traitNgene_inv := 1 / traitNgene]
 #
-TAGS_FOR_RANKING <- c("pvalue_mlog_median", "rcras", "n_snpw")
+TAGS_FOR_RANKING <- c("pvalue_mlog_max", "rcras", "n_snpw")
+message(paste("TAGS_FOR_RANKING: ", paste(TAGS_FOR_RANKING, collapse=", ")))
 #
 # Convert to matrix for muStat::mu.GE().
 # The (i,j) entry of GE matrix is 1 if \code{x_i >= x_j}, 0 otherwise.
