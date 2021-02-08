@@ -22,6 +22,7 @@
 #############################################################################
 ## Problem: muStat requires huge memory (>100Gb?)
 ## Error: vector memory exhausted (limit reached?)
+## Error: negative length vectors are not allowed (join > 2^31-1 rows)
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
@@ -31,15 +32,17 @@ t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
-ifile   <- ifelse(length(args)>0, args[1], "data/gt_variables.tsv.gz")
-ofile   <- ifelse(length(args)>1, args[2], "data/gt_stats_mu.tsv.gz")
+#ifile   <- ifelse(length(args)>0, args[1], "data/gt_variables.tsv.gz")
+#ofile   <- ifelse(length(args)>1, args[2], "data/gt_stats_mu.tsv.gz")
+ifile   <- ifelse(length(args)>0, args[1], "data/20201216/gt_variables.tsv.gz")
+ofile   <- ifelse(length(args)>1, args[2], "data/20201216/gt_stats_mu.tsv.gz")
 #
 if (length(args)>2) {
   message("ERROR: Syntax: tiga_gt_stats.R VARIABLESFILE OFILE\n...or... no args for defaults")
   quit()
 }
-writeLines(sprintf("Input file: %s", ifile))
-writeLines(sprintf("Output file: %s", ofile))
+message(sprintf("Input file: %s", ifile))
+message(sprintf("Output file: %s", ofile))
 #
 ###
 # Read computed variables from file.
@@ -59,11 +62,11 @@ setDT(gt_stats)
 ###
 #
 # Use inverse of n\_traits\_g and n\_genes\_t so bigger is better as needed for muStat.
-gt_stats[, geneNtrait_inv := 1 / geneNtrait]
-gt_stats[, traitNgene_inv := 1 / traitNgene]
+#gt_stats[, geneNtrait_inv := 1 / geneNtrait]
+#gt_stats[, traitNgene_inv := 1 / traitNgene]
 #
 TAGS_FOR_RANKING <- c("pvalue_mlog_max", "rcras", "n_snpw")
-message(paste("TAGS_FOR_RANKING: ", paste(TAGS_FOR_RANKING, collapse=", ")))
+message(paste("TAGS_FOR_RANKING: ", paste0(TAGS_FOR_RANKING, collapse=", ")))
 #
 # Convert to matrix for muStat::mu.GE().
 # The (i,j) entry of GE matrix is 1 if \code{x_i >= x_j}, 0 otherwise.
@@ -71,9 +74,12 @@ message(paste("TAGS_FOR_RANKING: ", paste(TAGS_FOR_RANKING, collapse=", ")))
 ###
 # Some or_median will be NA, since beta included.
 gt_stats[, `:=`(muScore=as.integer(NA), muRank=as.integer(NA))]
+message(sprintf("nrow(gt_stats): %d", nrow(gt_stats)))
 gtmat <- as.matrix(gt_stats[, ..TAGS_FOR_RANKING])
+#gt_stats[, `:=`(geneNtrait_inv = NULL, traitNgene_inv = NULL)]
 ###
-ge <- mu.GE(gtmat) # Error: vector memory exhausted (limit reached?)
+message("Running mu.GE (memory hog, e.g. 50GB for 50k rows x 3vars)...")
+ge <- mu.GE(gtmat)
 ###
 sums <- mu.Sums(mu.AND(ge)) # Logical AND GEs for all variables 
 setDT(sums)
@@ -84,11 +90,8 @@ sums[order(-score, -weight), rank := 1:nrow(sums)]
 gt_stats[, muScore := sums$score]
 gt_stats[, muRank := sums$rank]
 #
-###
-gt_stats[, `:=`(geneNtrait_inv = NULL, traitNgene_inv = NULL)]
-#
 write_delim(gt_stats, ofile, delim="\t")
-writeLines(sprintf("Output file written: %s", ofile))
+message(sprintf("Output file written: %s", ofile))
 #
 t_elapsed <- (Sys.time()-t_start)
 message(sprintf("%s, elapsed time: %.2f %s", Sys.time(), t_elapsed, attr(t_elapsed, "units")))
