@@ -268,7 +268,7 @@ ui <- fluidPage(
       wellPanel(
         sliderInput("maxHits", "MaxHits:", 25, 200, 50, step=25),
 	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "N_beta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T),
-        radioButtons("markerSizeBy", "MarkerSizeBy:", choiceNames=c("RCRAS", "pValue", "None"), choiceValues=c("rcras", "pvalue_mlog_max", NA), selected="rcras", inline=T)
+        radioButtons("markerSizeBy", "MarkerSizeBy:", choiceNames=c("None", "RCRAS"), choiceValues=c("none", "rcras"), selected="none", inline=T)
       ),
 	wellPanel(htmlOutput(outputId="logHtm")),
 	wellPanel(htmlOutput(outputId="resultHtm"))
@@ -551,7 +551,7 @@ server <- function(input, output, session) {
       size <- 5*Hits()[(ok2plot), rcras]
     } else if (input$markerSizeBy=="pvalue_mlog_max") {
       size <- 5*Hits()[(ok2plot), pvalue_mlog_max]
-    } else { #NA
+    } else { #none
       size <- rep(10, nrow(Hits()[(ok2plot)]))
     }
     size <- pmax(size, rep(10, nrow(Hits()[(ok2plot)]))) #min
@@ -614,17 +614,15 @@ server <- function(input, output, session) {
       title <- "<I>(No hits.)</I>"
       return(plot_ly(type="scatter", mode="marker") %>% config(displayModeBar=F) %>% layout(title=title, xaxis=axis_none, yaxis=axis_none, margin=list(t=120,b=20)))
     }
-    
-    if (nrow(Hits()[(ok2plot)])==0) {
-      yaxis[["autorange"]] <- T
-    } else if (input$yAxis=="n_beta" & (max(Hits()[(ok2plot), n_beta]) - min(Hits()[(ok2plot), n_beta]) < 1.0)) {
-      yaxis[["range"]] <- c(floor(min(Hits()[(ok2plot), n_beta])-.1), ceiling(max(Hits()[(ok2plot), n_beta])+.1))
-    } else if (input$yAxis=="or_median" & (max(Hits()[(ok2plot), or_median]) - min(Hits()[(ok2plot), or_median]) < 1.0)) {
-      yaxis[["range"]] <- c(floor(min(Hits()[(ok2plot), or_median])-.1), ceiling(max(Hits()[(ok2plot), or_median])+.1))
-    } else {
-      yaxis[["autorange"]] <- T
+
+    # Fixed ranges for a given query, to avoid moving points.
+    xaxis[["range"]] <- c(-1, 100)
+    if (input$yAxis=="n_beta") {
+      yaxis[["range"]] <- c(floor(min(Hits()[, n_beta])-.1), ceiling(max(Hits()[, n_beta])+.1))
+    } else if (input$yAxis=="or_median") {
+      yaxis[["range"]] <- c(-0.1, ceiling(max(Hits()[, or_median])+.1))
     }
-    
+
     if (hitType()=="gene") {
       if (input$yAxis=="n_beta")
         p <- plot_ly(type='scatter', mode='markers', data=Hits()[(ok2plot)], 
