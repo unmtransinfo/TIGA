@@ -12,10 +12,10 @@ import pandas as pd
 import numpy as np
 
 #############################################################################
-def ComputeMuScores(df, coltags, ofile):
+def ComputeMuScores(df, mutags, ofile):
   """Variables larger for higher rank. Pre-convert NaNs to values.""" 
-  df = df.astype({tag:'float' for tag in coltags})
-  for tag in coltags:
+  df = df.astype({tag:'float' for tag in mutags})
+  for tag in mutags:
     if df[tag].isna().sum()>0:
       logging.error("NaNs found in column: \"{tag}\"")
       return
@@ -24,11 +24,11 @@ def ComputeMuScores(df, coltags, ofile):
   tq = tqdm.tqdm(total=df.shape[0], unit="rows")
   for i in range(df.shape[0]):
     tq.update()
-    vals_this = {tag:df[tag].iloc[i] for tag in coltags}
+    vals_this = {tag:df[tag].iloc[i] for tag in mutags}
     logging.debug(f"{i}. vals_this: {vals_this}")
     ges_this = pd.Series([True for i in range(df.shape[0])])
     lts_this = pd.Series([True for i in range(df.shape[0])])
-    for tag in coltags:
+    for tag in mutags:
       ges_this = (ges_this & (df.loc[:,tag] >= vals_this[tag]))
       lts_this = (lts_this & (df.loc[:,tag] <  vals_this[tag]))
     logging.debug(f"{i}. sum(ges_this): {sum(ges_this)}")
@@ -42,7 +42,7 @@ def ComputeMuScores(df, coltags, ofile):
   logging.info(f"nBelow range: [{min(df['nBelow'])},{max(df['nBelow'])}]")
   logging.info(f"nAbove range: [{min(df['nAbove'])},{max(df['nAbove'])}]")
   logging.info(f"muScore range: [{min(df['muScore'])},{max(df['muScore'])}]")
-  logging.info(f"MU scores computed for {df.shape[0]} rows, using variables: {coltags}")
+  logging.info(f"MU scores computed for {df.shape[0]} rows, using variables: {mutags}")
   return df
 
 #############################################################################
@@ -50,7 +50,7 @@ if __name__=="__main__":
   parser = argparse.ArgumentParser(description="Compute MU scores from selected gene-trait variables.", epilog="")
   parser.add_argument("--i", dest="ifile", required=True, help="Input gene-trait variables (TSV)")
   parser.add_argument("--o", dest="ofile", required=True, help="Output gene-trait MU stats (TSV)")
-  parser.add_argument("--coltags", required=True, help="Selected columns for multivariate MU scoring (comma-separated).")
+  parser.add_argument("--mutags", required=True, help="Selected columns for multivariate MU scoring (comma-separated).")
   parser.add_argument("-v", "--verbose", action="count", default=0)
   args = parser.parse_args()
 
@@ -63,14 +63,14 @@ verbose>0 else logging.INFO)
 
   df = pd.read_csv(args.ifile, sep=delim)
 
-  coltags = [coltag.strip() for coltag in re.split(r',', args.coltags.strip())]
+  mutags = [coltag.strip() for coltag in re.split(r'[,\s]', args.mutags.strip())]
 
-  for tag in coltags:
+  for tag in mutags:
     if tag not in df.columns:
       logging.error(f"Column not found: \"{tag}\"; columns present: {df.columns}")
       sys.exit()
 
-  ComputeMuScores(df, coltags, args.ofile)
+  ComputeMuScores(df, mutags, args.ofile)
 
   logging.info(('Elapsed time: %s'%(time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0)))))
 

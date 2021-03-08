@@ -22,14 +22,19 @@ T0=$(date +%s)
 #
 cwd=$(pwd)
 #
+GWASCATALOGDIR="$(cd $HOME/../data/GWASCatalog; pwd)"
 DATADIR="${cwd}/data"
 ###
 # GWASCatalog release:
-if [ $# -gt 0 ]; then
+#GC_REL="2020-07-15"
+#GC_REL="2020-12-16"
+if [ $# -eq 1 ]; then
 	GC_REL=$1
 else
-	#GC_REL="2020-07-15"
-	GC_REL="2020-12-16"
+	printf "ERROR: syntax $(basename $0) \"YYYY-MM-DD\"\n"
+	printf "$(date +'%Y') releases:\n"
+	ls -l ${GWASCATALOGDIR}/releases/$(date +'%Y')/*
+	exit
 fi
 #
 GC_REL_Y=$(echo $GC_REL |sed 's/-.*$//')
@@ -49,7 +54,7 @@ if [ ! -d $ODIR ]; then
 fi
 #exit #DEBUG
 #
-SRCDIR="$HOME/../data/GWASCatalog/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
+SRCDIR="$GWASCATALOGDIR/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
 #
 printf "${GC_REL_Y}-${GC_REL_M}-${GC_REL_D}\n" >${ODIR}/gwascat_release.txt
 #
@@ -236,9 +241,9 @@ ${cwd}/R/tiga_gt_stats.R \
 	$ODIR/gt_variables.tsv.gz \
 	$ODIR/gt_stats.tsv.gz
 # Mu scores for benchmark comparision.
-${cwd}/R/tiga_gt_stats_mu.R \
-	$ODIR/gt_variables.tsv.gz \
-	$ODIR/gt_stats_mu.tsv.gz
+${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
+	--i $ODIR/gt_variables.tsv.gz \
+	--o $ODIR/gt_stats_mu.tsv.gz
 ###
 # Copy for TIGA web app.
 cp \

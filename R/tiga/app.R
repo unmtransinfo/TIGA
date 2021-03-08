@@ -146,6 +146,7 @@ dbHtm <- sprintf("<B>Dataset:</B> genes: %d; traits: %d; studies: %d; publicatio
 #
 ###
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
+TDLs <- c("Tclin", "Tchem", "Tbio", "Tdark")
 #
 #############################################################################
 HelpHtm <- function() {
@@ -215,17 +216,12 @@ Note that this app will accept query parameters <B>trait</B> (EFO_ID) and/or <B>
 <B><TT>?trait=EFO_1000654</TT></B>, <B><TT>?gene=ENSG00000094914</TT></B>,
 <B><TT>?trait=EFO_1000654&gene=ENSG00000094914</TT></B>.
 <BR/>
-<B>Issues:</B>
-<UL>
-<LI>Query traits with apostrophes must be typed in full. Autocomplete autosuggests but does not complete.
-<LI>Plot markers may obscure others. (Workaround: select region to zoom and resolve markers.)
-</UL>
 <B>Authors:</B>
 Jeremy Yang<SUP>1</SUP>, Dhouha Grissa<SUP>2</SUP>, Stephen Mathias<SUP>1</SUP>,
 Cristian Bologa<SUP>1</SUP>, Anna Waller<SUP>1</SUP>, David Wild<SUP>3</SUP>,
 Christophe Lambert<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP> and Tudor Oprea<SUP>1</SUP>.<BR/>
 <I><SUP>1</SUP>University of New Mexico, Translational Informatics Division, Dept. of
-Internal Medicine; <SUP>2</SUP>Novo Nordisk Center for Protein Research, Copenhagen,
+Internal Medicine; <SUP>2</SUP>Novo Nordisk Foundation Center for Protein Research, Copenhagen,
 Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and Engineering, Integrative Data Science Lab.</I>
 <BR/>
 <B>Feedback welcome</B> to corresponding author  
@@ -244,28 +240,21 @@ ui <- fluidPage(
     column(4, 
       wellPanel(
         #tokens: A list whose length equal to nrow(local) where each element is array of string tokens.
-        shinysky::textInput.typeahead(
-		id="traitQry"
-		,placeholder="Trait..."
-		,local=trait_table
-		,valueKey="efoId"
-		,tokens=trait_table$trait
+        shinysky::textInput.typeahead(id="traitQry" ,placeholder="Trait..."
+		,local=trait_table ,valueKey="efoId" ,tokens=trait_table$trait
 		,template=HTML("<p class='repo-name'>{{efoId}}</p> <p class='repo-description'>{{trait}}</p>")
 		,limit=10), p(),
 
-        shinysky::textInput.typeahead(
-		id="geneQry"
-		,placeholder="Gene..."
-		,local=gene_table
-		,valueKey="ensemblId"
-		,tokens=gene_table$geneSymbol
+        shinysky::textInput.typeahead(id="geneQry" ,placeholder="Gene..."
+		,local=gene_table ,valueKey="ensemblId" ,tokens=gene_table$geneSymbol
     #,tokens=as.list(data.table(t(gene_table[, .(geneSymbol, geneName, ensemblId)])))      
 		,template=HTML("<p class='repo-name'>{{geneSymbol}}</p> <p class='repo-description'>{{geneName}}</p>")
 		,limit=10), p(),
         	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
         	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
       wellPanel(
-        sliderInput("maxHits", "MaxHits:", 50, 300, 100, step=50),
+        #sliderInput("maxHits", "MaxHits:", 50, 300, 100, step=50),
+        checkboxGroupInput("tdls", "TDLs", choiceValues=TDLs, choiceNames=TDLs, selected=c("Tclin", "Tchem", "Tbio", "Tdark"), inline=T),
 	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "N_beta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T)
         #,radioButtons("markerSizeBy", "MarkerSizeBy:", choiceNames=c("None", "RCRAS"), choiceValues=c("none", "rcras"), selected="none", inline=T)
       ),
@@ -278,17 +267,17 @@ ui <- fluidPage(
 		tabPanel(value="provenance", title=HTML("<center>Provenance<br/>(Gene-Trait)</center>"), htmlOutput("provenance_summary"),
 			DT::dataTableOutput("provenance_studies"), br(),
 			downloadButton("prov_detail_file", label="Download Provenance (this association)")),
-		tabPanel(value="traits", title=HTML("<i>Traits (ALL)</i>"), DT::dataTableOutput("traits")),
-		tabPanel(value="genes", title=HTML("<i>Genes (ALL)</i>"), DT::dataTableOutput("genes")),
-		tabPanel(value="studies", title=HTML("<i>Studies (ALL)</i>"), DT::dataTableOutput("studies")),
-		tabPanel(value="downloads", title=HTML("<i>Downloads</i>"),
+		tabPanel(value="traits", title=HTML("<center><i>Traits<br/>(ALL)</i></center>"), DT::dataTableOutput("traits")),
+		tabPanel(value="genes", title=HTML("<center><i>Genes<br/>(ALL)</i></center>"), DT::dataTableOutput("genes")),
+		tabPanel(value="studies", title=HTML("<center><i>Studies<br/>(ALL)</i></center>"), DT::dataTableOutput("studies")),
+		tabPanel(value="downloads", title=HTML("<i><br/>Downloads</i>"),
 			h1("Downloads"),
 			wellPanel(p(tags$b("ALL gene-trait associations:")), downloadButton("gt_file", label="Gene-Trait Associations"), htmlOutput("gtFileInfoHtm")),
 			wellPanel(p(tags$b("ALL traits involved in gene-trait associations:")), downloadButton("traits_file", label="Traits"), htmlOutput("traitFileInfoHtm")),
 			wellPanel(p(tags$b("ALL genes involved in gene-trait associations:")), downloadButton("genes_file", label="Genes"), htmlOutput("geneFileInfoHtm")),
 			wellPanel(p(tags$b("Studies for ALL gene-trait associations:")), downloadButton("provenance_file", label="Provenance"), htmlOutput("provFileInfoHtm"))
 		),
-		tabPanel(value="help", title=HTML("<i>Help</i>"), htmlOutput("helpHtm"))
+		tabPanel(value="help", title=HTML("<i><br/>Help</i>"), htmlOutput("helpHtm"))
 	))),
   hr(),
   fluidRow(
@@ -304,8 +293,9 @@ ui <- fluidPage(
   bsTooltip("traitQry", "Enter trait name fragment for autosuggest and resolution to EFO ID.", "bottom"),
   bsTooltip("geneQry", "Enter gene symbol or name fragment for autosuggest and resolution to Ensembl ID.", "bottom"),
   bsTooltip("goReset", "Reset.", "bottom"),
-  bsTooltip("yAxis", "Auto chooses predominant effect size datatype. Datatype not selected viewable via hits table.", "top"),
-  bsTooltip("maxHits", "Top ranked selected; affects plot only; hits table complete regardless.", "top"),
+  bsTooltip("yAxis", "Auto chooses predominant effect size datatype. Datatype not selected viewable via hits table.", "bottom"),
+  #bsTooltip("maxHits", "Top ranked selected; affects plot only; hits table complete regardless.", "top"),
+  bsTooltip("tdls", "Affects plot only; hits table complete regardless.", "bottom"),
   bsTooltip("tabset", "HitsPlot, HitsTable and Provenance depends on query and results; Traits, Genes, Downloads and Help are static.", "left"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "top"),
   bsTooltip("gwas_catalog_logo", "GWAS Catalog, The NHGRI-EBI Catalog of published genome-wide association studies", "top"),
@@ -438,28 +428,42 @@ server <- function(input, output, session) {
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this <- gt_this[, .(efoId, trait, pvalue_mlog_max, rcras, n_snpw, meanRankScore, n_study, study_N_mean, n_snp, traitNgene, or_median, n_beta)]
       setorder(gt_this, -meanRankScore)
-      gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
+      #gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
+      gt_this[, ok2plot := T]
     } else if (hitType()=="gene") {
       gt_this <- gt[efoId==qryIds()$trait]
       if (nrow(gt_this)==0) { return(NULL) }
       gt_this$TDL <- factor(gt_this$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
       gt_this <- gt_this[, .(ensemblId, geneSymbol, geneName, geneFamily, TDL, pvalue_mlog_max, rcras, n_snpw, meanRankScore, n_study, study_N_mean, n_snp, geneNtrait, or_median, n_beta)]
       setorder(gt_this, -meanRankScore)
-      gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
+      #gt_this[, ok2plot := as.logical(.I <= input$maxHits)]
+      gt_this[, ok2plot := T]
     } else { #hitType=="genetrait"
       # These data appear in Provenance tab.
       gt_this <- gt[ensemblId==qryIds()$gene & efoId==qryIds()$trait]
       gt_this <- gt_this[, .(efoId, trait, ensemblId, geneSymbol, geneName, geneFamily, TDL, pvalue_mlog_max, rcras, n_snpw, n_study, study_N_mean, n_snp, traitNgene, or_median, n_beta)]
       gt_this[, ok2plot := T]
     }
-    if (hitType() %in% c("trait", "gene")) {
-      if (input$yAxis=="auto") { #auto-set yAxis
-        n_or <- gt_this[!is.na(or_median), .N]
-        n_nbeta <- gt_this[n_beta>0, .N]
-        updateRadioButtons(session, "yAxis", selected=ifelse(n_nbeta>n_or, "n_beta", "or_median"))
-      }
-    }
+    #if (hitType() %in% c("trait", "gene")) {
+    #  if (input$yAxis=="auto") { #auto-set yAxis
+    #    n_or <- gt_this[!is.na(or_median), .N]
+    #    n_nbeta <- gt_this[n_beta>0, .N]
+    #    updateRadioButtons(session, "yAxis", selected=ifelse(n_nbeta>n_or, "n_beta", "or_median"))
+    #  }
+    #}
     return(gt_this)
+  })
+
+  yAxisAuto <- reactive({
+    if (is.null(Hits())) {
+      return(input$yAxis)
+    } else if (input$yAxis=="auto") {
+      n_or <- Hits()[!is.na(or_median), .N]
+      n_nbeta <- Hits()[n_beta>0, .N]
+      return(ifelse(n_nbeta>n_or, "n_beta", "or_median"))
+    } else {
+      return(input$yAxis)
+    }
   })
 
   Hits2Plot <- reactive({
@@ -467,6 +471,7 @@ server <- function(input, output, session) {
       return(NULL)
     }
     gt_this <- Hits()[(ok2plot)]
+    gt_this <- gt_this[(TDL %in% input$tdls)]
     gt_this[, `:=`(or_median = ifelse(is.na(or_median), 0, or_median), n_beta = ifelse(is.na(n_beta), 0, n_beta))] #NA represented as zero for plotting.
     return(gt_this)
   })
@@ -617,8 +622,8 @@ server <- function(input, output, session) {
 
   output$tigaPlot <- renderPlotly({
     xaxis <- list(title="Evidence (meanRankScore)", type="normal", zeroline=F, showline=F, dtick=10)
-    #yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type="normal", dtick=ifelse(input$yAxis=="n_beta", NA, 1))
-    yaxis <- list(title=ifelse(input$yAxis=="n_beta", "N_Beta", "Effect (OddsRatio)"), type="normal", dtick=NA)
+    #yaxis <- list(title=ifelse(yAxisAuto()=="n_beta", "N_Beta", "Effect (OddsRatio)"), type="normal", dtick=ifelse(yAxisAuto()=="n_beta", NA, 1))
+    yaxis <- list(title=ifelse(yAxisAuto()=="n_beta", "N_Beta", "Effect (OddsRatio)"), type="normal", dtick=NA)
     axis_none <- list(zeroline=F, showline=F, showgrid=F, showticklabels=F)
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
       title <- "<I>(No query.)</I>"
@@ -633,20 +638,20 @@ server <- function(input, output, session) {
 
     # Fixed x-range, and y-range for a given (all) hitlist, to avoid moving points.
     xaxis[["range"]] <- c(-2, 102) #Extra space for markers.
-    if (input$yAxis=="n_beta") {
+    if (yAxisAuto()=="n_beta") {
       yaxis[["range"]] <- c(floor(min(Hits()[, n_beta])-.1), ceiling(max(Hits()[, n_beta])+.1))
-    } else if (input$yAxis=="or_median") {
+    } else if (yAxisAuto()=="or_median") {
       yaxis[["range"]] <- c(-0.1, ceiling(max(Hits()[, or_median])+.1))
     }
 
     if (hitType()=="gene") {
-      if (input$yAxis=="n_beta")
+      if (yAxisAuto()=="n_beta")
         p <- plot_ly(type='scatter', mode='markers', data=Hits2Plot(), 
           x = ~meanRankScore, 
           y = ~n_beta,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
-      else # or_median or auto
+      else # or_median
         p <- plot_ly(type='scatter', mode='markers', data=Hits2Plot(), 
           x = ~meanRankScore, 
           y = ~or_median,
@@ -660,10 +665,10 @@ server <- function(input, output, session) {
       ) %>%
       add_annotations(text=paste0("(N: ", nrow(Hits()), "; ", nrow(Hits2Plot()), " shown)"), showarrow=F, x=0, y=1, xref="paper", yref="paper")
     } else if (hitType()=="trait") {
-      if (input$yAxis=="n_beta")
+      if (yAxisAuto()=="n_beta")
         p <- plot_ly(type='scatter', mode='markers', data=Hits2Plot(), x=~meanRankScore, y=~n_beta,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
-      else # or_median or auto
+      else # or_median
         p <- plot_ly(type='scatter', mode='markers', data=Hits2Plot(), x=~meanRankScore, y=~or_median,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
