@@ -1,0 +1,165 @@
+Comparing 2020-07-15 vs 2021-02-12 versions of catalog.
+
+2 TRAITS present in 2020-07-15 and missing in 2021-02-12:
+---
+TRAIT https://www.ebi.ac.uk/gwas/efotraits/EFO_0003845 "kidney stones"
+was mapped for study https://www.ebi.ac.uk/gwas/studies/GCST009598
+now mapped to https://www.ebi.ac.uk/gwas/efotraits/EFO_0004253 "nephrolithiasis"
+which groups these 2 as reported traits.
+---
+TRAIT https://www.ebi.ac.uk/gwas/efotraits/EFO_0000378	"coronary artery disease"
+was mapped for https://www.ebi.ac.uk/gwas/studies/GCST005194
+now mapped to https://www.ebi.ac.uk/gwas/efotraits/EFO_0001645
+which groups 46 reported traits, including EFO_0000378.
+---
+---
+146 GENES present in 2020-07-15 and missing in 2021-02-12:
+
+
+ensemblId	geneSymbol	geneName
+ENSG00000042304	C2orf83	Folate transporter-like protein C2orf83
+ENSG00000049860	HEXB	Beta-hexosaminidase subunit beta
+ENSG00000087128	TMPRSS11E	Transmembrane protease serine 11E
+ENSG00000105609	LILRB5	Leukocyte immunoglobulin-like receptor subfamily B member 5
+ENSG00000105732	ZNF574	Zinc finger protein 574
+ENSG00000120088	CRHR1	Corticotropin-releasing factor receptor 1
+ENSG00000123576	ESX1	Homeobox protein ESX1
+ENSG00000125122	LRRC29	Leucine-rich repeat-containing protein 29
+ENSG00000126952	NXF5	Nuclear RNA export factor 5
+ENSG00000128656	CHN1	N-chimaerin
+ENSG00000130723	PRRC2B	Protein PRRC2B
+ENSG00000131042	LILRB2	Leukocyte immunoglobulin-like receptor subfamily B member 2
+ENSG00000143702	CEP170	Centrosomal protein of 170 kDa
+ENSG00000146143	PRIM2	DNA primase large subunit
+ENSG00000164347	GFM2	Ribosome-releasing factor 2, mitochondrial
+ENSG00000168096	ANKS3	Ankyrin repeat and SAM domain-containing protein 3
+ENSG00000168452	PPT2	Lysosomal thioesterase PPT2
+ENSG00000170889	RPS9	40S ribosomal protein S9
+ENSG00000171885	AQP4	Aquaporin-4
+ENSG00000183574	RNF5	E3 ubiquitin-protein ligase RNF5
+ENSG00000184494	NEU1	Sialidase-1
+ENSG00000198521	ZNF43	Zinc finger protein 43
+ENSG00000204315	FKBPL	FK506-binding protein-like
+ENSG00000204632	HLA-G	HLA class I histocompatibility antigen, alpha chain G
+ENSG00000205464	ATP6AP1L	V-type proton ATPase subunit S1-like protein
+ENSG00000206314	GPSM3	G-protein-signaling modulator 3
+ENSG00000206315	PBX2	Pre-B-cell leukemia transcription factor 2
+ENSG00000206320	AGER	Advanced glycosylation end product-specific receptor
+ENSG00000206329	PPT2	Lysosomal thioesterase PPT2
+ENSG00000206342	STK19	Serine/threonine-protein kinase 19
+ENSG00000206353	SKIV2L	Helicase SKI2W
+ENSG00000206357	NELFE	Negative elongation factor E
+ENSG00000206372	C2	Complement C2
+ENSG00000206376	EHMT2	Histone-lysine N-methyltransferase EHMT2
+ENSG00000206378	SLC44A4	Choline transporter-like protein 4
+ENSG00000206383	HSPA1L	Heat shock 70 kDa protein 1-like
+ENSG00000213588	ZBTB9	Zinc finger and BTB domain-containing protein 9
+ENSG00000213676	ATF6B	Cyclic AMP-dependent transcription factor ATF-6 beta
+ENSG00000223767	RNF5	E3 ubiquitin-protein ligase RNF5
+ENSG00000224398	CSNK2B	Casein kinase II subunit beta
+ENSG00000224952	PBX2	Pre-B-cell leukemia transcription factor 2
+ENSG00000225060	PPP1R18	Phostensin
+ENSG00000225737	SKIV2L	Helicase SKI2W
+ENSG00000225987	PBX2	Pre-B-cell leukemia transcription factor 2
+ENSG00000226033	STK19	Serine/threonine-protein kinase 19
+ENSG00000226127	BTNL2	Butyrophilin-like protein 2
+ENSG00000227129	NEU1	Sialidase-1
+ENSG00000227277	RNF5	E3 ubiquitin-protein ligase RNF5
+ENSG00000227315	NEU1	Sialidase-1
+ENSG00000227600	PPT2	Lysosomal thioesterase PPT2
+ENSG00000227801	COL11A2	Collagen alpha-2(XI) chain
+ENSG00000228691	NEU1	Sialidase-1
+ENSG00000228854	NRM	Nurim
+ENSG00000228896	SKIV2L	Helicase SKI2W
+ENSG00000228907	RNF5	E3 ubiquitin-protein ligase RNF5
+ENSG00000229058	AGER	Advanced glycosylation end product-specific receptor
+ENSG00000229077	SLC44A4	Choline transporter-like protein 4
+ENSG00000229215	HLA-A	HLA class I histocompatibility antigen, A-24 alpha chain
+ENSG00000229215	HLA-A	HLA class I histocompatibility antigen, A-80 alpha chain
+ENSG00000229215	HLA-A	HLA class I histocompatibility antigen, A-36 alpha chain
+ENSG00000229215	HLA-A	HLA class I histocompatibility antigen, A-1 alpha chain
+ENSG00000229284	MUCL3	Mucin-like protein 3
+ENSG00000229363	NELFE	Negative elongation factor E
+ENSG00000229684	TUBB	Tubulin beta chain
+ENSG00000230341	PPP1R18	Phostensin
+ENSG00000231044	NELFE	Negative elongation factor E
+ENSG00000231268	AGER	Advanced glycosylation end product-specific receptor
+ENSG00000231377	DHX16	Pre-mRNA-splicing factor ATP-dependent RNA helicase DHX16
+ENSG00000231479	SLC44A4	Choline transporter-like protein 4
+ENSG00000232005	PBX2	Pre-B-cell leukemia transcription factor 2
+ENSG00000232045	EHMT2	Histone-lysine N-methyltransferase EHMT2
+ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-45 alpha chain
+ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-52 alpha chain
+ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-15 alpha chain
+ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-46 alpha chain
+ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-50 alpha chain
+ENSG00000232251	MUCL3	Mucin-like protein 3
+ENSG00000232312	GPANK1	G patch domain and ankyrin repeat-containing protein 1
+ENSG00000232616	SKIV2L	Helicase SKI2W
+ENSG00000232962	HLA-DOA	HLA class II histocompatibility antigen, DO alpha chain
+ENSG00000233314	PPP1R11	E3 ubiquitin-protein ligase PPP1R11
+ENSG00000233566	LINC01556	Putative uncharacterized protein encoded by LINC01556
+ENSG00000233801	NELFE	Negative elongation factor E
+ENSG00000234508	GPSM3	G-protein-signaling modulator 3
+ENSG00000234809	NRM	Nurim
+ENSG00000234876	NOTCH4	Neurogenic locus notch homolog protein 4
+ENSG00000234947	STK19	Serine/threonine-protein kinase 19
+ENSG00000235017	C2	Complement C2
+ENSG00000235336	SLC44A4	Choline transporter-like protein 4
+ENSG00000235443	ZNRD1	DNA-directed RNA polymerase I subunit RPA12
+ENSG00000235708	COL11A2	Collagen alpha-2(XI) chain
+ENSG00000236063	ABHD16A	Protein ABHD16A
+ENSG00000236250	STK19	Serine/threonine-protein kinase 19
+ENSG00000236251	HSPA1L	Heat shock 70 kDa protein 1-like
+ENSG00000236649	PPT2	Lysosomal thioesterase PPT2
+ENSG00000236697	GPSM3	G-protein-signaling modulator 3
+ENSG00000236759	EHMT2	Histone-lysine N-methyltransferase EHMT2
+ENSG00000237052	GPSM3	G-protein-signaling modulator 3
+ENSG00000237405	AGER	Advanced glycosylation end product-specific receptor
+ENSG00000237582	POU5F1	POU domain, class 5, transcription factor 1
+ENSG00000237733	RNF39	RING finger protein 39
+ENSG00000238083	LRRC37A2	Leucine-rich repeat-containing protein 37A2
+ENSG00000238134	EHMT2	Histone-lysine N-methyltransferase EHMT2
+ENSG00000238196	NOTCH4	Neurogenic locus notch homolog protein 4
+ENSG00000239754	CFB	Complement factor B
+ENSG00000239839	DEFA3	Neutrophil defensin 3
+ENSG00000239974	EGFL8	Epidermal growth factor-like protein 8
+ENSG00000240389	EGFL8	Epidermal growth factor-like protein 8
+ENSG00000241253	CFB	Complement factor B
+ENSG00000243897	EGFL8	Epidermal growth factor-like protein 8
+ENSG00000244444	EGFL8	Epidermal growth factor-like protein 8
+ENSG00000254093	PINX1	PIN2/TERF1-interacting telomerase inhibitor 1
+ENSG00000262145	ATP23	Mitochondrial inner membrane protease ATP23 homolog
+ENSG00000262607	IQSEC3	IQ motif and SEC7 domain-containing protein 3
+ENSG00000262788	UTP4	U3 small nucleolar RNA-associated protein 4 homolog
+ENSG00000262795	IFNGR2	Interferon gamma receptor 2
+ENSG00000273953	OR10A3	Olfactory receptor 10A3
+ENSG00000274311	LILRB5	Leukocyte immunoglobulin-like receptor subfamily B member 5
+ENSG00000274334	VASN	Vasorin
+ENSG00000274513	LILRB2	Leukocyte immunoglobulin-like receptor subfamily B member 2
+ENSG00000274746	ZNF100	Zinc finger protein 100
+ENSG00000274811	CLPTM1L	Cleft lip and palate transmembrane protein 1-like protein
+ENSG00000275083	KIR3DL2	Killer cell immunoglobulin-like receptor 3DL2
+ENSG00000275463	LILRB2	Leukocyte immunoglobulin-like receptor subfamily B member 2
+ENSG00000275498	PDXDC1	Pyridoxal-dependent decarboxylase domain-containing protein 1
+ENSG00000275575	PTP4A3	Protein tyrosine phosphatase type IVA 3
+ENSG00000275626	KIR3DL2	Killer cell immunoglobulin-like receptor 3DL2
+ENSG00000276004	KIR3DL2	Killer cell immunoglobulin-like receptor 3DL2
+ENSG00000276191	CRHR1	Corticotropin-releasing factor receptor 1
+ENSG00000276357	KIR3DL2	Killer cell immunoglobulin-like receptor 3DL2
+ENSG00000276996	SLC6A3	Sodium-dependent dopamine transporter
+ENSG00000277564	RBFOX2	RNA binding protein fox-1 homolog 2
+ENSG00000277956	MAPT	Microtubule-associated protein tau
+ENSG00000278270	RPS9	40S ribosomal protein S9
+ENSG00000278361	KIR3DL2	Killer cell immunoglobulin-like receptor 3DL2
+ENSG00000278437	LILRB5	Leukocyte immunoglobulin-like receptor subfamily B member 5
+ENSG00000278442	KIR3DL2	Killer cell immunoglobulin-like receptor 3DL2
+ENSG00000278474	KIR3DL2	Killer cell immunoglobulin-like receptor 3DL2
+ENSG00000280899	OR10A6	Olfactory receptor 10A6
+ENSG00000282725	CORO7	Coronin-7
+ENSG00000282739	SLC25A26	S-adenosylmethionine mitochondrial carrier protein
+ENSG00000282972	GNG4	Guanine nucleotide-binding protein G(I)/G(S)/G(O) subunit gamma-4
+ENSG00000283859	NLGN2	Neuroligin-2
+ENSG00000283868	ZBTB4	Zinc finger and BTB domain-containing protein 4
+ENSG00000284126	SMURF1	E3 ubiquitin-protein ligase SMURF1
+ENSG00000284238	TOP3A	DNA topoisomerase 3-alpha
