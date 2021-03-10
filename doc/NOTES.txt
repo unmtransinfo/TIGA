@@ -88,11 +88,11 @@ ENSG00000231377	DHX16	Pre-mRNA-splicing factor ATP-dependent RNA helicase DHX16
 ENSG00000231479	SLC44A4	Choline transporter-like protein 4
 ENSG00000232005	PBX2	Pre-B-cell leukemia transcription factor 2
 ENSG00000232045	EHMT2	Histone-lysine N-methyltransferase EHMT2
-ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-45 alpha chain
+ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-50 alpha chain
+ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-46 alpha chain
 ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-52 alpha chain
 ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-15 alpha chain
-ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-46 alpha chain
-ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-50 alpha chain
+ENSG00000232126	HLA-B	HLA class I histocompatibility antigen, B-45 alpha chain
 ENSG00000232251	MUCL3	Mucin-like protein 3
 ENSG00000232312	GPANK1	G patch domain and ankyrin repeat-containing protein 1
 ENSG00000232616	SKIV2L	Helicase SKI2W

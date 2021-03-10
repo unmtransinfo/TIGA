@@ -18,7 +18,8 @@ message(t_start)
 args <- commandArgs(trailingOnly=TRUE)
 #
 #ODIR <- "data"
-ODIR <- "data/20201216"
+#ODIR <- "data/20201216"
+ODIR <- "data/20210212"
 #
 ifile_gwas <-	ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_gwas.tsv")) #gwascat_gwas.R
 ifile_counts <-	ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_counts.tsv")) #Go_gwascat_DbCreate.sh
@@ -51,6 +52,10 @@ message(sprintf("Output filtered traits file: %s", ofile_filtered_traits))
 message(sprintf("Output filtered genes file: %s", ofile_filtered_genes))
 #
 ###
+# Filter cutoffs:
+PVAL_THRESHOLD <- 5e-8
+PVAL_MLOG_THRESHOLD <- -log10(PVAL_THRESHOLD)
+###
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"), ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
 setDT(gwas)
 gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), study_accession=col_character()))
@@ -63,6 +68,13 @@ assn <- read_delim(ifile_assn, "\t", col_types=cols(.default=col_character(),
 	oddsratio=col_double(), beta=col_double(), OR_or_BETA=col_double(), 
 	PVALUE_MLOG=col_double(), `P-VALUE`=col_double()))
 setDT(assn)
+#
+###
+ensg_debug <- "ENSG00000042304"
+assn_debug <- assn[grepl(ensg_debug, paste0(UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS)),]
+message(sprintf("%s: assn count: %d: trait count: %d; SNPS count: %d; SNPS count (pval_mlog>%g): %d", ensg_debug, nrow(assn_debug), 
+                assn_debug[, uniqueN(MAPPED_TRAIT)], assn_debug[, uniqueN(SNPS)], PVAL_MLOG_THRESHOLD, assn_debug[PVALUE_MLOG>=PVAL_MLOG_THRESHOLD, uniqueN(SNPS)]))
+message(sprintf("%s: SNPS (pval_mlog>%g): %s", ensg_debug, PVAL_MLOG_THRESHOLD, paste(assn_debug[PVALUE_MLOG>=PVAL_MLOG_THRESHOLD, unique(SNPS)], collapse=", ")))
 ###
 # Missing (UP|DOWN)STREAM_GENE_DISTANCE implies within MAPPED_GENE, thus distances zero for gene-distance weighting function, GDistWt.
 assn[(!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)), `:=`(UPSTREAM_GENE_DISTANCE=0, DOWNSTREAM_GENE_DISTANCE=0)]
@@ -70,7 +82,10 @@ assn[(!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GEN
 #
 snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(), REPORTED_OR_MAPPED=col_factor(c("r", "m", "md", "mu"))))
 setDT(snp2gene)
+message(sprintf("%s: snp2gene count: %d; snp count: %d", ensg_debug, nrow(snp2gene[ENSG==ensg_debug,]), snp2gene[ENSG==ensg_debug, uniqueN(SNP)]))
 snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED!="r"]) #Ignore reported.
+message(sprintf("%s: snp2gene count: %d; snp count: %d", ensg_debug, nrow(snp2gene[ENSG==ensg_debug,]), snp2gene[ENSG==ensg_debug, uniqueN(SNP)]))
+message(sprintf("%s: snps: %s", ensg_debug, paste(snp2gene[ENSG==ensg_debug, unique(SNP)], collapse=", ")))
 #
 ensemblInfo <- read_delim(ifile_ensembl, "\t", col_types = cols(.default=col_character(), version=col_integer(), strand=col_integer(), start=col_integer(), end=col_integer()))
 setDT(ensemblInfo)
@@ -112,9 +127,15 @@ setkey(icite_gwas, pmid, STUDY_ACCESSION) #Ensures unique study-pmid pairs each 
 ###
 # Link to Ensembl via IDs from Catalog.
 # (In 2020 (not 2018), EnsemblIDs available in downloads, so API not required.)
-ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, ensemblSymb=display_name)][, protein_coding := T]
+setnames(ensemblInfo, old=c("id", "display_name"), new=c("ensemblId", "ensemblSymb"))
+message(sprintf("%s: ensemblInfo symbols: %d", ensg_debug, ensemblInfo[ensemblId==ensg_debug, uniqueN(ensemblSymb)]))
+###
+# Skip this step, to avoid removing genes. Rely on TCRD to ensure protein-coding.
+#ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript"][, protein_coding := T]
+###
 snp2gene <- merge(snp2gene, ensemblInfo, by.x="ENSG", by.y="ensemblId", all.x=F, all.y=F, allow.cartesian=T)
-snp2gene[, `:=`(GSYMB=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
+snp2gene[, `:=`(GSYMB=NULL, REPORTED_OR_MAPPED=NULL)]
+#snp2gene[, `:=`(protein_coding=NULL)]
 setnames(snp2gene, "ENSG", "ensemblId")
 snp2gene <- unique(snp2gene[, .(STUDY_ACCESSION, SNP, ensemblId, ensemblSymb)])
 #
@@ -138,6 +159,7 @@ writeLines(sprintf("TCRD targets: %d ; ensemblGeneIds: %d", nrow(tcrd), length(e
 ensgs_tiga <- unique(snp2gene$ensemblId)
 ensgs_common <- intersect(ensgs_tiga, ensgs_tcrd)
 writeLines(sprintf("EnsemblIds mapped to TCRD: %d", length(ensgs_common)))
+message(sprintf("%s: in TIGA?: %s; TCRD?: %s; common?: %s", ensg_debug, (ensg_debug %in% ensgs_tiga), (ensg_debug %in% ensgs_tcrd), (ensg_debug %in% ensgs_common)))
 #
 tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=T), by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd[, in_gwascat := !is.na(in_gwascat)]
@@ -180,10 +202,9 @@ debug_test("ENSG00000170312", g2t[!badrows_traituri])
 ###
 # (2) P-value filter: must exceed standard threshold for significance (pvalue <= 5e-8, pvalue_mlog >= 7.3).
 # Usual genome-wide significance in GWAS, per LJJ 8/10/20 email.
-pval_threshold <- 5e-8
-pval_mlog_threshold <- -log10(pval_threshold)
-reason_txt <- sprintf("P-value fails significance threshold (%g) (mlog=%.1f)", pval_threshold, pval_mlog_threshold)
-badrows_pval <- (g2t$PVALUE_MLOG<pval_mlog_threshold)
+message(sprintf("P-value significance threshold: %g; P-value minus-log threshold: %.3f)", PVAL_THRESHOLD, PVAL_MLOG_THRESHOLD))
+reason_txt <- sprintf("P-value fails significance threshold (%g) (mlog=%.1f)", PVAL_THRESHOLD, PVAL_MLOG_THRESHOLD)
+badrows_pval <- (g2t$PVALUE_MLOG<PVAL_MLOG_THRESHOLD)
 print(sprintf("%s: rows: %d", reason_txt, sum(badrows_pval, na.rm=T)))
 filtered_studies_pval <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_pval]$STUDY_ACCESSION, g2t[!badrows_pval]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
 filtered_studies_pval[, reason := reason_txt]

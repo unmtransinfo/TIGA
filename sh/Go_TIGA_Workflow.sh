@@ -28,6 +28,7 @@ DATADIR="${cwd}/data"
 # GWASCatalog release:
 #GC_REL="2020-07-15"
 #GC_REL="2020-12-16"
+#GC_REL="2021-02-12"
 if [ $# -eq 1 ]; then
 	GC_REL=$1
 else
