@@ -30,6 +30,7 @@ library(muStat)
 #
 t_start <- Sys.time()
 #
+message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
 #ifile   <- ifelse(length(args)>0, args[1], "data/gt_variables.tsv.gz")

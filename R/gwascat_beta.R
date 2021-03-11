@@ -15,6 +15,7 @@ library(readr)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
 
+message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)==2) {
   (ifile <- args[1])

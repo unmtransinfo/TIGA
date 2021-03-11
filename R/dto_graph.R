@@ -4,6 +4,8 @@
 library(readr)
 library(data.table, quietly=T)
 library(igraph, quietly=T)
+#
+message(paste(commandArgs(), collapse=" "))
 ###
 #
 dto <- read_delim("data/dto.tsv", "\t", col_types=cols(.default=col_character()))

@@ -4,6 +4,8 @@
 library(readr)
 library(data.table)
 
+message(paste(commandArgs(), collapse=" "))
+
 ifile_trait <- "data/gwascat_trait.tsv" #trait2study
 ifile_efo <- "data/efo.tsv" #from efo.owl
 ifile_efo2do <- "data/oxo_efo2doid_d2.tsv" #from OxO

@@ -7,7 +7,8 @@
 library(readr)
 library(data.table, quietly=T)
 library(igraph, quietly=T)
-
+#
+message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 condition <- ifelse((length(args)>1), args[1], "mood disorder")
 efofile <- ifelse((length(args)>1), args[2], "data/efo.tsv")

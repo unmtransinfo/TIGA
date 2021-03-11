@@ -12,6 +12,8 @@
 library(readr)
 library(data.table, quietly=T)
 
+message(paste(commandArgs(), collapse=" "))
+
 ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/12/16/gwas-catalog-studies_ontology-annotated.tsv")
 
 args <- commandArgs(trailingOnly=TRUE)

@@ -7,6 +7,7 @@ library(dplyr, quietly = T)
 library(plotly, quietly = T)
 library(webshot, quietly=T)
 
+message(paste(commandArgs(), collapse=" "))
 ###
 gt_stats <- read.csv(file = "data/gt_stats.csv")
 ###

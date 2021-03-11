@@ -21,6 +21,7 @@ library(data.table, quietly=T)
 
 ###
 #
+message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)==1) {
   (efoId   <- args[1])

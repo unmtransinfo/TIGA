@@ -7,6 +7,7 @@
 #library(data.table, quietly=T)
 library(igraph, quietly=T)
 ###
+message(paste(commandArgs(), collapse=" "))
 #
 args <- commandArgs(trailingOnly=TRUE)
 ifile <- ifelse((length(args)>0), args[1], "data/efo_graph.graphml")

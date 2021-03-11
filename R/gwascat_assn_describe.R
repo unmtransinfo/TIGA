@@ -6,7 +6,8 @@
 #############################################################################
 library(readr)
 library(data.table)
-
+#
+message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)==2) {
   (ifile <- args[1])

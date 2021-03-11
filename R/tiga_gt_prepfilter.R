@@ -15,6 +15,7 @@ library(data.table, quietly=T)
 t_start <- Sys.time()
 message(t_start)
 #
+message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
 #ODIR <- "data"
@@ -130,10 +131,17 @@ setkey(icite_gwas, pmid, STUDY_ACCESSION) #Ensures unique study-pmid pairs each 
 setnames(ensemblInfo, old=c("id", "display_name"), new=c("ensemblId", "ensemblSymb"))
 message(sprintf("%s: ensemblInfo symbols: %d", ensg_debug, ensemblInfo[ensemblId==ensg_debug, uniqueN(ensemblSymb)]))
 ###
-# Skip this step, to avoid removing genes. Rely on TCRD to ensure protein-coding.
+# To avoid removing genes, rely on TCRD to ensure protein-coding.
+# But, report how many genes would have been filtered.
 #ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript"][, protein_coding := T]
 ###
-snp2gene <- merge(snp2gene, ensemblInfo, by.x="ENSG", by.y="ensemblId", all.x=F, all.y=F, allow.cartesian=T)
+snp2gene <- merge(snp2gene, ensemblInfo, by.x="ENSG", by.y="ensemblId", all.x=T, all.y=F, allow.cartesian=T)
+message(sprintf("Genes NOT in Ensembl Info: %d", snp2gene[is.na(biotype), uniqueN(ENSG)]))
+message(sprintf("Genes NOT defined protein_coding by Ensembl: %d / %d (%.1f%%)", 
+                snp2gene[biotype != "protein_coding", uniqueN(ENSG)],
+                snp2gene[, uniqueN(ENSG)],
+                100 * snp2gene[biotype != "protein_coding", uniqueN(ENSG)] / snp2gene[, uniqueN(ENSG)]))
+print(unique(snp2gene[, .(ENSG, biotype)])[, .(.N), by=biotype][order(-N)]) #DEBUG
 snp2gene[, `:=`(GSYMB=NULL, REPORTED_OR_MAPPED=NULL)]
 #snp2gene[, `:=`(protein_coding=NULL)]
 setnames(snp2gene, "ENSG", "ensemblId")
@@ -146,7 +154,7 @@ setDT(tcrd)
 
 ###
 # Counts:
-writeLines(sprintf("Association studies: %d", uniqueN(assn$STUDY_ACCESSION)))
+message(sprintf("Association studies: %d", uniqueN(assn$STUDY_ACCESSION)))
 #
 ###
 # Reported genes ignored by TIGA.
@@ -154,16 +162,16 @@ writeLines(sprintf("Association studies: %d", uniqueN(assn$STUDY_ACCESSION)))
 #assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
 ###
 ensgs_tcrd <- unique(tcrd$ensemblGeneId)
-writeLines(sprintf("TCRD targets: %d ; ensemblGeneIds: %d", nrow(tcrd), length(ensgs_tcrd)))
+message(sprintf("TCRD targets: %d ; ensemblGeneIds: %d", nrow(tcrd), length(ensgs_tcrd)))
 #
 ensgs_tiga <- unique(snp2gene$ensemblId)
 ensgs_common <- intersect(ensgs_tiga, ensgs_tcrd)
-writeLines(sprintf("EnsemblIds mapped to TCRD: %d", length(ensgs_common)))
+message(sprintf("EnsemblIds mapped to TCRD: %d / %d (%.1f%%)", length(ensgs_common), length(ensgs_tiga), 100 * length(ensgs_common) / length(ensgs_tiga)))
 message(sprintf("%s: in TIGA?: %s; TCRD?: %s; common?: %s", ensg_debug, (ensg_debug %in% ensgs_tiga), (ensg_debug %in% ensgs_tcrd), (ensg_debug %in% ensgs_common)))
 #
 tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=T), by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd[, in_gwascat := !is.na(in_gwascat)]
-writeLines(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwascat), .N]))
+message(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwascat), .N]))
 #
 ### g2t should have one row for each gene-snp-study-trait association. Only 1 PUBMEDID per study.
 g2t <- unique(snp2gene[, .(ensemblId, ensemblSymb, SNP, STUDY_ACCESSION)])

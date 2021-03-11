@@ -7,6 +7,8 @@ library(data.table)
 library(plotly, quietly = T)
 library(RMySQL, quietly = T)
 
+message(paste(commandArgs(), collapse=" "))
+
 dbcon <- dbConnect(MySQL(), host="tcrd.kmc.io", port=3306, dbname="tcrd660", user="tcrd", password="")
 
 sql="SELECT DISTINCT

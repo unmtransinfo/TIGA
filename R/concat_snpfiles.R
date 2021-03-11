@@ -3,6 +3,8 @@
 library(readr, quietly=T)
 library(data.table, quietly=T)
 #
+message(paste(commandArgs(), collapse=" "))
+#
 ifile_snps_a <- "data/gwascat_Snps_a.tsv"
 ifile_snps_b <- "data/gwascat_Snps_skip125000.tsv"
 ofile <- "data/gwascat_Snps.tsv"

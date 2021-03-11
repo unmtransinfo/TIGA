@@ -14,22 +14,28 @@
 #   * pvalue_mlog_median (MAYBE CHANGING TO pvalue_mlog_max)
 #   * rcras
 #############################################################################
+# ISSUE: ARE WE LOSING GENES? TRAITS? GT PAIRS? IF YES WHY?
+#############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
 #
 t_start <- Sys.time()
 #
+message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
-ifile	<- ifelse(length(args)>0, args[1], "data/gt_prepfilter.Rdata")
-ofile	<- ifelse(length(args)>1, args[2], "data/gt_variables.tsv.gz")
+#ODIR <- "data"
+ODIR <- "data/20210212"
+#
+ifile	<- ifelse(length(args)>0, args[1], paste0(ODIR, "/gt_prepfilter.Rdata"))
+ofile	<- ifelse(length(args)>1, args[2], paste0(ODIR, "/gt_variables.tsv.gz"))
 #
 if (length(args)>2) {
   message("ERROR: Syntax: tiga_gt_variables.R GT_PREPFILTER_FILE OFILE\n...or... no args for defaults")
   quit()
 }
-writeLines(sprintf("Input prepfilter file: %s", ifile))
-writeLines(sprintf("Output variables file: %s", ofile))
+message(sprintf("Input prepfilter file: %s", ifile))
+message(sprintf("Output variables file: %s", ofile))
 #
 ###
 load(ifile)
@@ -37,6 +43,9 @@ load(ifile)
 ###
 # Check file contents.
 message(sprintf("g2t rows: %d", nrow(g2t)))
+message(sprintf("g2t genes (ensemblId): %d", g2t[, uniqueN(ensemblId)]))
+message(sprintf("g2t traits (TRAIT_URI): %d", g2t[, uniqueN(TRAIT_URI)]))
+message(sprintf("g2t gene-trait pairs: %d", nrow(unique(g2t[, .(ensemblId, TRAIT_URI)]))))
 message(sprintf("g2t studies (STUDY_ACCESSION): %d", g2t[, uniqueN(STUDY_ACCESSION)]))
 message(sprintf("g2t papers (PUBMEDID): %d", g2t[, uniqueN(PUBMEDID)]))
 message(sprintf("g2t study_N (instances): %d (%.1f%%)", nrow(g2t[!is.na(study_N)]),
@@ -167,7 +176,7 @@ message(sprintf("GT associations in dataset: %d", nrow(gt_stats)))
 
 # Save computed variables to file.
 write_delim(gt_stats, ofile, delim="\t")
-writeLines(sprintf("Output file written: %s", ofile))
+message(sprintf("Output file written: %s", ofile))
 #
 t_elapsed <- (Sys.time()-t_start)
 message(sprintf("Elapsed time: %.2f %s", t_elapsed, attr(t_elapsed, "units")))

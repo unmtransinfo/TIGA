@@ -10,6 +10,7 @@ library(data.table, quietly=T)
 library(plotly, quietly=T)
 library(igraph, quietly=T)
 #
+message(paste(commandArgs(), collapse=" "))
 ###
 Ngenes_min <- 20L #Min genes per disease (TIGA and other source).
 Ngenes_max <- 1000L #Max genes per disease (TIGA and other source).
