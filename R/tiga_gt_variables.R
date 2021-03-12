@@ -14,7 +14,8 @@
 #   * pvalue_mlog_median (MAYBE CHANGING TO pvalue_mlog_max)
 #   * rcras
 #############################################################################
-# ISSUE: ARE WE LOSING GENES? TRAITS? GT PAIRS? IF YES WHY?
+# TCRD-TDL-MAPPING/PROTEIN-CODING FILTERING MOVED TO tiga_gt_prepfilter.R
+# FOR ACCOUNTING AND REDUCED COMPUTATION.
 #############################################################################
 library(readr, quietly=T)
 library(data.table, quietly=T)
@@ -135,6 +136,7 @@ for (ensg in unique(g2t$ensemblId)) {
     gt_stats$rcras[i_gt] <- icite_gwas[STUDY_ACCESSION %in% staccs, sum(rcras_study)]
   }
 }
+message(sprintf("DEBUG: nrow(gt_stats): %d; final i_gt: %d", nrow(gt_stats), i_gt))
 gt_stats[, traitNgene := .N, by="efoId"]
 gt_stats[, geneNtrait := .N, by="ensemblId"]
 #
@@ -149,7 +151,7 @@ message(sprintf("Final: nrow(gt_stats) = %d", nrow(gt_stats)))
 message(sprintf("gene (ensemblId) count: %d", uniqueN(gt_stats$ensemblId)))
 message(sprintf("trait (efoId) count: %d", uniqueN(gt_stats$efoId)))
 message(sprintf("traitNgene: [%d,%d]", min(gt_stats$traitNgene), max(gt_stats$traitNgene)))
-message(sprintf("traitNstudy: [%d,%d]", min(gt_stats$traitNstudy), max(gt_stats$traitNstudy)))
+message(sprintf("traitNstudy: [%d,%d]", min(gt_stats$traitNstudy, na.rm=T), max(gt_stats$traitNstudy, na.rm=T)))
 message(sprintf("geneNtrait: [%d,%d]", min(gt_stats$geneNtrait), max(gt_stats$geneNtrait)))
 message(sprintf("pvalue_mlog_median: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_median, na.rm=T), max(gt_stats$pvalue_mlog_median, na.rm=T)))
 message(sprintf("pvalue_mlog_max: [%.2f,%.2f]", min(gt_stats$pvalue_mlog_max, na.rm=T), max(gt_stats$pvalue_mlog_max, na.rm=T)))
@@ -159,21 +161,32 @@ message(sprintf("study_N_mean: [%.1f,%.1f]", min(gt_stats$study_N_mean, na.rm=T)
 message(sprintf("rcras: [%.2f,%.2f]", min(gt_stats$rcras, na.rm=T), max(gt_stats$rcras, na.rm=T)))
 message(sprintf("n_snpw: [%.2f,%.2f]", min(gt_stats$n_snpw, na.rm=T), max(gt_stats$n_snpw, na.rm=T)))
 #
-gt_stats <- merge(gt_stats, tcrd[, c("ensemblGeneId", "tcrdGeneSymbol", "TDL", "tcrdTargetFamily", "idgList", "tcrdTargetName")], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
+message(sprintf("Rows missing ensemblId: %d", nrow(gt_stats[is.na(ensemblId)])))
+message(sprintf("Rows missing efoId: %d", nrow(gt_stats[is.na(efoId)])))
+message(sprintf("Rows missing ensemblId or efoId: %d", nrow(gt_stats[is.na(ensemblId)|is.na(efoId)])))
+gt_stats <- gt_stats[!(is.na(ensemblId)|is.na(efoId))] #Should be no-op.
+#
+gt_stats <- merge(gt_stats, tcrd[!is.na(ensemblGeneId), c("ensemblGeneId", "tcrdGeneSymbol", "TDL", "tcrdTargetFamily", "idgList", "tcrdTargetName")], 
+                  by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F, allow.cartesian=F)
 setnames(gt_stats,
 	old=c("tcrdGeneSymbol", "tcrdTargetName", "tcrdTargetFamily", "TDL", "idgList"),
 	new=c("geneSymbol", "geneName", "geneFamily", "geneIdgTdl", "geneIdgList"))
 #
-gt_stats <- gt_stats[!is.na(ensemblId)] #Should be no-op.
-gt_stats <- gt_stats[!is.na(geneIdgTdl)] #Non-protein-coding removed by IDG TDL requirement.
+message(sprintf("Genes NOT mapped to TCRD/TDL (thus not protein-coding): %d", gt_stats[is.na(geneIdgTdl), uniqueN(ensemblId)]))
+#Non-protein-coding removed by IDG TDL requirement (MOVED TO PREPFILTER).
+#gt_stats <- gt_stats[!is.na(geneIdgTdl)]
 ###
 #
-message(sprintf("Genes (ensemblIDs): %d", uniqueN(gt_stats$ensemblId)))
-message(sprintf("Genes (symbols): %d", uniqueN(gt_stats$geneSymbol)))
-message(sprintf("Traits in dataset: %d", uniqueN(gt_stats$efoId)))
-message(sprintf("GT associations in dataset: %d", nrow(gt_stats)))
+message(sprintf("TOTAL Genes (ensemblIDs): %d", gt_stats[, uniqueN(ensemblId)]))
+message(sprintf("TOTAL Genes (symbols): %d", gt_stats[, uniqueN(geneSymbol)]))
+message(sprintf("TOTAL Traits in dataset: %d", gt_stats[, uniqueN(efoId)]))
+message(sprintf("TOTAL GT associations in dataset: %d", nrow(gt_stats)))
+#
+message(sprintf("PROTEIN-CODING Genes (ensemblIDs): %d", gt_stats[!is.na(geneIdgTdl), uniqueN(ensemblId)]))
+message(sprintf("PROTEIN-CODING Genes (symbols): %d", gt_stats[!is.na(geneIdgTdl), uniqueN(geneSymbol)]))
+message(sprintf("PROTEIN-CODING Traits in dataset: %d", gt_stats[!is.na(geneIdgTdl), uniqueN(efoId)]))
+message(sprintf("PROTEIN-CODING GT associations in dataset: %d", nrow(gt_stats[!is.na(geneIdgTdl)])))
 ###
-
 # Save computed variables to file.
 write_delim(gt_stats, ofile, delim="\t")
 message(sprintf("Output file written: %s", ofile))

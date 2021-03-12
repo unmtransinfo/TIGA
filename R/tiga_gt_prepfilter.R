@@ -181,6 +181,9 @@ g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, UPSTREAM_GENE_DIS
 #
 trait[, traitNstudy := fifelse(is.na(TRAIT_URI), as.integer(NA), uniqueN(STUDY_ACCESSION)), by="TRAIT_URI"]
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
+###
+# For PC filter:
+g2t <- merge(g2t, tcrd[!is.na(ensemblGeneId), c("ensemblGeneId", "TDL")], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F, allow.cartesian=F)
 #
 debug_test <- function(ensg_test, g2t) {
   g2t_test <- g2t[ensemblId==ensg_test]
@@ -190,6 +193,22 @@ debug_test <- function(ensg_test, g2t) {
 debug_test("ENSG00000170312", g2t)
 ###
 # FILTERS:
+###
+# (0) PROTEIN-CODING filter: require mapping to TCRD/TDL.
+reason_txt <- "Not protein-coding with TCRD TDL."
+badrows_notpc <- g2t[, is.na(TDL)]
+print(sprintf("%s: rows: %d", reason_txt, sum(badrows_notpc, na.rm=T)))
+filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_notpc]$STUDY_ACCESSION, g2t[!badrows_notpc]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+filtered_studies[, reason := reason_txt]
+message(sprintf("Filtered studies (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)]-filtered_studies[, uniqueN(STUDY_ACCESSION)], filtered_studies[, uniqueN(STUDY_ACCESSION)], 100*filtered_studies[, uniqueN(STUDY_ACCESSION)]/g2t[, uniqueN(STUDY_ACCESSION)]))
+#
+filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_notpc]$TRAIT_URI, g2t[!badrows_notpc]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
+filtered_traits[, reason := reason_txt]
+message(sprintf("Filtered traits (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(TRAIT_URI)], g2t[, uniqueN(TRAIT_URI)]-filtered_traits[, uniqueN(TRAIT_URI)], filtered_traits[, uniqueN(TRAIT_URI)], 100*filtered_traits[, uniqueN(TRAIT_URI)]/g2t[, uniqueN(TRAIT_URI)]))
+#
+filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_notpc]$ensemblId, g2t[!badrows_notpc]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
+filtered_genes[, reason := reason_txt]
+message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes[, uniqueN(ensemblId)], filtered_genes[, uniqueN(ensemblId)], 100*filtered_genes[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
 ###
 # (1) TRAIT_URI filter: require MAPPED_TRAIT_URI (EFO)
 reason_txt <- "Missing MAPPED_TRAIT_URI"
@@ -270,7 +289,7 @@ write_delim(filtered_studies, ofile_filtered_studies, delim="\t")
 write_delim(filtered_traits, ofile_filtered_traits, delim="\t")
 write_delim(filtered_genes, ofile_filtered_genes, delim="\t")
 #
-badrows <- (badrows_traituri | badrows_pval | badrows_effect)
+badrows <- (badrows_notpc | badrows_traituri | badrows_pval | badrows_effect)
 message(sprintf("Filtered associations (total): %d -> %d (-%d; -%.1f%%)", nrow(g2t), nrow(g2t)-sum(badrows), sum(badrows), 100*sum(badrows)/nrow(g2t)))
 g2t <- g2t[!badrows] #Many filtered.
 #
