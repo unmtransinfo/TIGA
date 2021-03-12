@@ -33,10 +33,12 @@ t_start <- Sys.time()
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
-#ifile   <- ifelse(length(args)>0, args[1], "data/gt_variables.tsv.gz")
-#ofile   <- ifelse(length(args)>1, args[2], "data/gt_stats_mu.tsv.gz")
-ifile   <- ifelse(length(args)>0, args[1], "data/20201216/gt_variables.tsv.gz")
-ofile   <- ifelse(length(args)>1, args[2], "data/20201216/gt_stats_mu.tsv.gz")
+#ODIR <- "data"
+#ODIR <- "data/20201216"
+ODIR <- "data/20210212"
+#
+ifile <- ifelse(length(args)>0, args[1], paste0(ODIR, "/gt_variables.tsv.gz"))
+ofile <- ifelse(length(args)>1, args[2], paste0(ODIR, "/gt_stats_mu.tsv.gz"))
 #
 if (length(args)>2) {
   message("ERROR: Syntax: tiga_gt_stats.R VARIABLESFILE OFILE\n...or... no args for defaults")

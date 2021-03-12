@@ -18,8 +18,12 @@ t_start <- Sys.time()
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
-ifile	<- ifelse(length(args)>0, args[1], "data/gt_prepfilter.Rdata")
-ofile	<- ifelse(length(args)>1, args[2], "data/gt_provenance.tsv.gz")
+#ODIR <- "data"
+#ODIR <- "data/20201216"
+ODIR <- "data/20210212"
+#
+ifile	<- ifelse(length(args)>0, args[1], paste0(ODIR, "/gt_prepfilter.Rdata"))
+ofile	<- ifelse(length(args)>1, args[2], paste0(ODIR, "/gt_provenance.tsv.gz"))
 #
 if (length(args)>2) {
   message("ERROR: Syntax: tiga_gt_provenance.R [GT_PREPFILTER_FILE [OFILE]]\n...or... no args for defaults")
