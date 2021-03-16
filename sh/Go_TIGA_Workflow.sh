@@ -15,6 +15,9 @@
 # Install BioClients from https://github.com/jeremyjyang/BioClients
 # or with "pip3 install BioClients".
 #############################################################################
+# Issue: ENSEMBL API USE (SLOW): Streamline via FTP comprehensive geneslist.
+# http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.103.entrez.tsv.gz
+#############################################################################
 #
 set -e
 #
@@ -145,6 +148,45 @@ cat $tsvfile_assn |sed -e '1d' \
 	>>${snp2genefile}
 #
 #############################################################################
+ENTREZGENEFILE="Homo_sapiens.GRCh38.103.entrez.tsv.gz"
+if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
+	wget -q -O $ODIR/$ENTREZGENEFILE 'http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE'
+	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
+		>$ODIR/ensembl_human_genes.ensg
+	python3 -m BioClients.ensembl.Client get_info -v \
+		--i $ODIR/ensembl_human_genes.ensg |gzip -c \
+		>$ODIR/gwascat_EnsemblInfo.tsv.gz
+fi
+#############################################################################
+### Entrez gene IDs: UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS
+#if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
+#	cat $tsvfile_assn |sed -e '1d' \
+#		|awk -F '\t' '{print $16}' \
+#		|egrep -v '(^$|^NA$)' \
+#		|sort -u \
+#		>$ODIR/gwascat_upstream.ensg
+#	cat $tsvfile_assn |sed -e '1d' \
+#		|awk -F '\t' '{print $17}' \
+#		|egrep -v '(^$|^NA$)' \
+#		|sort -u \
+#		>$ODIR/gwascat_downstream.ensg
+#	cat $tsvfile_assn |sed -e '1d' \
+#		|awk -F '\t' '{print $18}' \
+#		|egrep -v '(^$|^NA$)' \
+#		|perl -ne 'print join("\n",split(/, */))' \
+#		|sort -u \
+#		>$ODIR/gwascat_snp.ensg
+#	cat $ODIR/gwascat_upstream.ensg $ODIR/gwascat_downstream.ensg $ODIR/gwascat_snp.ensg \
+#		|sort -u \
+#		>$ODIR/gwascat.ensg
+#	#
+#	# ~13hr
+#	python3 -m BioClients.ensembl.Client get_info -v \
+#		--i $ODIR/gwascat.ensg |gzip -c \
+#		>$ODIR/gwascat_EnsemblInfo.tsv.gz
+#fi
+#
+#############################################################################
 ### PMIDs:
 cat $tsvfile_gwas \
 	|sed -e '1d' \
@@ -158,34 +200,6 @@ if [ ! -f "$ODIR/gwascat_icite.tsv" ]; then
 		--o $ODIR/gwascat_icite.tsv
 fi
 #
-#############################################################################
-### Entrez gene IDs: UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS
-if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
-	cat $tsvfile_assn |sed -e '1d' \
-		|awk -F '\t' '{print $16}' \
-		|egrep -v '(^$|^NA$)' \
-		|sort -u \
-		>$ODIR/gwascat_upstream.ensg
-	cat $tsvfile_assn |sed -e '1d' \
-		|awk -F '\t' '{print $17}' \
-		|egrep -v '(^$|^NA$)' \
-		|sort -u \
-		>$ODIR/gwascat_downstream.ensg
-	cat $tsvfile_assn |sed -e '1d' \
-		|awk -F '\t' '{print $18}' \
-		|egrep -v '(^$|^NA$)' \
-		|perl -ne 'print join("\n",split(/, */))' \
-		|sort -u \
-		>$ODIR/gwascat_snp.ensg
-	cat $ODIR/gwascat_upstream.ensg $ODIR/gwascat_downstream.ensg $ODIR/gwascat_snp.ensg \
-		|sort -u \
-		>$ODIR/gwascat.ensg
-	#
-	# ~13hr
-	python3 -m BioClients.ensembl.Client get_info -v \
-		--i $ODIR/gwascat.ensg |gzip -c \
-		>$ODIR/gwascat_EnsemblInfo.tsv.gz
-fi
 #
 ###
 # TCRD:
@@ -212,7 +226,6 @@ ${cwd}/sh/Go_TIGA_DbCreate.sh "${ODIR}" "tiga_${GC_REL_Y}${GC_REL_M}${GC_REL_D}"
 ###
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.
-# $ODIR/gwascat_Snps.tsv.gz (NO LONGER NEEDED)
 ${cwd}/R/tiga_gt_prepfilter.R \
 	$ODIR/gwascat_gwas.tsv \
 	$ODIR/gwascat_counts.tsv \

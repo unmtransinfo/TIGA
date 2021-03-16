@@ -14,6 +14,7 @@ import numpy as np
 #############################################################################
 def ComputeMuScores(df, mutags, ofile):
   """Variables larger for higher rank. Pre-convert NaNs to values.""" 
+  quiet = bool(logging.getLogger().getEffectiveLevel()>15)
   df = df.astype({tag:'float' for tag in mutags})
   for tag in mutags:
     if df[tag].isna().sum()>0:
@@ -23,7 +24,7 @@ def ComputeMuScores(df, mutags, ofile):
   df['nBelow'] = np.nan
   tq = tqdm.tqdm(total=df.shape[0], unit="rows")
   for i in range(df.shape[0]):
-    tq.update()
+    if not quiet: tq.update()
     vals_this = {tag:df[tag].iloc[i] for tag in mutags}
     logging.debug(f"{i}. vals_this: {vals_this}")
     ges_this = pd.Series([True for i in range(df.shape[0])])
@@ -51,11 +52,12 @@ if __name__=="__main__":
   parser.add_argument("--i", dest="ifile", required=True, help="Input gene-trait variables (TSV)")
   parser.add_argument("--o", dest="ofile", required=True, help="Output gene-trait MU stats (TSV)")
   parser.add_argument("--mutags", required=True, help="Selected columns for multivariate MU scoring (comma-separated).")
+  parser.add_argument("-q", "--quiet", action="store_true", help="Suppress progress notification.")
   parser.add_argument("-v", "--verbose", action="count", default=0)
   args = parser.parse_args()
 
-  logging.basicConfig(format='%(levelname)s:%(message)s', level = logging.DEBUG if args.
-verbose>0 else logging.INFO)
+  # logging.PROGRESS = 15 (custom)
+  logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.DEBUG if args.verbose>0 else logging.ERROR if args.quiet else 15))
 
   t0 = time.time()
 

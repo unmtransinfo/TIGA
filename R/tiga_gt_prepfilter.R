@@ -127,12 +127,13 @@ icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_rati
 setkey(icite_gwas, pmid, STUDY_ACCESSION) #Ensures unique study-pmid pairs each row.
 ###
 # Link to Ensembl via IDs from Catalog.
-# (In 2020 (not 2018), EnsemblIDs available in downloads, so API not required.)
+# (In 2020 (not 2018), EnsemblIDs available in catalog downloads, so API not required.)
 setnames(ensemblInfo, old=c("id", "display_name"), new=c("ensemblId", "ensemblSymb"))
 message(sprintf("%s: ensemblInfo symbols: %d", ensg_debug, ensemblInfo[ensemblId==ensg_debug, uniqueN(ensemblSymb)]))
 ###
 # To avoid removing genes, rely on TCRD to ensure protein-coding.
 # But, report how many genes would have been filtered.
+# ensemblInfo annotations used: (1) ensemblSymb, (2) biotype (only logging, no impact on workflow).
 #ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript"][, protein_coding := T]
 ###
 snp2gene <- merge(snp2gene, ensemblInfo, by.x="ENSG", by.y="ensemblId", all.x=T, all.y=F, allow.cartesian=T)
