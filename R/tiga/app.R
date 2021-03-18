@@ -275,7 +275,7 @@ ui <- fluidPage(
 			wellPanel(p(tags$b("ALL gene-trait associations:")), downloadButton("gt_file", label="Gene-Trait Associations"), htmlOutput("gtFileInfoHtm")),
 			wellPanel(p(tags$b("ALL traits involved in gene-trait associations:")), downloadButton("traits_file", label="Traits"), htmlOutput("traitFileInfoHtm")),
 			wellPanel(p(tags$b("ALL genes involved in gene-trait associations:")), downloadButton("genes_file", label="Genes"), htmlOutput("geneFileInfoHtm")),
-			wellPanel(p(tags$b("Studies for ALL gene-trait associations:")), downloadButton("provenance_file", label="Provenance"), htmlOutput("provFileInfoHtm"))
+			wellPanel(p(tags$b("Provenance for ALL gene-trait associations:")), downloadButton("provenance_file", label="Provenance"), htmlOutput("provFileInfoHtm"))
 		),
 		tabPanel(value="help", title=HTML("<i><br/>Help</i>"), htmlOutput("helpHtm"))
 	))),
@@ -471,7 +471,9 @@ server <- function(input, output, session) {
       return(NULL)
     }
     gt_this <- Hits()[(ok2plot)]
-    gt_this <- gt_this[(TDL %in% input$tdls)]
+    if (hitType()=="gene") {
+      gt_this <- gt_this[(TDL %in% input$tdls)]
+    }
     gt_this[, `:=`(or_median = ifelse(is.na(or_median), 0, or_median), n_beta = ifelse(is.na(n_beta), 0, n_beta))] #NA represented as zero for plotting.
     return(gt_this)
   })
@@ -746,8 +748,8 @@ server <- function(input, output, session) {
   
   study_tableHtm <- reactive({
     dt <- data.table(study_table)
-    dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s<i class=\"fa fa-external-link\"></a>", STUDY_ACCESSION, STUDY_ACCESSION)]
-    dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s<i class=\"fa fa-external-link\"></a>", PUBMEDID, PUBMEDID)]
+    dt[, gcHtm := sprintf("<a target=\"_blank\" href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s<i class=\"fa fa-external-link\"></a>", STUDY_ACCESSION, STUDY_ACCESSION)]
+    dt[, pubmedHtm := sprintf("<a target=\"_blank\" href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s<i class=\"fa fa-external-link\"></a>", PUBMEDID, PUBMEDID)]
     dt[, efoId := sub("^.*/", "", MAPPED_TRAIT_URI)]
     dt[, efoHtm := sprintf("<a href=\"%s?trait=%s\">%s</a>", urlBase(), efoId, efoId)]
     dt[, .(Trait = MAPPED_TRAIT, efoId = efoHtm, Study=STUDY, Accession=gcHtm, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED)][order(Trait)]
@@ -765,8 +767,8 @@ server <- function(input, output, session) {
   provenance_studies_tableHtm <- reactive({
     dt <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED)], by="STUDY_ACCESSION", all.x=T, all.y=F))
     dt <- unique(dt)
-    dt[, gcHtm := sprintf("<a href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s<i class=\"fa fa-external-link\"></a>", STUDY_ACCESSION, STUDY_ACCESSION)]
-    dt[, pubmedHtm := sprintf("<a href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s<i class=\"fa fa-external-link\"></a>", PUBMEDID, PUBMEDID)]
+    dt[, gcHtm := sprintf("<a target=\"_blank\" href=\"https://www.ebi.ac.uk/gwas/studies/%s\">%s<i class=\"fa fa-external-link\"></a>", STUDY_ACCESSION, STUDY_ACCESSION)]
+    dt[, pubmedHtm := sprintf("<a target=\"_blank\" href=\"https://pubmed.ncbi.nlm.nih.gov/%s\">%s<i class=\"fa fa-external-link\"></a>", PUBMEDID, PUBMEDID)]
     dt[, .(Accession=gcHtm, Study=STUDY, PMID=pubmedHtm, DatePublished=DATE_PUBLISHED)][order(-DatePublished)]
   })
 

@@ -35,7 +35,7 @@ def CompareGeneTraitStats(ifileA, ifileB, entity, ofile):
     df_out.to_csv(fout, "\t", index=False)
   elif entity=="trait":
     df_out = dfA[["efoId", "trait"]][dfA["efoId"].isin(AminusB["efoId"])].drop_duplicates()
-    df_out.sort_values(by=["efolId"], inplace=True)
+    df_out.sort_values(by=["efoId"], inplace=True)
     df_out.to_csv(fout, "\t", index=False)
   else:
     df_out=None
@@ -54,7 +54,7 @@ trait: "TRAIT_URI", "TRAIT", "reason"
   if entity=="gene":
     df_filter = df_filter[["ensemblId", "reason"]]
   elif entity=="trait":
-    df_filter["efoId"] = df_filter["TRAIT_URI"].str.sub(r"^.*/", "")
+    df_filter["efoId"] = df_filter["TRAIT_URI"].str.replace(r"^.*/", "")
     df_filter = df_filter[["efoId", "reason"]]
   else:
     logging.error(f"Invalid entity: {entity}")

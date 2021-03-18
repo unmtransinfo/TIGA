@@ -7,7 +7,7 @@
 # Need statistics mapping all EFO to GWAS Catalog with parentage considered.
 # efo.tsv from efo.owl, produced by iu_idsl_jena jena_utils.
 ###
-library(readr)
+library(readr, quietly=T)
 library(data.table, quietly=T)
 library(igraph, quietly=T)
 ###

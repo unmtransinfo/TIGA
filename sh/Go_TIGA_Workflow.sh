@@ -148,16 +148,6 @@ cat $tsvfile_assn |sed -e '1d' \
 	>>${snp2genefile}
 #
 #############################################################################
-ENTREZGENEFILE="Homo_sapiens.GRCh38.103.entrez.tsv.gz"
-if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
-	wget -q -O $ODIR/$ENTREZGENEFILE 'http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE'
-	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
-		>$ODIR/ensembl_human_genes.ensg
-	python3 -m BioClients.ensembl.Client get_info -v \
-		--i $ODIR/ensembl_human_genes.ensg |gzip -c \
-		>$ODIR/gwascat_EnsemblInfo.tsv.gz
-fi
-#############################################################################
 ### Entrez gene IDs: UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS
 #if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
 #	cat $tsvfile_assn |sed -e '1d' \
@@ -187,15 +177,25 @@ fi
 #fi
 #
 #############################################################################
+# http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.103.entrez.tsv.gz
+ENTREZGENEFILE="Homo_sapiens.GRCh38.103.entrez.tsv.gz"
+if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
+	wget -O - "http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
+	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
+		>$ODIR/ensembl_human_genes.ensg
+	python3 -m BioClients.ensembl.Client get_info -q \
+		--i $ODIR/ensembl_human_genes.ensg |gzip -c \
+		>$ODIR/gwascat_EnsemblInfo.tsv.gz
+fi
+#############################################################################
 ### PMIDs:
 cat $tsvfile_gwas \
-	|sed -e '1d' \
-	|awk -F '\t' '{print $2}' \
-	|sort -nu >$ODIR/gwascat.pmid
+	|sed -e '1d' |awk -F '\t' '{print $2}' |sort -nu \
+	>$ODIR/gwascat.pmid
 printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
 ###
 if [ ! -f "$ODIR/gwascat_icite.tsv" ]; then
-	python3 -m BioClients.icite.Client get_stats \
+	python3 -m BioClients.icite.Client get_stats -q \
 		--i $ODIR/gwascat.pmid \
 		--o $ODIR/gwascat_icite.tsv
 fi
@@ -256,6 +256,7 @@ ${cwd}/R/tiga_gt_stats.R \
 	$ODIR/gt_stats.tsv.gz
 # Mu scores for benchmark comparision.
 ${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
+	-q \
 	--i $ODIR/gt_variables.tsv.gz \
 	--o $ODIR/gt_stats_mu.tsv.gz
 ###

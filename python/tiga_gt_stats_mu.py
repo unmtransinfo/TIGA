@@ -59,6 +59,7 @@ if __name__=="__main__":
   # logging.PROGRESS = 15 (custom)
   logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.DEBUG if args.verbose>0 else logging.ERROR if args.quiet else 15))
 
+  logging.info(os.path.basename(sys.argv[0]))
   t0 = time.time()
 
   delim = ',' if re.search('\.csv', args.ifile, re.I) else '\t' if re.search('\.(tsv|tab|txt)', args.ifile, re.I) else '\t'
@@ -74,5 +75,5 @@ if __name__=="__main__":
 
   ComputeMuScores(df, mutags, args.ofile)
 
-  logging.info(('Elapsed time: %s'%(time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0)))))
+  logging.info(f"{os.path.basename(sys.argv[0])} elapsed time: {time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0))})
 
