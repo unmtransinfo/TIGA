@@ -284,6 +284,8 @@ filtered_genes <- filtered_genes[, reason := paste0(reason, collapse=" ; "), by=
 #
 filtered_genes <- merge(filtered_genes, tcrd[, .(ensemblGeneId, geneName=tcrdTargetName, geneFamily=tcrdTargetFamily, TDL)], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
 filtered_genes <- filtered_genes[, .(ensemblId, ensemblSymb, geneName, geneFamily, TDL, reason)]
+message(sprintf("Filtered: Gene (ensemblId) count: %d", filtered_genes[, uniqueN(ensemblId)]))
+message(sprintf("Filtered: Missing gene symbols: %d", filtered_genes[is.na(ensemblSymb), uniqueN(ensemblId)]))
 #
 # Write files accounting for filtered studies, traits and genes.
 write_delim(filtered_studies, ofile_filtered_studies, delim="\t")
@@ -296,14 +298,15 @@ g2t <- g2t[!badrows] #Many filtered.
 #
 ###
 #
-message(sprintf("Final: nrow(g2t) = %d", nrow(g2t)))
-message(sprintf("G-T associations in dataset: %d", nrow(unique(g2t[, .(ensemblId, efoId)]))))
-message(sprintf("Study (STUDY_ACCESSION) count: %d", uniqueN(g2t$STUDY_ACCESSION)))
-message(sprintf("Gene (ensemblId) count: %d", uniqueN(g2t$ensemblId)))
-message(sprintf("Trait (efoId) count: %d", uniqueN(g2t$efoId)))
-message(sprintf("PVALUE_MLOG (instance) count: %d", nrow(g2t[!is.na(PVALUE_MLOG)])))
-message(sprintf("oddsratio (instance) count: %d", nrow(g2t[!is.na(oddsratio)])))
-message(sprintf("beta (instance) count: %d", nrow(g2t[!is.na(beta)])))
+message(sprintf("GT: Final nrow(g2t) = %d", nrow(g2t)))
+message(sprintf("GT: associations in dataset: %d", nrow(unique(g2t[, .(ensemblId, efoId)]))))
+message(sprintf("GT: Study (STUDY_ACCESSION) count: %d", g2t[, uniqueN(STUDY_ACCESSION)]))
+message(sprintf("GT: Gene (ensemblId) count: %d", g2t[, uniqueN(ensemblId)]))
+message(sprintf("GT: Missing gene symbols: %d", g2t[is.na(ensemblSymb), uniqueN(ensemblId)])) #needed for autocomplete
+message(sprintf("GT: Trait (efoId) count: %d", g2t[, uniqueN(efoId)]))
+message(sprintf("GT: PVALUE_MLOG (instance) count: %d", nrow(g2t[!is.na(PVALUE_MLOG)])))
+message(sprintf("GT: oddsratio (instance) count: %d", nrow(g2t[!is.na(oddsratio)])))
+message(sprintf("GT: beta (instance) count: %d", nrow(g2t[!is.na(beta)])))
 #
 ###
 # Save to file.

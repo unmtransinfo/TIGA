@@ -90,8 +90,9 @@ or_median=col_double(), n_beta=col_double(), study_N_mean=col_double(), rcras=co
   trait_table <- trait_table[traitNgene>=MIN_ASSN]
   trait_table[, trait_uri := sapply(efoId, efoId2Uri)]
   trait_table <- trait_table[, .(trait_uri, efoId, trait, N_study, traitNgene)][order(trait)]
-  trait_menu <- trait_table$efoId #named vector
-  names(trait_menu) <- trait_table$trait
+  #
+  # trait_menu for menu only.
+  trait_menu <- trait_table
   #
   gene_table <- gt[, .(geneSymbol, geneName, geneFamily, TDL, N_study = geneNstudy, geneNtrait = uniqueN(efoId), filtered=F),  by=c("ensemblId")]
   gene_table <- rbindlist(list(gene_table, filtered_genes[, .(ensemblId, geneSymbol=ensemblSymb, geneName, geneFamily, TDL, N_study=0, geneNtrait=0, filtered=T)]))
@@ -102,12 +103,9 @@ or_median=col_double(), n_beta=col_double(), study_N_mean=col_double(), rcras=co
   message(sprintf("DEBUG: duplicated ENSGs: %d; removing %d rows", uniqueN(dup_ENSGs$ensemblId), sum(duplicated(gene_table$ensemblId))))
   gene_table <- gene_table[!duplicated(ensemblId)]
   #
-  gene_menu <- gene_table$ensemblId #named vector
-  #names(gene_menu) <- sprintf("%s:%s", gene_table$geneSymbol, gene_table$geneName)
-  names(gene_menu) <- gene_table$geneSymbol
-  #
-  trait_menu <- as.list(trait_menu)
-  gene_menu <- as.list(gene_menu)
+  # gene_menu for menu only.
+  gene_menu <- gene_table
+  gene_menu[, geneSymbol := ifelse(!is.na(geneSymbol), geneSymbol, ensemblId)] #NAs break autocomplete.
   #
   study_table <- read_delim("data/gwascat_gwas.tsv", "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
   setDT(study_table)
@@ -240,16 +238,14 @@ ui <- fluidPage(
     column(4, 
       wellPanel(
         #tokens: A list whose length equal to nrow(local) where each element is array of string tokens.
-        shinysky::textInput.typeahead(id="traitQry" ,placeholder="Trait..."
-		,local=trait_table ,valueKey="efoId" ,tokens=trait_table$trait
-		,template=HTML("<p class='repo-name'>{{efoId}}</p> <p class='repo-description'>{{trait}}</p>")
-		,limit=10), p(),
-
-        shinysky::textInput.typeahead(id="geneQry" ,placeholder="Gene..."
-		,local=gene_table ,valueKey="ensemblId" ,tokens=gene_table$geneSymbol
-    #,tokens=as.list(data.table(t(gene_table[, .(geneSymbol, geneName, ensemblId)])))      
-		,template=HTML("<p class='repo-name'>{{geneSymbol}}</p> <p class='repo-description'>{{geneName}}</p>")
-		,limit=10), p(),
+        shinysky::textInput.typeahead(id="traitQry", placeholder="Trait..."
+		, local=trait_menu ,valueKey="efoId", tokens=trait_menu$trait
+		, template=HTML("<p class='repo-name'>{{efoId}}</p> <p class='repo-description'>{{trait}}</p>")
+		, limit=10), p(),
+        shinysky::textInput.typeahead(id="geneQry", placeholder="Gene..."
+		, local=gene_menu, valueKey="ensemblId", tokens=gene_menu$geneSymbol
+		, template=HTML("<p class='repo-name'>{{geneSymbol}}</p> <p class='repo-description'>{{geneName}}</p>")
+		, limit=10), p(),
         	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
         	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
       wellPanel(
