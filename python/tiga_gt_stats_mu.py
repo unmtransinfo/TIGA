@@ -75,5 +75,5 @@ if __name__=="__main__":
 
   ComputeMuScores(df, mutags, args.ofile)
 
-  logging.info(f"{os.path.basename(sys.argv[0])} elapsed time: {time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0))})
+  logging.info(f"""{os.path.basename(sys.argv[0])} elapsed time: {time.strftime('%Hh:%Mm:%Ss', time.gmtime(time.time()-t0))}""")
 
