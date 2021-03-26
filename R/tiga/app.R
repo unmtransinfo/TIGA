@@ -185,6 +185,8 @@ as simple, rational measure of effect evidence and confidence (but not magnitude
   <LI><B>study_N</B>: mean(SAMPLE_SIZE) supporting gene-trait association.
   <LI><B>geneNtrait</B>: total traits associated with gene (unique count).
   <LI><B>traitNgene</B>: total genes associated with trait (unique count).
+  <LI><B>traitNstudy</B>: total studies associated with trait (unique count).
+  <LI><B>geneNstudy</B>: total studies associated with gene (unique count).
   <LI><B>meanRankScore</B>: Gene-trait pairs (GTs) are ranked based on selected variables, determined by benchmarking versus gold standard associations.  meanRankScore = 100 - Percentile(meanRank).
 </UL>
 <SUP>*</SUP>Variable used in <B>meanRankScore</B>.
