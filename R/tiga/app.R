@@ -240,29 +240,27 @@ ui <- fluidPage(
     column(4, 
       wellPanel(
         #tokens: A list whose length equal to nrow(local) where each element is array of string tokens.
-        shinysky::textInput.typeahead(id="traitQry", placeholder="Trait..."
-		, local=trait_menu ,valueKey="efoId", tokens=trait_menu$trait
-		, template=HTML("<p class='repo-name'>{{efoId}}</p> <p class='repo-description'>{{trait}}</p>")
-		, limit=10), p(),
-        shinysky::textInput.typeahead(id="geneQry", placeholder="Gene..."
-		, local=gene_menu, valueKey="ensemblId", tokens=gene_menu$geneSymbol
-		, template=HTML("<p class='repo-name'>{{geneSymbol}}</p> <p class='repo-description'>{{geneName}}</p>")
-		, limit=10), p(),
+        shinysky::textInput.typeahead(id="traitQry", placeholder="Trait...",
+		local=trait_menu, valueKey="efoId", tokens=trait_menu$trait,
+		template=HTML("<p class='repo-name'>{{efoId}}</p> <p class='repo-description'>{{trait}}</p>"), 
+		limit=10), p(),
+        shinysky::textInput.typeahead(id="geneQry", placeholder="Gene...",
+		local=gene_menu, valueKey="ensemblId", tokens=gene_menu$geneSymbol,
+		template=HTML("<p class='repo-name'>{{geneSymbol}}</p> <p class='repo-description'>{{geneName}}</p>"),
+		limit=10), p(),
         	actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'),
         	actionButton("goReset", label="Reset", icon=icon("power-off"), style='background-color:#EEEEEE;border-width:2px')),
       wellPanel(
-        HTML("<center><b><i>Hits</i></b></center>"),
-        checkboxGroupInput("tdls", "TDLs", choiceValues=TDLs, choiceNames=TDLs, selected=c("Tclin", "Tchem", "Tbio", "Tdark"), inline=T)),
-		  wellPanel(
-        HTML("<center><b><i>Plot</i></b></center>"),
-	radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "N_beta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T)
-      ),
+        fluidRow(column(2, HTML("<b><i>Hits</i></b>")),
+        column(10, checkboxGroupInput("tdls", "TDLs", choiceValues=TDLs, choiceNames=TDLs, selected=c("Tclin", "Tchem", "Tbio", "Tdark"), inline=T)))),
+      wellPanel(
+        fluidRow(column(2, HTML("<b><i>Plot</i></b>")),
+        column(10, radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "N_beta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T)))),
 	wellPanel(htmlOutput(outputId="logHtm")),
 	wellPanel(htmlOutput(outputId="resultHtm"))),
     column(8,
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="hitsTable", title=htmlOutput("hitsTableTabHtm"), htmlOutput("tigaTableTitleHtm"), DT::dataTableOutput("tigaTable"), br(), downloadButton("hits_file",
-			#label="Download Hits")),
 			label=htmlOutput("hitsDownloadButtonHtm"))),
 		tabPanel(value="hitsPlot", title=htmlOutput("hitsPlotTabHtm"), plotlyOutput("tigaPlot", height = "500px")),
 		tabPanel(value="provenance", title=HTML("<center>Provenance<br/>(Gene-Trait)</center>"), htmlOutput("provenance_summary"),
@@ -490,12 +488,9 @@ server <- function(input, output, session) {
 
   output$tigaTableTitleHtm <- reactive({
     if (is.na(qryType())) { htm <- "" }
-    else if (qryType() == "trait") {
-      htm <- sprintf("<H3>Query TRAIT: \"%s\" (<a target=\"_blank\" href=\"%s\">%s</a>)</H3>", traitQryName(), efoId2Uri(qryIds()$trait), qryIds()$trait)
-    }
-    else if (qryType() == "gene") {
-      htm <- sprintf("<H3>Query GENE: \"%s\" (<a target=\"_blank\" href=\"https://pharos.nih.gov/targets/%s\">%s</a>)</H3>", geneQryName(), qryIds()$gene, qryIds()$gene)
-    }
+    else if (qryType() == "trait") { htm <- sprintf("<H3>TRAIT: \"%s\" (<a target=\"_blank\" href=\"%s\">%s</a>)</H3>", traitQryName(), efoId2Uri(qryIds()$trait), qryIds()$trait) }
+    else if (qryType() == "gene") { htm <- sprintf("<H3>GENE: \"%s\" (<a target=\"_blank\" href=\"https://pharos.nih.gov/targets/%s\">%s</a>)</H3>", geneQryName(), qryIds()$gene, qryIds()$gene) } 
+    else { htm <- "" }
     return(htm)
   })
 
@@ -510,27 +505,14 @@ server <- function(input, output, session) {
     return(hwh)
   })
 
-  #Here we hide/show/select tabs.
-  output$resultHtm <- reactive({
-    message(sprintf("TraitQuery: \"%s\" (%s)", traitQryName(), qryIds()$trait))
-    message(sprintf("GeneQuery: \"%s\" (%s)", geneQryName(), qryIds()$gene))
+  # Hide/show/select tabs, based on query inputs.
+  observeEvent(qryIds(), {
     if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
       hideTab("tabset", "hitsPlot")
       hideTab("tabset", "hitsTable")
       hideTab("tabset", "provenance")
       updateTabsetPanel(session, "tabset", selected="traits")
-      return("No query. Search? Browse?")
-    }
-    htm <- sprintf("<B>Results:</B>")
-    if (qryType() %in% c("trait", "genetrait")) {
-      htm <- paste0(htm, sprintf("\"%s\"", traitQryName()))
-      htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", efoId2Uri(qryIds()$trait), qryIds()$trait))
-    }
-    if (qryType() %in% c("gene", "genetrait")) {
-      htm <- paste0(htm, sprintf("\"%s\"", geneQryName()))
-      htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"https://pharos.nih.gov/targets/%s\">%s</a>)", qryIds()$gene, qryIds()$gene))
-    }
-    if (qryType() %in% c("gene", "trait")) {
+    } else if (qryType() %in% c("gene", "trait")) {
       showTab("tabset", "hitsPlot")
       showTab("tabset", "hitsTable")
       hideTab("tabset", "provenance")
@@ -540,6 +522,23 @@ server <- function(input, output, session) {
       hideTab("tabset", "hitsTable")
       showTab("tabset", "provenance")
       updateTabsetPanel(session, "tabset", selected="provenance")
+    }
+  })
+
+  output$resultHtm <- reactive({
+    if (is.na(qryIds()$trait) & is.na(qryIds()$gene)) {
+      return("No query. Search? Browse?")
+    }
+    message(sprintf("TraitQuery: \"%s\" (%s)", traitQryName(), qryIds()$trait))
+    message(sprintf("GeneQuery: \"%s\" (%s)", geneQryName(), qryIds()$gene))
+    htm <- sprintf("<B>Results:</B>")
+    if (qryType() %in% c("trait", "genetrait")) {
+      htm <- paste0(htm, sprintf("\"%s\"", traitQryName()))
+      htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"%s\">%s</a>)", efoId2Uri(qryIds()$trait), qryIds()$trait))
+    }
+    if (qryType() %in% c("gene", "genetrait")) {
+      htm <- paste0(htm, sprintf("\"%s\"", geneQryName()))
+      htm <- paste0(htm, sprintf(" (<a target=\"_blank\" href=\"https://pharos.nih.gov/targets/%s\">%s</a>)", qryIds()$gene, qryIds()$gene))
     }
     if (!is.null(Hits())) {
       htm <- paste0(htm, sprintf("; N_%s: %d shown (%d total)", hitType(), Hits2Show()[, .N], Hits()[, .N]))
@@ -637,7 +636,7 @@ server <- function(input, output, session) {
                 marker=list(symbol="circle", size=markerSize()), text=markerTextGenes(),
                 color=~TDL, colors=c("gray", "black", "red", "green", "blue"))
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
-          title=paste0(traitQryName(), "<br>", "(", qryType(), ":", qryIds()$trait, ")"),
+          title=paste0(toupper(qryType()), ":\"", traitQryName(), "\"<br>", "(", qryIds()$trait, ")"),
           margin=list(t=80,r=50,b=60,l=60), showlegend=T,
 	  legend=list(x=1, y=1, traceorder="normal", orientation="h", xanchor="right", yanchor="auto", itemsizing="constant", borderwidth=1, bordercolor="gray"),
           font=list(family="monospace", size=16)
@@ -651,7 +650,7 @@ server <- function(input, output, session) {
         p <- plot_ly(type='scatter', mode='markers', data=Hits2Plot(), x=~meanRankScore, y=~or_median,
                 marker=list(symbol="circle", size=markerSize()), text=markerTextTraits())
       p <- config(p, displayModeBar=F) %>% layout(xaxis=xaxis, yaxis=yaxis, 
-          title=paste0(geneQryName(), "<br>", "(", qryType(), ":", qryIds()$gene, ")"),
+          title=paste0(toupper(qryType()), ":\"", geneQryName(), "\"<br>", "(", qryIds()$gene, ")"),
           margin=list(t=80,r=50,b=60,l=60), showlegend=F,
 	  legend=list(x=1, y=1, traceorder="normal", orientation="h", xanchor="right", yanchor="auto", itemsizing="constant", borderwidth=1, bordercolor="gray"),
           font=list(family="monospace", size=16)
