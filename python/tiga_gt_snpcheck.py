@@ -10,7 +10,7 @@ Inputs:
  - Ensembl human genes file 
 """
 ###
-import sys,os,re,argparse,time,logging,tqdm
+import sys,os,os.path,re,argparse,time,logging,tqdm
 import pandas as pd
 import numpy as np
 
@@ -69,9 +69,9 @@ def CheckStudySnps(gwasId, gwas, assn, fout):
 
 #############################################################################
 if __name__=="__main__":
-  SRCDATADIR=os.environ["HOME"]+"/../data/GWASCatalog/releases/2020/12/16/"
-  GWAS_FILE=SRCDATADIR+"/gwas-catalog-studies_ontology-annotated.tsv"
-  ASSN_FILE=SRCDATADIR+"/gwas-catalog-associations_ontology-annotated.tsv"
+  SRCDATADIR = os.path.normpath(os.environ["HOME"]+"/../data/GWASCatalog/releases/2020/12/16/")
+  GWAS_FILE = SRCDATADIR+"/gwas-catalog-studies_ontology-annotated.tsv"
+  ASSN_FILE = SRCDATADIR+"/gwas-catalog-associations_ontology-annotated.tsv"
   epilog="""\
 Example traits: EFO_0004541
 Example genes: ENSG00000160785
@@ -83,8 +83,8 @@ Example studies: GCST006001, GCST005145, GCST002390
   parser.add_argument("-g", "--ensemblId", help="Input gene (Ensembl ID)")
   parser.add_argument("-t", "--efoId", help="Input trait (EFO ID)")
   parser.add_argument("-s", "--studyId", help="Input study (GST ID)")
-  parser.add_argument("--gwas_file", default=GWAS_FILE, help="GWAS Catalog study file")
-  parser.add_argument("--assn_file", default=ASSN_FILE, help="GWAS Catalog association file")
+  parser.add_argument("--gwas_file", default=GWAS_FILE, help=f"GWAS Catalog study file [{GWAS_FILE}]")
+  parser.add_argument("--assn_file", default=ASSN_FILE, help=f"GWAS Catalog association file [{ASSN_FILE}]")
   parser.add_argument("--o", dest="ofile", help="(TSV)")
   parser.add_argument("-v", "--verbose", action="count", default=0)
   args = parser.parse_args()
