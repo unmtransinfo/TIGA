@@ -147,6 +147,21 @@ cat $tsvfile_assn |sed -e '1d' \
 	|perl -n perl/snp2gene_mapped.pl \
 	>>${snp2genefile}
 #
+###
+# (Alternative to download file mappings, which may be incomplete/different.)
+# SNPs, SNP2GENE, via API:
+cat $tsvfile_assn |sed -e '1d' \
+	|awk -F '\t' '{print $22}' \
+	|perl -pe 's/[; ]+/\n/g' \
+	|perl -pe 's/ x /\n/g' \
+	|grep '^rs' \
+	|sort -u \
+	>${ODIR}/gwascat_snp.rs
+printf "SNPs: %d\n" $(cat $ODIR/gwascat_snp.rs |wc -l)
+python3 -m BioClients.gwascatalog.Client get_snps \
+	--i ${ODIR}/gwascat_snp.rs
+	--o ${ODIR}/gwascat_snp_API.tsv
+#
 #############################################################################
 ### Entrez gene IDs: UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS
 #if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
