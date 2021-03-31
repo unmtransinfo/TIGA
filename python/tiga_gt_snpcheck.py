@@ -56,7 +56,7 @@ def CheckStudySnps(gwasId, gwas, assn, fout):
   if assn_this.empty:
     logging.info(f"ASSN: Study {gwasId} not found in associations.")
     return
-  assn_this['P-VALUE'] = pd.to_numeric(assn_this['P-VALUE'])
+  assn_this.loc[:,'P-VALUE'] = pd.to_numeric(assn_this['P-VALUE'])
   assn_this = assn_this.sort_values(["SNPS"])
   ensgs = set()
   for i in range(assn_this.shape[0]):

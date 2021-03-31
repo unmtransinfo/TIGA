@@ -2,7 +2,7 @@
 #############################################################################
 ### Go_TIGA_DbCreate.sh (MySql) 
 #############################################################################
-### PROBABLY SHOULD OBSOLETE THIS AND IMPLEMENT ALL IN R.
+### PROBABLY SHOULD OBSOLETE THIS AND IMPLEMENT ALL IN Python/Pandas.
 #############################################################################
 ### EFO-subclass study-study pairs efo_sub_gwas.tsv now from gwascat_trait.R.
 #############################################################################
@@ -35,17 +35,50 @@ fi
 printf "DBNAME: %s\n" "${DBNAME}"
 #
 # INPUT FILES:
-gwasfile="${DATADIR}/gwascat_gwas.tsv" #gwascat_gwas.R
-assnfile="${DATADIR}/gwascat_assn.tsv" #gwascat_assn.R
-snp2genefile="${DATADIR}/gwascat_snp2gene.tsv" #Go_TIGA_Workflow.sh,snp2gene_reported.pl,snp2gene_mapped.pl
-traitfile="${DATADIR}/gwascat_trait.tsv" #gwascat_trait.R
-icitefile="${DATADIR}/gwascat_icite.tsv" #BioClients.icite.Client
+if [ $# -gt 2 ]; then
+	gwasfile=$3
+else
+	gwasfile="${DATADIR}/gwascat_gwas.tsv" #gwascat_gwas.R
+fi
+if [ $# -gt 3 ]; then
+	assnfile=$4
+else
+	assnfile="${DATADIR}/gwascat_assn.tsv" #gwascat_assn.R
+fi
+if [ $# -gt 4 ]; then
+	snp2genefile=$5
+else
+	snp2genefile="${DATADIR}/gwascat_snp2gene.tsv" #Go_TIGA_Workflow.sh,snp2gene_reported.pl,snp2gene_mapped.pl
+fi
+if [ $# -gt 5 ]; then
+	traitfile=$6
+else
+	traitfile="${DATADIR}/gwascat_trait.tsv" #gwascat_trait.R
+fi
+if [ $# -gt 6 ]; then
+	icitefile=$7
+else
+	icitefile="${DATADIR}/gwascat_icite.tsv" #BioClients.icite.Client
+fi
+# OUTPUT FILES:
+if [ $# -gt 7 ]; then
+	ofile_gwas=$8
+else
+	ofile_gwas="${DATADIR}/gwascat_counts.tsv"
+fi
+if [ $# -gt 8 ]; then
+	ofile_trait=$9
+else
+	ofile_trait="${DATADIR}/trait_counts.tsv"
+fi
 #
-printf "gwasfile: %s\n" "$gwasfile"
-printf "assnfile: %s\n" "$assnfile"
-printf "snp2genefile: %s\n" "$snp2genefile"
-printf "traitfile: %s\n" "$traitfile"
-printf "icitefile: %s\n" "$icitefile"
+printf "Input gwasfile: %s\n" "$gwasfile"
+printf "Input assnfile: %s\n" "$assnfile"
+printf "Input snp2genefile: %s\n" "$snp2genefile"
+printf "Input traitfile: %s\n" "$traitfile"
+printf "Input icitefile: %s\n" "$icitefile"
+printf "Output gwas counts: %s\n" "$ofile_gwas"
+printf "Output trait counts: %s\n" "$ofile_trait"
 #
 error=""
 for f in $gwasfile $assnfile $snp2genefile $traitfile $icitefile ; do
@@ -58,12 +91,6 @@ if [ "$error" ]; then
 	printf "Quitting due to missing file[s].\n"
 	exit
 fi
-#
-# OUTPUT FILES:
-ofile_gwas="${DATADIR}/gwascat_counts.tsv"
-ofile_trait="${DATADIR}/trait_counts.tsv"
-printf "Output gwas counts: %s\n" "$ofile_gwas"
-printf "Output trait counts: %s\n" "$ofile_trait"
 #
 mysql -v -e "DROP DATABASE $DBNAME"
 mysql -v -e "CREATE DATABASE $DBNAME"
