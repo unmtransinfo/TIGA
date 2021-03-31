@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 
 ASSN_COLS = ["MAPPED_TRAIT_URI", "SNPS", "MAPPED_GENE", "SNP_GENE_IDS", "UPSTREAM_GENE_ID", "DOWNSTREAM_GENE_ID", "P-VALUE", "OR or BETA", "STUDY ACCESSION", "PUBMEDID"]
-
+PVAL_THRESHOLD=5e-8
 #############################################################################
 def CheckGeneSnps(ensemblId, gwas, assn, fout):
   assn_gene_this = assn.loc[(assn.SNP_GENE_IDS.str.find(ensemblId)>=0)]
@@ -56,6 +56,7 @@ def CheckStudySnps(gwasId, gwas, assn, fout):
   if assn_this.empty:
     logging.info(f"ASSN: Study {gwasId} not found in associations.")
     return
+  assn_this['P-VALUE'] = pd.to_numeric(assn_this['P-VALUE'])
   assn_this = assn_this.sort_values(["SNPS"])
   ensgs = set()
   for i in range(assn_this.shape[0]):
@@ -63,7 +64,7 @@ def CheckStudySnps(gwasId, gwas, assn, fout):
     ensgs_this = set([assn_this.SNP_GENE_IDS.astype('str').values[i]]+re.split(r"[\s,]+", assn_this.UPSTREAM_GENE_ID.astype('str').values[i])+re.split(r"[\s,]+", assn_this.DOWNSTREAM_GENE_ID.astype('str').values[i]))
     ensgs_this -= set(["nan"])
     ensgs |= ensgs_this
-    logging.info(f"{i+1}. SNP: {assn_this.SNPS.values[i]}: ensemblIds ({len(ensgs_this)}): {str(ensgs_this)}")
+    logging.info(f"{i+1:2d}. {gwasId}: {assn_this.SNPS.values[i]}: ({len(ensgs_this)}) {str(ensgs_this)}; pValue={assn_this['P-VALUE'].values[i]:g}({'OK' if assn_this['P-VALUE'].values[i]<=PVAL_THRESHOLD else 'NOTOK'})")
   logging.info(f"ASSN: Study {gwasId} found; associations: {assn_this.shape[0]}; SNPs: {assn_this.SNPS.nunique()}; mapped genes: {len(ensgs)}")
   assn_this[ASSN_COLS].drop_duplicates().to_csv(fout, "\t", index=False)
 

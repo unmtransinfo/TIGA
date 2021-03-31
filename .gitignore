@@ -8,6 +8,7 @@ Rplot*
 
 data
 old/
+wget-log
 
 R/tiga/rsconnect/
 R/tiga/*.tsv.gz

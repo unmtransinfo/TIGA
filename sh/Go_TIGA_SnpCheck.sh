@@ -27,9 +27,9 @@ ${cwd}/python/setman.py --iA $DATADIR/z.rs --iB $DATADIR/old/gwascat_Snps-202008
 # INFO:Unique entities in output: 3
 ###
 # Notes:
-# rs2273833 (in GCST006001)
-# rs6684514 (in GCST002390, GCST005145)
-# rs144991356 (in GCST005145)
+# rs2273833 (GCST006001; pValue=1E-18)
+# rs6684514 (GCST002390; pValue=1E-23), (GCST005145; pValue=1E-7)
+# rs144991356 (GCST005145; pValue=3E-8)
 # 
 # gwascat_Snps.tsv from GWAS Catalog REST API via
 # BioClients.gwascatalog.Client get_snps, e.g.
