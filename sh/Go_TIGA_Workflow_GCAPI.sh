@@ -59,6 +59,7 @@ if [ ! -d $ODIR ]; then
 	mkdir -p $ODIR
 fi
 #exit #DEBUG
+#ODIR="$DATADIR/20210212_GCAPI" #DEBUG
 #
 SRCDIR="$GWASCATALOGDIR/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
 #

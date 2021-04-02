@@ -87,24 +87,35 @@ if __name__=="__main__":
 	}).assign(**{col_split:np.concatenate(s2gm[col_split].values)})[s2gm.columns.tolist()]
   s2gm = s2gm.drop_duplicates()
   logging.info(f"After spliting delimited ENSGs, rows: {s2gm.shape[0]}")
+  s2gm["ENSG"] = s2gm["SNP_GENE_IDS"]
 
+  #Series.str.strip() ?
   s2gm["GSYMB"] = ""
   s2gm["MAPPED_OR_REPORTED"] = ""
-  s2gm.loc[s2gm["MAPPED_GENE"].str.strip()!="", "GSYMB"] = s2gm.loc[s2gm["MAPPED_GENE"].str.strip()!="", "MAPPED_GENE"]
-  s2gm.loc[s2gm["MAPPED_GENE"].str.strip()!="", "MAPPED_OR_REPORTED"] = "m"
-  s2gm.loc[s2gm["UPSTREAM_GENE_ID"].str.strip()!="", "GSYMB"] = s2gm.loc[s2gm["UPSTREAM_GENE_ID"].str.strip()!="", "UPSTREAM_GENE_ID"]
-  s2gm.loc[s2gm["UPSTREAM_GENE_ID"].str.strip()!="", "MAPPED_OR_REPORTED"] = "mu"
-  s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"].str.strip()!="", "GSYMB"] = s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"].str.strip()!="", "DOWNSTREAM_GENE_ID"]
-  s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"].str.strip()!="", "MAPPED_OR_REPORTED"] = "md"
-
-  s2gm = s2gm[["STUDY_ACCESSION", "SNPS", "GSYMB", "SNP_GENE_IDS", "MAPPED_OR_REPORTED"]]
-  s2gm.columns = ["STUDY_ACCESSION", "SNPS", "GSYMB", "ENSG", "MAPPED_OR_REPORTED"]
+  s2gm = s2gm.replace(np.nan, "", regex=True)
+  n_m = (s2gm["SNP_GENE_IDS"]!="").sum()
+  n_mu = (s2gm["UPSTREAM_GENE_ID"]!="").sum()
+  n_md = (s2gm["DOWNSTREAM_GENE_ID"]!="").sum()
+  logging.info(f"n_m={n_m}; n_mu={n_mu}; n_md={n_md}; n_total={n_m+n_mu+n_md}; n_row={s2gm.shape[0]}")
+  s2gm.loc[s2gm["SNP_GENE_IDS"]!="", "GSYMB"] = s2gm.loc[s2gm["MAPPED_GENE"]!="", "MAPPED_GENE"]
+  s2gm.loc[s2gm["SNP_GENE_IDS"]!="", "MAPPED_OR_REPORTED"] = "m"
+  s2gm.loc[s2gm["UPSTREAM_GENE_ID"]!="", "GSYMB"] = s2gm.loc[s2gm["UPSTREAM_GENE_ID"]!="", "MAPPED_GENE"]
+  s2gm.loc[s2gm["UPSTREAM_GENE_ID"]!="", "ENSG"] = s2gm.loc[s2gm["UPSTREAM_GENE_ID"]!="", "UPSTREAM_GENE_ID"]
+  s2gm.loc[s2gm["UPSTREAM_GENE_ID"]!="", "MAPPED_OR_REPORTED"] = "mu"
+  s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"]!="", "GSYMB"] = s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"]!="", "MAPPED_GENE"]
+  s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"]!="", "ENSG"] = s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"]!="", "DOWNSTREAM_GENE_ID"]
+  s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"]!="", "MAPPED_OR_REPORTED"] = "md"
+  #
+  tag="MAPPED_OR_REPORTED"
+  for key,val in s2gm[tag].value_counts().iteritems(): logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
+  #
+  # TEST: does this change the counts? Yes, oops.
+  #
+  s2gm = s2gm[["STUDY_ACCESSION", "SNPS", "GSYMB", "ENSG", "MAPPED_OR_REPORTED"]]
   #
   s2g = pd.concat([s2gr, s2gm])
   #
-  tag="MAPPED_OR_REPORTED"
-  for key,val in s2g[tag].value_counts().iteritems():
-    logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
+  for key,val in s2g[tag].value_counts().iteritems(): logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
   #
   s2g.to_csv(fout, "\t", index=False)
   #

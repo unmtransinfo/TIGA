@@ -176,15 +176,17 @@ message(sprintf("IDG-List targets mapped by GWAS: %d", tcrd[(idgList & in_gwasca
 #
 ### g2t should have one row for each gene-snp-study-trait association. Only 1 PUBMEDID per study.
 g2t <- unique(snp2gene[, .(ensemblId, ensemblSymb, SNP, STUDY_ACCESSION)])
-g2t <- merge(g2t, gwas[, .(STUDY_ACCESSION, PUBMEDID, study_N)], by="STUDY_ACCESSION", all.x=T, all.y=F)
+g2t <- merge(g2t, gwas[, .(STUDY_ACCESSION, PUBMEDID, study_N)], by="STUDY_ACCESSION", all.x=T, all.y=F, allow.cartesian=T)
 g2t <- merge(g2t, assn[, .(SNPS, STUDY_ACCESSION, PVALUE_MLOG, UPSTREAM_GENE_DISTANCE, DOWNSTREAM_GENE_DISTANCE, oddsratio, beta)], 
-             all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"))
+             all.x=T, all.y=F, by.x=c("SNP", "STUDY_ACCESSION"), by.y=c("SNPS", "STUDY_ACCESSION"), allow.cartesian=T)
 #
 trait[, traitNstudy := fifelse(is.na(TRAIT_URI), as.integer(NA), uniqueN(STUDY_ACCESSION)), by="TRAIT_URI"]
 g2t <- merge(g2t, trait, all.x=F, all.y=F, by="STUDY_ACCESSION", allow.cartesian=T)
+message("DEBUG: merge 3 done.")
 ###
 # For PC filter:
-g2t <- merge(g2t, tcrd[!is.na(ensemblGeneId), c("ensemblGeneId", "TDL")], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F, allow.cartesian=F)
+g2t <- merge(g2t, tcrd[!is.na(ensemblGeneId), c("ensemblGeneId", "TDL")], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F, allow.cartesian=T)
+message("DEBUG: merge 4 done.")
 #
 debug_test <- function(ensg_test, g2t) {
   g2t_test <- g2t[ensemblId==ensg_test]
@@ -199,15 +201,16 @@ debug_test("ENSG00000170312", g2t)
 reason_txt <- "Not protein-coding with TCRD TDL."
 badrows_notpc <- g2t[, is.na(TDL)]
 print(sprintf("%s: rows: %d", reason_txt, sum(badrows_notpc, na.rm=T)))
-filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_notpc]$STUDY_ACCESSION, g2t[!badrows_notpc]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_notpc]$STUDY_ACCESSION, g2t[!badrows_notpc]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F, allow.cartesian=T))
+message("DEBUG: merge 5 done.")
 filtered_studies[, reason := reason_txt]
 message(sprintf("Filtered studies (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)]-filtered_studies[, uniqueN(STUDY_ACCESSION)], filtered_studies[, uniqueN(STUDY_ACCESSION)], 100*filtered_studies[, uniqueN(STUDY_ACCESSION)]/g2t[, uniqueN(STUDY_ACCESSION)]))
 #
-filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_notpc]$TRAIT_URI, g2t[!badrows_notpc]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
+filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_notpc]$TRAIT_URI, g2t[!badrows_notpc]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F, allow.cartesian=T))
 filtered_traits[, reason := reason_txt]
 message(sprintf("Filtered traits (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(TRAIT_URI)], g2t[, uniqueN(TRAIT_URI)]-filtered_traits[, uniqueN(TRAIT_URI)], filtered_traits[, uniqueN(TRAIT_URI)], 100*filtered_traits[, uniqueN(TRAIT_URI)]/g2t[, uniqueN(TRAIT_URI)]))
 #
-filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_notpc]$ensemblId, g2t[!badrows_notpc]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
+filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_notpc]$ensemblId, g2t[!badrows_notpc]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F, allow.cartesian=T))
 filtered_genes[, reason := reason_txt]
 message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes[, uniqueN(ensemblId)], filtered_genes[, uniqueN(ensemblId)], 100*filtered_genes[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
 ###
@@ -215,15 +218,15 @@ message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[
 reason_txt <- "Missing MAPPED_TRAIT_URI"
 badrows_traituri <- (is.na(g2t$TRAIT_URI))
 print(sprintf("%s: rows: %d", reason_txt, sum(badrows_traituri, na.rm=T)))
-filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_traituri]$STUDY_ACCESSION, g2t[!badrows_traituri]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+filtered_studies <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_traituri]$STUDY_ACCESSION, g2t[!badrows_traituri]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F, allow.cartesian=T))
 filtered_studies[, reason := reason_txt]
 message(sprintf("Filtered studies (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)]-filtered_studies[, uniqueN(STUDY_ACCESSION)], filtered_studies[, uniqueN(STUDY_ACCESSION)], 100*filtered_studies[, uniqueN(STUDY_ACCESSION)]/g2t[, uniqueN(STUDY_ACCESSION)]))
 #
-filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_traituri]$TRAIT_URI, g2t[!badrows_traituri]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
+filtered_traits <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_traituri]$TRAIT_URI, g2t[!badrows_traituri]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F, allow.cartesian=T))
 filtered_traits[, reason := reason_txt]
 message(sprintf("Filtered traits (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(TRAIT_URI)], g2t[, uniqueN(TRAIT_URI)]-filtered_traits[, uniqueN(TRAIT_URI)], filtered_traits[, uniqueN(TRAIT_URI)], 100*filtered_traits[, uniqueN(TRAIT_URI)]/g2t[, uniqueN(TRAIT_URI)]))
 #
-filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_traituri]$ensemblId, g2t[!badrows_traituri]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
+filtered_genes <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_traituri]$ensemblId, g2t[!badrows_traituri]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F, allow.cartesian=T))
 filtered_genes[, reason := reason_txt]
 message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes[, uniqueN(ensemblId)], filtered_genes[, uniqueN(ensemblId)], 100*filtered_genes[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
 debug_test("ENSG00000170312", g2t[!badrows_traituri])
@@ -234,18 +237,18 @@ message(sprintf("P-value significance threshold: %g; P-value minus-log threshold
 reason_txt <- sprintf("P-value fails significance threshold (%g) (mlog=%.1f)", PVAL_THRESHOLD, PVAL_MLOG_THRESHOLD)
 badrows_pval <- (g2t$PVALUE_MLOG<PVAL_MLOG_THRESHOLD)
 print(sprintf("%s: rows: %d", reason_txt, sum(badrows_pval, na.rm=T)))
-filtered_studies_pval <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_pval]$STUDY_ACCESSION, g2t[!badrows_pval]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+filtered_studies_pval <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_pval]$STUDY_ACCESSION, g2t[!badrows_pval]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F, allow.cartesian=T))
 filtered_studies_pval[, reason := reason_txt]
 message(sprintf("Filtered studies (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)]-filtered_studies_pval[, uniqueN(STUDY_ACCESSION)], filtered_studies_pval[, uniqueN(STUDY_ACCESSION)], 100*filtered_studies_pval[, uniqueN(STUDY_ACCESSION)]/g2t[, uniqueN(STUDY_ACCESSION)]))
 filtered_studies <- rbindlist(list(filtered_studies, filtered_studies_pval))
 #
-filtered_traits_pval <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_pval]$TRAIT_URI, g2t[!badrows_pval]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
+filtered_traits_pval <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_pval]$TRAIT_URI, g2t[!badrows_pval]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F, allow.cartesian=T))
 filtered_traits_pval[, reason := reason_txt]
 message(sprintf("Filtered traits (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(TRAIT_URI)], g2t[, uniqueN(TRAIT_URI)]-filtered_traits_pval[, uniqueN(TRAIT_URI)],
 filtered_traits_pval[, uniqueN(TRAIT_URI)], 100*filtered_traits_pval[, uniqueN(TRAIT_URI)]/g2t[, uniqueN(TRAIT_URI)]))
 filtered_traits <- rbindlist(list(filtered_traits, filtered_traits_pval))
 #
-filtered_genes_pval <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_pval]$ensemblId, g2t[!badrows_pval]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
+filtered_genes_pval <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_pval]$ensemblId, g2t[!badrows_pval]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F, allow.cartesian=T))
 filtered_genes_pval[, reason := reason_txt]
 message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes_pval[, uniqueN(ensemblId)],
 filtered_genes_pval[, uniqueN(ensemblId)], 100*filtered_genes_pval[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
@@ -257,18 +260,18 @@ badrows_effect <- (is.na(g2t$oddsratio) & is.na(g2t$beta))
 reason_txt <- "Missing both OR and beta"
 print(sprintf("%s: rows: %d", reason_txt, sum(badrows_effect, na.rm=T)))
 ###
-filtered_studies_effect <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_effect]$STUDY_ACCESSION, g2t[!badrows_effect]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F))
+filtered_studies_effect <- unique(merge(data.table(STUDY_ACCESSION = setdiff(g2t[badrows_effect]$STUDY_ACCESSION, g2t[!badrows_effect]$STUDY_ACCESSION)), gwas[, .(STUDY_ACCESSION, STUDY)], by="STUDY_ACCESSION", all.x=T, all.y=F, allow.cartesian=T))
 filtered_studies_effect[, reason := reason_txt]
 message(sprintf("Filtered studies (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(STUDY_ACCESSION)], g2t[, uniqueN(STUDY_ACCESSION)]-filtered_studies_effect[, uniqueN(STUDY_ACCESSION)], filtered_studies_effect[, uniqueN(STUDY_ACCESSION)], 100*filtered_studies_effect[, uniqueN(STUDY_ACCESSION)]/g2t[, uniqueN(STUDY_ACCESSION)]))
 filtered_studies <- rbindlist(list(filtered_studies, filtered_studies_effect))
 #
-filtered_traits_effect <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_effect]$TRAIT_URI, g2t[!badrows_effect]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F))
+filtered_traits_effect <- unique(merge(data.table(TRAIT_URI = setdiff(g2t[badrows_effect]$TRAIT_URI, g2t[!badrows_effect]$TRAIT_URI)), trait[, .(TRAIT_URI, TRAIT)], by="TRAIT_URI", all.x=T, all.y=F, allow.cartesian=T))
 filtered_traits_effect[, reason := reason_txt]
 message(sprintf("Filtered traits (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(TRAIT_URI)], g2t[, uniqueN(TRAIT_URI)]-filtered_traits_effect[, uniqueN(TRAIT_URI)],
 filtered_traits_effect[, uniqueN(TRAIT_URI)], 100*filtered_traits_effect[, uniqueN(TRAIT_URI)]/g2t[, uniqueN(TRAIT_URI)]))
 filtered_traits <- rbindlist(list(filtered_traits, filtered_traits_effect))
 #
-filtered_genes_effect <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_effect]$ensemblId, g2t[!badrows_effect]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F))
+filtered_genes_effect <- unique(merge(data.table(ensemblId = setdiff(g2t[badrows_effect]$ensemblId, g2t[!badrows_effect]$ensemblId)), unique(g2t[, .(ensemblId, ensemblSymb)]), by="ensemblId", all.x=T, all.y=F, allow.cartesian=T))
 filtered_genes_effect[, reason := reason_txt]
 message(sprintf("Filtered genes (%s): %d -> %d (-%d; -%.1f%%)", reason_txt, g2t[, uniqueN(ensemblId)], g2t[, uniqueN(ensemblId)]-filtered_genes_effect[, uniqueN(ensemblId)],
 filtered_genes_effect[, uniqueN(ensemblId)], 100*filtered_genes_effect[, uniqueN(ensemblId)]/g2t[, uniqueN(ensemblId)]))
@@ -282,7 +285,7 @@ filtered_studies <- filtered_studies[, reason := paste0(reason, collapse=" ; "),
 filtered_traits <- filtered_traits[, reason := paste0(reason, collapse=" ; "), by=c("TRAIT_URI", "TRAIT")]
 filtered_genes <- filtered_genes[, reason := paste0(reason, collapse=" ; "), by=c("ensemblId", "ensemblSymb")]
 #
-filtered_genes <- merge(filtered_genes, tcrd[, .(ensemblGeneId, geneName=tcrdTargetName, geneFamily=tcrdTargetFamily, TDL)], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F)
+filtered_genes <- merge(filtered_genes, tcrd[, .(ensemblGeneId, geneName=tcrdTargetName, geneFamily=tcrdTargetFamily, TDL)], by.x="ensemblId", by.y="ensemblGeneId", all.x=T, all.y=F, allow.cartesian=T)
 filtered_genes <- filtered_genes[, .(ensemblId, ensemblSymb, geneName, geneFamily, TDL, reason)]
 message(sprintf("Filtered: Gene (ensemblId) count: %d", filtered_genes[, uniqueN(ensemblId)]))
 message(sprintf("Filtered: Missing gene symbols: %d", filtered_genes[is.na(ensemblSymb), uniqueN(ensemblId)]))
