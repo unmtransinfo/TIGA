@@ -10,7 +10,7 @@ import numpy as np
 
 if __name__=="__main__":
   parser = argparse.ArgumentParser(description='GWAS Catalog SNP2GENE links')
-  parser.add_argument("INPUT_GWASCAT_ASSN_FILE")
+  parser.add_argument("INPUT_GWASCAT_ASSN_FILE", help="Cleaned associations, from gwascat_assn.R")
   parser.add_argument("--o", dest="ofile", required=False, help="OUTPUT_SNP2GENE_REPORTED")
   parser.add_argument("-v", "--verbose", dest="verbose", action="count", default=0)
   args = parser.parse_args()
@@ -90,16 +90,21 @@ if __name__=="__main__":
 
   s2gm["GSYMB"] = ""
   s2gm["MAPPED_OR_REPORTED"] = ""
-  s2gm.loc[(s2gm["MAPPED_GENE"]!=""), "GSYMB"] = s2gm[(s2gm["MAPPED_GENE"]!=""), "MAPPED_GENE"]
-  s2gm.loc[(s2gm["MAPPED_GENE"]!=""), "MAPPED_OR_REPORTED"] = "m"
-  s2gm.loc[(s2gm["UPSTREAM_GENE_ID"]!=""), "GSYMB"] = s2gm[(s2gm["UPSTREAM_GENE_ID"]!=""), "UPSTREAM_GENE_ID"]
-  s2gm.loc[(s2gm["UPSTREAM_GENE_ID"]!=""), "MAPPED_OR_REPORTED"] = "mu"
-  s2gm.loc[(s2gm["DOWNSTREAM_GENE_ID"]!=""), "GSYMB"] = s2gm[(s2gm["DOWNSTREAM_GENE_ID"]!=""), "DOWNSTREAM_GENE_ID"]
-  s2gm.loc[(s2gm["DOWNSTREAM_GENE_ID"]!=""), "MAPPED_OR_REPORTED"] = "mu"
+  s2gm.loc[s2gm["MAPPED_GENE"].str.strip()!="", "GSYMB"] = s2gm.loc[s2gm["MAPPED_GENE"].str.strip()!="", "MAPPED_GENE"]
+  s2gm.loc[s2gm["MAPPED_GENE"].str.strip()!="", "MAPPED_OR_REPORTED"] = "m"
+  s2gm.loc[s2gm["UPSTREAM_GENE_ID"].str.strip()!="", "GSYMB"] = s2gm.loc[s2gm["UPSTREAM_GENE_ID"].str.strip()!="", "UPSTREAM_GENE_ID"]
+  s2gm.loc[s2gm["UPSTREAM_GENE_ID"].str.strip()!="", "MAPPED_OR_REPORTED"] = "mu"
+  s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"].str.strip()!="", "GSYMB"] = s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"].str.strip()!="", "DOWNSTREAM_GENE_ID"]
+  s2gm.loc[s2gm["DOWNSTREAM_GENE_ID"].str.strip()!="", "MAPPED_OR_REPORTED"] = "md"
 
-  s2gm = s2gm["STUDY_ACCESSION", "SNPS", "GSYMB", "SNP_GENE_IDS", "MAPPED_OR_REPORTED"]
+  s2gm = s2gm[["STUDY_ACCESSION", "SNPS", "GSYMB", "SNP_GENE_IDS", "MAPPED_OR_REPORTED"]]
   s2gm.columns = ["STUDY_ACCESSION", "SNPS", "GSYMB", "ENSG", "MAPPED_OR_REPORTED"]
-
   #
   s2g = pd.concat([s2gr, s2gm])
+  #
+  tag="MAPPED_OR_REPORTED"
+  for key,val in s2g[tag].value_counts().iteritems():
+    logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
+  #
   s2g.to_csv(fout, "\t", index=False)
+  #
