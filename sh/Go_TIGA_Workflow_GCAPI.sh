@@ -11,8 +11,12 @@
 ### Previously (2018), additional information is available via the API,
 ### "Genomic Mappings" with EnsemblIDs for mapped genes, now available via
 ### download assn file.
+### Issue: API provides many more "Ensembl_pipeline" gene mappings than download
+### file, so we merge both.
+#############################################################################
 ### From EnsemblIDs, we query Ensembl API for annotations including gene biotype,
-### thereby filtering for protein_coding.
+### including "protein_coding", but prefer TCRD mappings to define protein
+### coding.
 #############################################################################
 # Install BioClients from https://github.com/jeremyjyang/BioClients
 # or with "pip3 install BioClients".
@@ -34,6 +38,7 @@ DATADIR="${cwd}/data"
 #GC_REL="2020-07-15"
 #GC_REL="2020-12-16"
 #GC_REL="2021-02-12"
+#GC_REL="2021-03-29"
 if [ $# -eq 1 ]; then
 	GC_REL=$1
 else
@@ -129,28 +134,17 @@ snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 printf "STUDY_ACCESSION\tSNP\tGSYMB\tENSG\tREPORTED_OR_MAPPED\n" >${snp2genefile_file}
 #
 #############################################################################
-### REPORTED GENES (ignored by TIGA):
-#
-# "REPORTED_GENE(S),SNPS,STUDY_ACCESSION" (14, 22, 37)
-###
-cat $tsvfile_assn |sed -e '1d' \
-	|perl -n perl/snp2gene_reported.pl \
-	>>${snp2genefile_file}
-#
-#############################################################################
 ### MAPPED GENES:
 ### Separate mapped into up-/down-stream.
 # "m" - mapped within gene
 # "mu" - mapped to upstream gene
 # "md" - mapped to downstream gene
-# UPSTREAM_GENE_ID,DOWNSTREAM_GENE_ID,SNP_GENE_IDS,SNPS,STUDY_ACCESSION (16,17,18,22,37)
-###
-cat $tsvfile_assn |sed -e '1d' \
-	|perl -n perl/snp2gene_mapped.pl \
-	>>${snp2genefile_file}
+### (REPORTED GENES not used for TIGA scoring.)
+#
+${cwd}/python/snp2gene.py $tsvfile_assn --o ${snp2genefile_file}
 #
 ###
-# (Alternative to download file mappings, which may be incomplete/different.)
+# (Alternative to download file; may be incomplete/different.)
 # SNPs, SNP2GENE, via API:
 cat $tsvfile_assn |sed -e '1d' \
 	|awk -F '\t' '{print $22}' \
@@ -262,19 +256,10 @@ ${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
 	--i $ODIR/gt_variables.tsv.gz \
 	--o $ODIR/gt_stats_mu.tsv.gz
 ###
-# Copy for TIGA web app.
-cp \
-	${ODIR}/gwascat_gwas.tsv \
-	${ODIR}/filtered_studies.tsv \
-	${ODIR}/filtered_genes.tsv \
-	${ODIR}/filtered_traits.tsv \
-	${ODIR}/gt_provenance.tsv.gz \
-	${ODIR}/gt_stats.tsv.gz \
-	${ODIR}/efo_graph.graphml.gz \
-	${ODIR}/tcrd_info.tsv \
-	${ODIR}/gwascat_release.txt \
-	${ODIR}/efo_release.txt \
-	${cwd}/R/tiga/data/
+printf "Copy files for TIGA web app with command:\n"
+printf "cp ${ODIR}/gwascat_gwas.tsv ${ODIR}/filtered_studies.tsv ${ODIR}/filtered_genes.tsv ${ODIR}/filtered_traits.tsv ${ODIR}/gt_provenance.tsv.gz ${ODIR}/gt_stats.tsv.gz ${ODIR}/efo_graph.graphml.gz ${ODIR}/tcrd_info.tsv ${ODIR}/gwascat_release.txt ${ODIR}/efo_release.txt ${cwd}/R/tiga/data/\n"
+printf "Remove TIGA web app Rmd with command:\n"
+printf "rm -f ${cwd}/R/tiga/tiga.Rmd\n"
 #
 printf "Elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
 #

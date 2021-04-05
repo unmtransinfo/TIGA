@@ -22,7 +22,7 @@ def ComputeMuScores(df, mutags, ofile):
       return
   df['nAbove'] = np.nan
   df['nBelow'] = np.nan
-  tq = tqdm.tqdm(total=df.shape[0], unit="rows")
+  if not quiet: tq = tqdm.tqdm(total=df.shape[0], unit="rows")
   for i in range(df.shape[0]):
     if not quiet: tq.update()
     vals_this = {tag:df[tag].iloc[i] for tag in mutags}
@@ -37,7 +37,7 @@ def ComputeMuScores(df, mutags, ofile):
     df.loc[i, 'nBelow'] = sum(ges_this)
     df.loc[i, 'nAbove'] = sum(lts_this)
     #if i==10: break #DEBUG
-  tq.close()
+  if not quiet: tq.close()
   df['muScore'] = df['nBelow'] - df['nAbove'] 
   df.to_csv(ofile, "\t", index=False)
   logging.info(f"nBelow range: [{min(df['nBelow'])},{max(df['nBelow'])}]")
