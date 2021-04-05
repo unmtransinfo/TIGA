@@ -155,7 +155,7 @@ cat $tsvfile_assn |sed -e '1d' \
 	>${ODIR}/gwascat_snp.rs
 printf "SNPs: %d\n" $(cat $ODIR/gwascat_snp.rs |wc -l)
 python3 -m BioClients.gwascatalog.Client get_snps \
-	--i ${ODIR}/gwascat_snp.rs
+	--i ${ODIR}/gwascat_snp.rs \
 	--o ${ODIR}/gwascat_snp_API.tsv
 #
 #SNP to gene links, from API:
