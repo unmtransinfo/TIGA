@@ -23,7 +23,7 @@ writeLines(sprintf("Output file: %s", ofile))
 snp2gene_file <- read_delim(ifile_file, "\t", col_types=cols(.default=col_character()))
 setDT(snp2gene_file )
 message(sprintf("FILE (%s) rows: %d", sub("^.*/", "", ifile_file), nrow(snp2gene_file)))
-snp2gene_file <- snp2gene_file[REPORTED_OR_MAPPED != "r"] #mapped only (m, mu, md)
+snp2gene_file <- snp2gene_file[MAPPED_OR_REPORTED != "r"] #mapped only (m, mu, md)
 message(sprintf("FILE unique SNPs: %d", snp2gene_file[, uniqueN(SNP)]))
 message(sprintf("FILE unique ENSGs: %d", snp2gene_file[, uniqueN(ENSG)]))
 message(sprintf("FILE unique SNP2GENE pairs: %d", nrow(unique(snp2gene_file[, .(SNP, ENSG)]))))
@@ -33,11 +33,11 @@ setDT(snp2gene_api )
 message(sprintf("API (%s) rows: %d", sub("^.*/", "", ifile_api), nrow(snp2gene_api)))
 setnames(snp2gene_api, old=c("rsId", "geneName"), new=c("SNP", "GSYMB"))
 snp2gene_api[, ENSG := ensemblGeneIds]
-snp2gene_api[, REPORTED_OR_MAPPED := ifelse((isUpstream), "mu", ifelse((isDownstream), "md", "m"))]
+snp2gene_api[, MAPPED_OR_REPORTED := ifelse((isUpstream), "mu", ifelse((isDownstream), "md", "m"))]
 snp2gene_api <- snp2gene_api[!is.na(ENSG)]
-snp2gene_api <- unique(snp2gene_api[, .(SNP, GSYMB, ensemblGeneIds, ENSG, REPORTED_OR_MAPPED)])
+snp2gene_api <- unique(snp2gene_api[, .(SNP, GSYMB, ensemblGeneIds, ENSG, MAPPED_OR_REPORTED)])
 setkey(snp2gene_api, "SNP")
-snp2gene_api <- unique(snp2gene_api[, list(ENSG=unlist(strsplit(ENSG, "[ ,]"))), by=c("SNP", "GSYMB", "ensemblGeneIds", "REPORTED_OR_MAPPED")])
+snp2gene_api <- unique(snp2gene_api[, list(ENSG=unlist(strsplit(ENSG, "[ ,]"))), by=c("SNP", "GSYMB", "ensemblGeneIds", "MAPPED_OR_REPORTED")])
 snp2gene_api[, ensemblGeneIds := NULL]
 #Get STUDY_ACCESSIONs from FILE file.
 snp2gene_api <- unique(merge(snp2gene_api, snp2gene_file[, .(STUDY_ACCESSION, SNP)], by="SNP", allow.cartesian=T))

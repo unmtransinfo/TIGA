@@ -9,15 +9,11 @@ library(data.table)
 #
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)==2) {
-  (ifile <- args[1])
-} else if (length(args)==0) {
-  ifile <- "data/gwascat_assn.tsv"
-} else {
-  message("ERROR: Syntax: gwascat_assn_describe.R ASSNFILE\n\t...or no args for defaults.")
-  quit()
-}
-writeLines(sprintf("Input: %s", ifile))
+
+ODIR <- "data/20210212"
+
+ifile <- ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_assn.tsv"))
+message(sprintf("Input ASSN file: %s", ifile))
 
 assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(),
 	INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(),
@@ -43,9 +39,9 @@ assn[, CONTEXT := sapply(CONTEXT, fix_context)]
 context_counts <- assn[, .(.N), by="CONTEXT"][order(-N)]
 for (i in 1:nrow(context_counts)) {
   if (!grepl(" [;x] ", context_counts[i]$CONTEXT))
-    writeLines(sprintf("%d. (N=%d) %s", i, context_counts[i]$N, context_counts[i]$CONTEXT))
+    message(sprintf("%d. (N=%d) %s", i, context_counts[i]$N, context_counts[i]$CONTEXT))
 }
-writeLines(sprintf("Multiple: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
+message(sprintf("Multiple: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
 
 ###
 # SNPS formats
@@ -71,9 +67,9 @@ print(tech_counts)
 
 ###
 # Missing (UP|DOWN)STREM_GENE_DISTANCE implies within_gene.
-writeLines(sprintf("Associations with MAPPED_GENE: %d (%.1f%%)", nrow(assn[!is.na(MAPPED_GENE)]), 100*nrow(assn[!is.na(MAPPED_GENE)])/nrow(assn)))
-writeLines(sprintf("Associations within MAPPED_GENE: %d (%.1f%%)", 
+message(sprintf("Associations with MAPPED_GENE: %d (%.1f%%)", nrow(assn[!is.na(MAPPED_GENE)]), 100*nrow(assn[!is.na(MAPPED_GENE)])/nrow(assn)))
+message(sprintf("Associations within MAPPED_GENE: %d (%.1f%%)", 
   nrow(assn[!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)]), 100*nrow(assn[!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)])/nrow(assn)))
-writeLines(sprintf("Associations with MAPPED_GENE and (UP|DOWN)STREAM_GENE_DISTANCE: %d (%.1f%%)", 
+message(sprintf("Associations with MAPPED_GENE and (UP|DOWN)STREAM_GENE_DISTANCE: %d (%.1f%%)", 
   nrow(assn[!is.na(MAPPED_GENE) & (!is.na(UPSTREAM_GENE_DISTANCE) | !is.na(DOWNSTREAM_GENE_DISTANCE))]), 100*nrow(assn[!is.na(MAPPED_GENE) & (!is.na(UPSTREAM_GENE_DISTANCE) | !is.na(DOWNSTREAM_GENE_DISTANCE))])/nrow(assn)))
 ###

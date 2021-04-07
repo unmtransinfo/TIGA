@@ -4,8 +4,25 @@ import sys,os,re,logging,argparse
 import pandas as pd
 import numpy as np
 
-### Input gwascat_assn.tsv, from gwascat_assn.R
+###
+# Regarding rs (RefSNP) IDs, see
+# https://www.ncbi.nlm.nih.gov/snp/docs/RefSNP_about/
+# "dbSNP Reference SNP (rs or RefSNP) number is a locus accession for a
+# variant type assigned by dbSNP."
+###
+# Despite its name, RefSNP is assigned to all variation types listed below with precise locations for both common and rare variations, including mutations. Most are typically small variations (<= 50bp).
+# 
+# * Single nucleotide variation (SNV)
+# * Short multi-nucleotide changes (MNV)
+# * Small deletions or insertions
+# * Small STR repeats
+# * retrotransposable element insertions
+###
 
+# What about non-rs SNPS values?
+
+###
+# Input gwascat_assn.tsv, from gwascat_assn.R
 ###
 
 if __name__=="__main__":

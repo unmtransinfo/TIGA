@@ -3,6 +3,8 @@
 ### IDG counts - Generates table as in TIGA paper.
 ### This version uses TCRDv6.4_DTO.tsv, from TCRDv6.4_DTO.xlsx, provided
 ### by Tudor Oprea. No "fam" counts.
+### Note that counts by ensemblProteinId will differ from counts by 
+### gene ID.
 #############################################################################
 library(readr)
 library(data.table)
