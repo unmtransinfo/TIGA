@@ -44,7 +44,8 @@ if __name__=="__main__":
   logging.debug(f"Check HbA1c measurement (EFO_0004541): {assn[assn['MAPPED_TRAIT_URI'].str.contains('EFO_0004541', na=False)].shape[0]} rows")
   logging.debug(f"Check HbA1c measurement (EFO_0004541) GCSTs: {assn[assn['MAPPED_TRAIT_URI'].str.contains('EFO_0004541', na=False)]['STUDY_ACCESSION'].drop_duplicates().to_list()}")
   gcsts_test = ("GCST002390", "GCST005145", "GCST006001")
-  logging.debug(f"Check HbA1c measurement (previous) GCSTs ({','.join(gcsts_test)}): {assn[assn['STUDY_ACCESSION'].isin(gcsts_test)].shape[0]} rows")
+  logging.debug(f"Check HbA1c measurement (previous) GCSTs ({','.join(gcsts_test)}) traits: {assn[assn['STUDY_ACCESSION'].isin(gcsts_test)].shape[0]} rows")
+  logging.debug(f"Check HbA1c measurement (previous) GCSTs ({','.join(gcsts_test)}) traits: {assn[assn['STUDY_ACCESSION'].isin(gcsts_test)]['MAPPED_TRAIT'].drop_duplicates().to_list()}")
 
   # REPORTED
   s2gr = assn[["STUDY_ACCESSION", "SNPS", "REPORTED_GENE(S)"]].drop_duplicates()
