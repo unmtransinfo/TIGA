@@ -44,12 +44,14 @@ for (i in 1:nrow(context_counts)) {
 message(sprintf("Multiple: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
 
 ###
-# SNPS formats
-message(sprintf("SNPS with pattern \"chr\\d+: *\\d+\": %d", nrow(assn[grepl("^chr\\d+: \\d+$", SNPS)])))
-message(sprintf("SNPS with pattern \"Chr:\\d+: *\\d+\": %d", nrow(assn[grepl("^Chr:\\d+: *\\d+$", SNPS)])))
-prefix_counts <- data.table(prefix = sub("[^A-Za-z].*$", "", assn$SNPS))[, .(.N), by=prefix][order(-N)]
-message("SNP common prefix counts:")
+# SNPS formats (rs prefix means RefSNP. What of others?)
+prefix_counts <- data.table(prefix = sub("[0-9].*$", "", assn$SNPS))[, .(.N), by=prefix][order(-N)]
+message("SNP ID non-numeric-prefix counts:")
 writeLines(sprintf("%2d. %6d: %s", 1:12, prefix_counts[1:12]$N, prefix_counts[1:12]$prefix))
+for (i in 2:10) {
+  pfx <- prefix_counts[i, prefix]
+  message(sprintf("SNP examples, prefix \"%s\":\n\t%s", pfx, paste(collapse = "\n\t", sample(assn[sub("[0-9].*$", "", SNPS)==pfx, SNPS], 10))))
+}
 
 # SNPS delimiters (semantic difference?)
 message(sprintf("SNPS multiple with delimiter \";\": %d", nrow(assn[grepl(";", SNPS)])))
