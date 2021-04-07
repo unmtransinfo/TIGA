@@ -13,7 +13,7 @@ DTO_URL="https://github.com/DrugTargetOntology/DTO/releases/download/V1.1/dto_co
 #
 wget -O $OWLFILE $DTO_URL
 #
-LIBDIR="$HOME/../app/lib"
+LIBDIR=$(cd $HOME/../app/lib; pwd)
 #
 dtofile="${DATADIR}/dto.tsv"
 ###

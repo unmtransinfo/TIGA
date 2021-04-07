@@ -11,23 +11,30 @@ args <- commandArgs(trailingOnly=TRUE)
 ODIR <- "data/20210212"
 #
 ifile_tcrd <- ifelse((length(args)>0), args[1], paste0(ODIR, "/tcrd_targets.tsv")) #BioClients.idg API
-ifile_dto <- ifelse((length(args)>1), args[2], paste0(ODIR, "/tcrd2dto.tsv")) #From BioClients.idg.tcrd.Client listTargetsByDTO
-#ifile_dto <- ifelse((length(args)>1), args[2], paste0(ODIR, "/TCRDv6.4_DTO.tsv")) #From ???
+ifile_tcrd2dto <- ifelse((length(args)>1), args[2], paste0(ODIR, "/tcrd2dto.tsv")) #From BioClients.idg.tcrd.Client listTargetsByDTO
+#ifile_tcrd2dto <- ifelse((length(args)>1), args[2], paste0(ODIR, "/TCRDv6.4_DTO.tsv")) #From ???
 ifile_tiga <- ifelse((length(args)>2), args[3], paste0(ODIR, "/gt_stats.tsv.gz"))
 ofile_fam_counts <- ifelse((length(args)>3), args[4], paste0(ODIR, "/tdl_fam_counts_TIGA.tsv"))
 ofile_fam_counts_merged <- ifelse((length(args)>4), args[5], paste0(ODIR, "/tdl_fam_counts_MERGED.tsv", "\t"))
 ofile_dto_counts <- ifelse((length(args)>5), args[6], paste0(ODIR, "/tdl_dto_counts_TIGA.tsv"))
 ofile_dto_counts_merged <- ifelse((length(args)>6), args[7], paste0(ODIR, "/tdl_dto_counts_MERGED.tsv", "\t"))
-
+#
+message(sprintf("INPUT TCRD file: %s", ifile_tcrd))
+message(sprintf("INPUT TCRD2DTO file: %s", ifile_tcrd2dto))
+message(sprintf("INPUT TIGA GT_STATS file: %s", ifile_tiga))
+message(sprintf("OUTPUT FAM counts file: %s", ofile_fam_counts))
+message(sprintf("OUTPUT FAM MERGED (with totals) counts file: %s", ofile_fam_counts_merged))
+message(sprintf("OUTPUT DTO counts file: %s", ofile_dto_counts))
+message(sprintf("OUTPUT DTO MERGED (with totals) counts file: %s", ofile_dto_counts_merged))
+#
 tcrd <- read_delim(ifile_tcrd, "\t", na=c("", "NA", "NULL"), col_types=cols(.default=col_character(), idgList=col_logical()))
 setDT(tcrd)
 tcrd[, `:=`(dtoId=NULL, dtoClass=NULL)]
 
-print(sprintf("TCRD targets: %d ; geneSymbols: %d; ENSGs: %d; ENSPs: %d; UniProts: %d", uniqueN(tcrd$tcrdTargetId), 
-  uniqueN(tcrd$tcrdGeneSymbol), uniqueN(tcrd$ensemblGeneId),  uniqueN(tcrd$ensemblProteinId),
-  uniqueN(tcrd$uniprotId)))
+message(sprintf("TCRD targets: %d; geneSymbols: %d; ENSGs: %d; ENSPs: %d; UniProts: %d", uniqueN(tcrd$tcrdTargetId), 
+  uniqueN(tcrd$tcrdGeneSymbol), uniqueN(tcrd$ensemblGeneId),  uniqueN(tcrd$ensemblProteinId), uniqueN(tcrd$uniprotId)))
 ###
-tcrd_dto <- read_delim(ifile_dto, "\t")
+tcrd_dto <- read_delim(ifile_tcrd2dto, "\t")
 setDT(tcrd_dto)
 #setnames(tcrd_dto, old=c("STRING ID"), new=c("ensemblProteinId"))
 #tcrd_dto <- unique(tcrd_dto[, .(ensemblProteinId, DTO_Lvl1, DTO_Lvl2, DTO_Lvl3, DTO_Lvl4, DTO_Lvl5, DTO_Lvl6, DTO_Class)])
@@ -39,7 +46,7 @@ tiga <- read_delim(ifile_tiga, '\t', col_types=cols(.default=col_character(),
 	traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), or_median=col_double(), study_N_mean=col_double(), rcras=col_double(),
 	meanRank=col_double(), meanRankScore=col_double()))
 setDT(tiga)
-print(sprintf("TIGA geneSymbols: %d; ENSGs: %d", uniqueN(tiga$geneSymbol), uniqueN(tiga$ensemblId)))
+message(sprintf("TIGA geneSymbols: %d; ENSGs: %d", uniqueN(tiga$geneSymbol), uniqueN(tiga$ensemblId)))
 ###
 
 tcrd <- merge(tcrd, data.frame(ensemblId=tiga[, unique(ensemblId)], in_tiga=T), by.x="ensemblGeneId", by.y="ensemblId", all.x=T, all.y=F)
@@ -67,8 +74,7 @@ print(dto_counts)
 tcrd[tcrdTargetFamily=="IC", tcrdTargetFamily := "Ion channel"]
 tcrd[tcrdTargetFamily=="NR", tcrdTargetFamily := "Nuclear receptor"]
 FAMS = c("GPCR", "Ion channel", "Kinase", "Enzyme", "Transporter", "Nuclear receptor")
-writeLines(sprintf("TCRD family being merged into Other: \"%s\"", 
-  tcrd[(!tcrdTargetFamily %in% FAMS), unique(tcrdTargetFamily)]))
+message(sprintf("TCRD family being merged into Other: \"%s\"", tcrd[(!tcrdTargetFamily %in% FAMS), unique(tcrdTargetFamily)]))
 #
 tdl_fam_counts <- tcrd[, .(N = uniqueN(ensemblProteinId)), by=c("TDL", "tcrdTargetFamily")]
 tdl_fam_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
@@ -110,9 +116,9 @@ write_delim(data.table(tiga_tdl_fam_counts)[, `:=`(
 # Same but with DTO Level2 classes.
 # Table of all gene counts for TDL, DTO_Lvl2 combos:
 FAMS_DTOL2 <- c(
-  "G-protein coupled receptor",
-  "Ion channel",
-  "Kinase",
+	"G-protein coupled receptor",
+	"Ion channel",
+	"Kinase",
 	"Calcium-binding protein",
 	"Cell-cell junction",
 	"Cell adhesion",
@@ -133,17 +139,16 @@ FAMS_DTOL2 <- c(
 	"Surfactant")
 
 FAMS_DTO <- c(
-    "G-protein coupled receptor",
-  "Ion channel",
-    "Kinase",
+	"G-protein coupled receptor",
+	"Ion channel",
+	"Kinase",
 	"Protein kinase",
-  	"Enzyme",
+	"Enzyme",
 	"Transporter",
 	"Transcription factor",
 	"Nucleic acid binding",
 	"Epigenetic regulator",
-	"Transferase"
-)
+	"Transferase")
 
 #tdl_dto_counts <- tcrd[, .(N = uniqueN(ensemblProteinId)), by=c("TDL", "DTO_Lvl2")]
 tdl_dto_counts <- tcrd[, .(N = uniqueN(ensemblProteinId)), by=c("TDL", "dtoClass")]
