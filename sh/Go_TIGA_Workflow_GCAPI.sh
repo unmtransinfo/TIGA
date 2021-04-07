@@ -131,9 +131,7 @@ gzip -f ${graphmlfile}
 ### GENES:
 #SNP to gene links, from download association file:
 snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
-printf "STUDY_ACCESSION\tSNP\tGSYMB\tENSG\tREPORTED_OR_MAPPED\n" >${snp2genefile_file}
 #
-#############################################################################
 ### MAPPED GENES:
 ### Separate mapped into up-/down-stream.
 # "m" - mapped within gene
