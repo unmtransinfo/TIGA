@@ -11,19 +11,15 @@ ifile_file <- ifelse(length(args)>0, args[1], paste0(ODIR, "/gwascat_snp2gene_FI
 ifile_api <- ifelse(length(args)>1, args[2], paste0(ODIR, "/gwascat_snp2gene_API.tsv"))
 ofile	<- ifelse(length(args)>2, args[3], paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv"))
 
-if (length(args)>3) {
-  message("ERROR: Syntax: snp2gene_merge.R [SNP2GENE_FILE_FILE [SNP2GENE_API_FILE [OFILE]]]\n...or... no args for defaults")
-  quit()
-}
-
-writeLines(sprintf("Input FILE file: %s", ifile_file))
-writeLines(sprintf("Input API file: %s", ifile_api))
-writeLines(sprintf("Output file: %s", ofile))
+message(sprintf("Input FILE file: %s", ifile_file))
+message(sprintf("Input API file: %s", ifile_api))
+message(sprintf("Output file: %s", ofile))
 
 snp2gene_file <- read_delim(ifile_file, "\t", col_types=cols(.default=col_character()))
 setDT(snp2gene_file )
 message(sprintf("FILE (%s) rows: %d", sub("^.*/", "", ifile_file), nrow(snp2gene_file)))
 snp2gene_file <- snp2gene_file[MAPPED_OR_REPORTED != "r"] #mapped only (m, mu, md)
+setnames(snp2gene_file, old=c("SNPS"), new=c("SNP"))
 message(sprintf("FILE unique SNPs: %d", snp2gene_file[, uniqueN(SNP)]))
 message(sprintf("FILE unique ENSGs: %d", snp2gene_file[, uniqueN(ENSG)]))
 message(sprintf("FILE unique SNP2GENE pairs: %d", nrow(unique(snp2gene_file[, .(SNP, ENSG)]))))
@@ -62,9 +58,14 @@ snp2gene <- rbindlist(list(snp2gene_file, snp2gene_api), use.names=T)
 #snp2gene <- snp2gene[grepl("^rs", SNP)] # Should we keep non-rs SNPs?
 message(sprintf("TOTAL SNP2GENE pairs: %d", nrow(unique(snp2gene[, .(SNP, ENSG)]))))
 
-#Check for our favorite gene (SLC25A44) and SNPs:
+#Check for our favorite gene (SLC25A44), SNPs, studies:
 snp2gene_test <- snp2gene[ENSG=="ENSG00000160785" & SNP %in% c("rs2273833", "rs6684514", "rs144991356")]
+message(sprintf("Check for SLC25A44 (ENSG00000160785): %d rows", nrow(snp2gene[ENSG=="ENSG00000160785"])))
+gcsts_test <- c("GCST002390", "GCST005145", "GCST006001")
+message(sprintf("Check HbA1c measurement (EFO_0004541) GCSTs (%s): %d rows", paste(collapse=",", gcsts_test), nrow(snp2gene[STUDY_ACCESSION %in% gcsts_test])))
+snps_test <- c("rs2273833", "rs6684514", "rs144991356")
+message(sprintf("Check HbA1c measurement (EFO_0004541) SNPS (%s): %d rows", paste(collapse=",", snps_test), nrow(snp2gene[SNP %in% snps_test])))
 message(sprintf("Check for SLC25A44 - HbA1c measurement (ENSG00000160785-EFO_0004541): %s", nrow(snp2gene_test)>0))
 print(snp2gene_test)
-
+#
 write_delim(snp2gene, ofile, delim="\t")
