@@ -14,7 +14,7 @@ message(paste(commandArgs(), collapse=" "))
 ###
 gwas <- read_delim("data/gwascat_gwas.tsv", "\t", col_types=cols(.default=col_character(), DATE=col_date(), ASSOCIATION_COUNT=col_integer(), DATE_ADDED_TO_CATALOG=col_date(), study_N=col_integer()))
 assn <- read_delim("data/gwascat_assn.tsv", "\t", col_types=cols(.default=col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), oddsratio=col_double(), beta=col_double()))
-snp2gene <- read_delim("data/gwascat_snp2gene.tsv", "\t", col_types=cols(.default=col_character(), REPORTED_OR_MAPPED = col_factor()))
+snp2gene <- read_delim("data/gwascat_snp2gene.tsv", "\t", col_types=cols(.default=col_character(), MAPPED_OR_REPORTED = col_factor()))
 trait <- read_delim("data/gwascat_trait.tsv", "\t", col_types=cols(.default=col_character()))
 icite <- read_delim("data/gwascat_icite.tsv", "\t", col_types=cols(pmid=col_character()))
 ###

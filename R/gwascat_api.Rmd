@@ -107,12 +107,12 @@ knitr::kable(biotypes[, Percent := round(100 * N / sum(N), 1)][N >= 100], captio
 snp2gene <- read_delim("data/gwascat_snp2gene.tsv", "\t", col_types=cols(.default=col_character()))
 setDT(snp2gene)
 snp2gene <- snp2gene[, STUDY_ACCESSION := NULL]
-snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED != "r"])
+snp2gene <- unique(snp2gene[MAPPED_OR_REPORTED != "r"])
 ensemblInfo <- ensemblInfo[biotype=="protein_coding" & description!="novel transcript", .(ensemblId=id, EnsemblName=display_name)][, protein_coding := T]
 proteinSnps <- merge(studySnps[, .(rsId, ensemblId=gene_ensemblGeneIds, geneName=gene_geneName)], ensemblInfo, by="ensemblId", all.x=F)
 snp2gene <- unique(merge(snp2gene, proteinSnps, by.x="SNP", by.y="rsId", all.x=F, all.y=F, allow.cartesian=T))
 snp2gene[, ensemblUrl := sprintf("http://rest.ensembl.org/lookup/id/%s", ensemblId)]
-snp2gene[, `:=`(GSYMB=NULL, REPORTED_OR_MAPPED=NULL, protein_coding=NULL)]
+snp2gene[, `:=`(GSYMB=NULL, MAPPED_OR_REPORTED=NULL, protein_coding=NULL)]
 snp2gene <- unique(snp2gene)
 
 ```

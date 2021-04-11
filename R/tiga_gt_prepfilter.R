@@ -81,10 +81,10 @@ message(sprintf("%s: SNPS (pval_mlog>%g): %s", ensg_debug, PVAL_MLOG_THRESHOLD, 
 assn[(!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)), `:=`(UPSTREAM_GENE_DISTANCE=0, DOWNSTREAM_GENE_DISTANCE=0)]
 ###
 #
-snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(), REPORTED_OR_MAPPED=col_factor(c("r", "m", "md", "mu"))))
+snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_character(), MAPPED_OR_REPORTED=col_factor(c("r", "m", "md", "mu"))))
 setDT(snp2gene)
 message(sprintf("%s: snp2gene count: %d; snp count: %d", ensg_debug, nrow(snp2gene[ENSG==ensg_debug,]), snp2gene[ENSG==ensg_debug, uniqueN(SNP)]))
-snp2gene <- unique(snp2gene[REPORTED_OR_MAPPED!="r"]) #Ignore reported.
+snp2gene <- unique(snp2gene[MAPPED_OR_REPORTED!="r"]) #Ignore reported.
 message(sprintf("%s: snp2gene count: %d; snp count: %d", ensg_debug, nrow(snp2gene[ENSG==ensg_debug,]), snp2gene[ENSG==ensg_debug, uniqueN(SNP)]))
 message(sprintf("%s: snps: %s", ensg_debug, paste(snp2gene[ENSG==ensg_debug, unique(SNP)], collapse=", ")))
 #
@@ -143,7 +143,7 @@ message(sprintf("Genes NOT defined protein_coding by Ensembl: %d / %d (%.1f%%)",
                 snp2gene[, uniqueN(ENSG)],
                 100 * snp2gene[biotype != "protein_coding", uniqueN(ENSG)] / snp2gene[, uniqueN(ENSG)]))
 print(unique(snp2gene[, .(ENSG, biotype)])[, .(.N), by=biotype][order(-N)]) #DEBUG
-snp2gene[, `:=`(GSYMB=NULL, REPORTED_OR_MAPPED=NULL)]
+snp2gene[, `:=`(GSYMB=NULL, MAPPED_OR_REPORTED=NULL)]
 #snp2gene[, `:=`(protein_coding=NULL)]
 setnames(snp2gene, "ENSG", "ensemblId")
 snp2gene <- unique(snp2gene[, .(STUDY_ACCESSION, SNP, ensemblId, ensemblSymb)])
