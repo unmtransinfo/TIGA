@@ -120,3 +120,17 @@ dto_counts_merged <- data.table(tiga_tdl_dto_counts)[, `:=`(
   Total = sprintf("%d / %d", Total, tdl_dto_counts$Total))]
 write_delim(dto_counts_merged, ofile_dto_counts_merged, "\t")
 #
+###
+# Now try instead with new DTO top-level class membership input file (from iu_idsl_jena).
+tcrd <- read_delim(ifile_tcrd, "\t", na=c("", "NA", "NULL"), col_types=cols(.default=col_character(), idgList=col_logical()))
+setDT(tcrd)
+dto_tlcm <- read_delim("data/dto_complete_merged_toplevelsuperclassmembership.tsv", "\t", na=c("", "NA", "na", "NULL", "null"))
+setDT(dto_tlcm)
+#dto_tlcm <- dto_tlcm[!(is.na(SuperClassUriLev_0) | is.na(SuperClassLabelLev_0))]
+tcrd <- merge(tcrd, dto_tlcm, by.x="dtoId", by.y="id", all.x=T, all.y=F)
+tdl_dto_counts <- tcrd[, .(N = uniqueN(ensemblGeneId)), by=c("TDL", "SuperClassLabelLev_2")]
+tdl_dto_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
+tdl_dto_counts <- dcast(tdl_dto_counts, formula = SuperClassLabelLev_2 ~ TDL, value.var = "N", fill = 0)
+setnames(tdl_dto_counts, old="SuperClassLabelLev_2", new="Family")
+#tdl_dto_counts[!(Family %in% FAMS_DTO), Family := "Other"]
+print(tdl_dto_counts)
