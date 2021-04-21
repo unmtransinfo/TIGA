@@ -127,8 +127,11 @@ setDT(tcrd)
 dto_tlcm <- read_delim("data/dto_complete_merged_toplevelsuperclassmembership.tsv", "\t", na=c("", "NA", "na", "NULL", "null"))
 setDT(dto_tlcm)
 #dto_tlcm <- dto_tlcm[!(is.na(SuperClassUriLev_0) | is.na(SuperClassLabelLev_0))]
-tcrd <- merge(tcrd, dto_tlcm, by.x="dtoId", by.y="id", all.x=T, all.y=F)
-tdl_dto_counts <- tcrd[, .(N = uniqueN(ensemblGeneId)), by=c("TDL", "SuperClassLabelLev_2")]
+message(sprintf("dtoIds in TCRD: %d; in DTO file: %d; in common: %d", tcrd[!is.na(dtoId), uniqueN(dtoId)], dto_tlcm[, uniqueN(id)],
+                length(intersect(tcrd[!is.na(dtoId), unique(dtoId)], dto_tlcm[, unique(id)]))))
+tcrd_tlcm <- merge(tcrd, dto_tlcm, by.x="dtoId", by.y="id", all.x=T, all.y=F)
+#z <- tcrd_tlcm[(!is.na(dtoId) & !is.na(uri) & !is.na(SuperClassUriLev_0))]
+tdl_dto_counts <- tcrd_tlcm[, .(N = uniqueN(ensemblGeneId)), by=c("TDL", "SuperClassLabelLev_2")]
 tdl_dto_counts[, TDL := factor(TDL, levels=c("Tclin", "Tchem", "Tbio", "Tdark"), ordered=T)]
 tdl_dto_counts <- dcast(tdl_dto_counts, formula = SuperClassLabelLev_2 ~ TDL, value.var = "N", fill = 0)
 setnames(tdl_dto_counts, old="SuperClassLabelLev_2", new="Family")
