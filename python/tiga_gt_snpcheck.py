@@ -14,8 +14,10 @@ import sys,os,os.path,re,argparse,time,logging,tqdm
 import pandas as pd
 import numpy as np
 
+#
 ASSN_COLS = ["MAPPED_TRAIT_URI", "SNPS", "MAPPED_GENE", "SNP_GENE_IDS", "UPSTREAM_GENE_ID", "DOWNSTREAM_GENE_ID", "P-VALUE", "OR or BETA", "STUDY ACCESSION", "PUBMEDID"]
-PVAL_THRESHOLD=5e-8
+PVAL_THRESHOLD = 5e-8
+#
 #############################################################################
 def CheckGeneSnps(ensemblId, gwas, assn, fout):
   assn_gene_this = assn.loc[(assn.SNP_GENE_IDS.str.find(ensemblId)>=0)]
