@@ -23,21 +23,24 @@ library(data.table)
 
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)==2) {
-  (ifile <- args[1])
-  (ofile <- args[2])
-} else if (length(args)==0) {
-  ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/07/15/gwas-catalog-associations_ontology-annotated.tsv")
-  #ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/12/16/gwas-catalog-associations_ontology-annotated.tsv")
-  ofile <- "data/gwascat_assn.tsv"
-} else {
+
+rel_y <- 2021
+rel_m <- 03
+rel_d <- 29
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+#
+ifile <- ifelse((length(args)>0), args[1], paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-associations_ontology-annotated.tsv", rel_y, rel_m, rel_d)))
+ofile <- ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_assn.tsv")) #
+
+if (length(args)>2) {
   message("ERROR: Syntax: gwascat_assn.R ASSNFILE OFILE\n\t...or no args for defaults.")
   quit()
 }
 writeLines(sprintf("Input: %s", ifile))
 writeLines(sprintf("Output: %s", ofile))
 
-assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), `OR or BETA`=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), `DATE ADDED TO CATALOG`=col_date(format="%Y-%m-%d")))
+# escape_double=F needed to parse all lines!
+assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(), `OR or BETA`=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(), DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"), `DATE ADDED TO CATALOG`=col_date(format="%Y-%m-%d")), escape_double=F)
 setDT(assn)
 message(sprintf("File (%s) rows: %d", sub("^.*/", "", ifile), nrow(assn)))
 

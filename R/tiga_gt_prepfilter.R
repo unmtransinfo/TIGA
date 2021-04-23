@@ -25,7 +25,7 @@ ODIR <- "data/20210212"
 ifile_gwas <-	ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_gwas.tsv")) #gwascat_gwas.R
 ifile_counts <-	ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_counts.tsv")) #Go_gwascat_DbCreate.sh
 ifile_assn <-	ifelse((length(args)>2), args[3], paste0(ODIR, "/gwascat_assn.tsv")) #gwascat_assn.R
-ifile_snp2gene <-ifelse((length(args)>3), args[4], paste0(ODIR, "/gwascat_snp2gene.tsv")) #snp2gene_mapped.pl, snp2gene_reported.pl
+ifile_snp2gene <-ifelse((length(args)>3), args[4], paste0(ODIR, "/gwascat_snp2gene.tsv")) #snp2gene.py
 ifile_trait <-	ifelse((length(args)>4), args[5], paste0(ODIR, "/gwascat_trait.tsv")) #gwascat_trait.R
 ifile_icite <-	ifelse((length(args)>5), args[6], paste0(ODIR, "/gwascat_icite.tsv")) #BioClients.icite API
 ifile_ensembl <-ifelse((length(args)>6), args[7], paste0(ODIR, "/gwascat_EnsemblInfo.tsv.gz")) #BioClients.ensembl API

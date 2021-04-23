@@ -9,13 +9,16 @@ library(data.table)
 
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)==2) {
-  (ifile <- args[1])
-  (ofile <- args[2])
-} else if (length(args)==0) {
-  ifile <- "data/gwascat_assn.tsv"
-  ofile <- "data/gwascat_gene.tsv"
-} else {
+
+rel_y <- 2021
+rel_m <- 03
+rel_d <- 29
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+#
+ifile <- ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_assn.tsv"))
+ofile <- ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_gene.tsv"))
+
+if (length(args)>2) {
   message("ERROR: Syntax: gwascat_gene.R ASSNFILE OFILE\n\t...or no args for defaults.")
   quit()
 }
@@ -85,3 +88,4 @@ writeLines(sprintf("Genes (MAPPED): %d", gene[MAPPED_OR_REPORTED=="M", uniqueN(G
 writeLines(sprintf("Genes (REPORTED): %d", gene[MAPPED_OR_REPORTED=="R", uniqueN(GENE)]))
 #
 write_delim(gene, ofile, delim="\t")
+

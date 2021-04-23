@@ -59,3 +59,9 @@ python3 -m BioClients.gwascatalog.Client get_snps -q --ids rs2273833,rs6684514,r
 cat $DATADIR/gwascatalog_Snps_rs2273833-rs6684514-rs144991356.tsv |grep ${ensgId}
 printf "Associations to ${ensgId}: $(cat $DATADIR/gwascatalog_Snps_rs2273833-rs6684514-rs144991356.tsv |grep ${ensgId}|wc -l)\n"
 #
+
+cat $DATADIR/gwascat_snp2gene_MERGED.tsv | grep ${ensgId}
+
+mysql tiga_20210329 -e "SELECT * FROM snp2gene WHERE ensg = '${ensgId}'"
+
+# Then, why missing from gt_variables.tsv and gt_provenance.tsv ?

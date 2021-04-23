@@ -256,8 +256,8 @@ ${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
 ###
 printf "Copy files for TIGA web app with command:\n"
 printf "cp ${ODIR}/gwascat_gwas.tsv ${ODIR}/filtered_studies.tsv ${ODIR}/filtered_genes.tsv ${ODIR}/filtered_traits.tsv ${ODIR}/gt_provenance.tsv.gz ${ODIR}/gt_stats.tsv.gz ${ODIR}/efo_graph.graphml.gz ${ODIR}/tcrd_info.tsv ${ODIR}/gwascat_release.txt ${ODIR}/efo_release.txt ${cwd}/R/tiga/data/\n"
-printf "Remove TIGA web app Rmd with command:\n"
-printf "rm -f ${cwd}/R/tiga/tiga.Rmd\n"
+printf "Remove TIGA web app Rdata with command:\n"
+printf "rm -f ${cwd}/R/tiga/tiga.Rdata\n"
 #
 printf "Elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
 #

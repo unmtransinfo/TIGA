@@ -14,29 +14,29 @@ library(data.table, quietly=T)
 
 message(paste(commandArgs(), collapse=" "))
 
-ifile_default <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/12/16/gwas-catalog-studies_ontology-annotated.tsv")
-
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)==4) {
-  (ifile <- args[1])
-  (efofile <- args[2])
-  (ofile <- args[3])
-  (ofile_subclass <- args[4])
-} else if (length(args)==0) {
-  ifile <- ifile_default
-  efofile <- "data/efo.tsv"
-  ofile <- "data/gwascat_trait.tsv"
-  ofile_subclass <- "data/efo_sub_gwas.tsv"
-} else {
+
+rel_y <- 2021
+rel_m <- 03
+rel_d <- 29
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+#
+ifile <- ifelse((length(args)>0), args[1], paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies_ontology-annotated.tsv", rel_y, rel_m, rel_d)))
+ifile_efo <- ifelse((length(args)>1), args[2], paste0(ODIR, "/efo.tsv"))
+ofile <- ifelse((length(args)>2), args[3], paste0(ODIR, "/gwascat_trait.tsv")) #
+ofile_subclass <- ifelse((length(args)>3), args[4], paste0(ODIR, "/efo_sub_gwas.tsv")) #
+
+if (length(args)>4) {
   message("ERROR: Syntax: gwascat_trait.R GWASFILE EFOFILE OFILE OFILE_SUBCLASS")
   quit()
 }
 message(sprintf("Input: %s", ifile))
-message(sprintf("Input EFO: %s", efofile))
+message(sprintf("Input EFO: %s", ifile_efo))
 message(sprintf("Output: %s", ofile))
 message(sprintf("Output subclass: %s", ofile_subclass))
 
-trait <- read_delim(ifile, "\t", col_types=cols(.default=col_character()))
+# escape_double=F needed to parse all lines!
+trait <- read_delim(ifile, "\t", col_types=cols(.default=col_character()), escape_double=F)
 setDT(trait)
 setnames(trait, old=c("STUDY ACCESSION", "DISEASE/TRAIT"), new=c("STUDY_ACCESSION", "TRAIT"))
 study <- unique(trait[, .(STUDY_ACCESSION, STUDY)])
@@ -85,7 +85,7 @@ message(sprintf("%4d traits involve [%d,%d] studies", trait_study_counts[N_study
 ###
 # EFO (full ontology)
 #
-efo <- read_delim(efofile, "\t", col_types=cols(.default=col_character()))
+efo <- read_delim(ifile_efo, "\t", col_types=cols(.default=col_character()))
 setDT(efo)
 efo_node <- efo[node_or_edge == "node"]
 efo_node[, `:=`(node_or_edge = NULL, source = NULL, target = NULL)]

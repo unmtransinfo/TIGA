@@ -7,20 +7,24 @@ library(data.table)
 
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)==2) {
-  (ifile <- args[1])
-  (ofile <- args[2])
-} else if (length(args)==0) {
-  ifile <- paste0(Sys.getenv("HOME"), "/../data/GWASCatalog/releases/2020/12/16/gwas-catalog-studies_ontology-annotated.tsv")
-  ofile <- "data/gwascat_gwas.tsv"
-} else {
+
+rel_y <- 2021
+rel_m <- 03
+rel_d <- 29
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+#
+ifile <- ifelse((length(args)>0), args[1], paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies_ontology-annotated.tsv", rel_y, rel_m, rel_d)))
+ofile <- ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_gwas.tsv")) #
+
+if (length(args)>2) {
   message("ERROR: Syntax: gwascat_gwas.R GWASFILE OFILE\n\t...or no args for defaults.")
   quit()
 }
 message(sprintf("Input: %s", ifile))
 message(sprintf("Output: %s", ofile))
 
-gwas <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), DATE=col_date(), `ASSOCIATION COUNT`=col_integer(), `DATE ADDED TO CATALOG`=col_date()))
+# escape_double=F needed to parse all lines!
+gwas <- read_delim(ifile, "\t", col_types=cols(.default=col_character(), DATE=col_date(), `ASSOCIATION COUNT`=col_integer(), `DATE ADDED TO CATALOG`=col_date()), escape_double=F)
 setDT(gwas)
 
 setnames(gwas, gsub("[ \\./]", "_", colnames(gwas)))
