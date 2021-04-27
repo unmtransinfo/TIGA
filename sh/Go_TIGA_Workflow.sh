@@ -205,24 +205,34 @@ python3 -m BioClients.idg.tcrd.Client info \
 	--o $ODIR/tcrd_info.tsv
 #
 ###
-# Generate counts via MySql:
-${cwd}/sh/Go_TIGA_DbCreate.sh \
-	"${ODIR}" \
-	"tiga_${GC_REL_Y}${GC_REL_M}${GC_REL_D}" \
-	${ODIR}/gwascat_gwas.tsv \
-	${ODIR}/gwascat_assn.tsv \
-	${snp2genefile_merged} \
-	${ODIR}/gwascat_trait.tsv \
-	${ODIR}/gwascat_icite.tsv \
-	${ODIR}/gwascat_counts.tsv \
-	${ODIR}/trait_counts.tsv
+# Generate counts via MySql: (OBSOLETE)
+#${cwd}/sh/Go_TIGA_DbCreate.sh \
+#	"${ODIR}" \
+#	"tiga_${GC_REL_Y}${GC_REL_M}${GC_REL_D}" \
+#	${ODIR}/gwascat_gwas.tsv \
+#	${ODIR}/gwascat_assn.tsv \
+#	${snp2genefile_merged} \
+#	${ODIR}/gwascat_trait.tsv \
+#	${ODIR}/gwascat_icite.tsv \
+#	${ODIR}/gwascat_gwas_counts.tsv \
+#	${ODIR}/gwascat_trait_counts.tsv
+###
+# Generate counts via Python: (NEW WAY)
+${cwd}/python/tiga_gwas_counts.py \
+	--ifile_gwas $ODIR/gwascat_gwas.tsv \
+	--ifile_assn $ODIR/gwascat_assn.tsv \
+	--ifile_trait $ODIR/gwascat_trait.tsv \
+	--ifile_snp2gene ${snp2genefile_merged} \
+	--ifile_icite $ODIR/gwascat_icite.tsv \
+	--ofile_gwas $ODIR/gwascat_gwas_counts.tsv \
+	--ofile_trait $ODIR/gwascat_trait_counts.tsv
 #
 ###
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.
 ${cwd}/R/tiga_gt_prepfilter.R \
 	$ODIR/gwascat_gwas.tsv \
-	$ODIR/gwascat_counts.tsv \
+	$ODIR/gwascat_gwas_counts.tsv \
 	$ODIR/gwascat_assn.tsv \
 	${snp2genefile_merged} \
 	$ODIR/gwascat_trait.tsv \

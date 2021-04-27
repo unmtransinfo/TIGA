@@ -20,12 +20,13 @@ args <- commandArgs(trailingOnly=TRUE)
 #
 #ODIR <- "data"
 #ODIR <- "data/20201216"
-ODIR <- "data/20210212"
+#ODIR <- "data/20210212"
+ODIR <- "data/20210329"
 #
 ifile_gwas <-	ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_gwas.tsv")) #gwascat_gwas.R
-ifile_counts <-	ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_counts.tsv")) #Go_gwascat_DbCreate.sh
+ifile_counts <-	ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_gwas_counts.tsv")) # NOW tiga_gwas_counts.py (OLD Go_gwascat_DbCreate.sh)
 ifile_assn <-	ifelse((length(args)>2), args[3], paste0(ODIR, "/gwascat_assn.tsv")) #gwascat_assn.R
-ifile_snp2gene <-ifelse((length(args)>3), args[4], paste0(ODIR, "/gwascat_snp2gene.tsv")) #snp2gene.py
+ifile_snp2gene <-ifelse((length(args)>3), args[4], paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv")) #snp2gene.py
 ifile_trait <-	ifelse((length(args)>4), args[5], paste0(ODIR, "/gwascat_trait.tsv")) #gwascat_trait.R
 ifile_icite <-	ifelse((length(args)>5), args[6], paste0(ODIR, "/gwascat_icite.tsv")) #BioClients.icite API
 ifile_ensembl <-ifelse((length(args)>6), args[7], paste0(ODIR, "/gwascat_EnsemblInfo.tsv.gz")) #BioClients.ensembl API
@@ -59,7 +60,7 @@ PVAL_MLOG_THRESHOLD <- -log10(PVAL_THRESHOLD)
 ###
 gwas <- read_delim(ifile_gwas, "\t", col_types=cols(.default=col_character(), DATE=col_date(format="%Y-%m-%d"), DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"), ASSOCIATION_COUNT=col_integer(), study_N=col_integer()))
 setDT(gwas)
-gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_integer(), study_accession=col_character()))
+gwas_counts <- read_delim(ifile_counts, "\t", col_types=cols(.default=col_number(), study_accession=col_character()))
 setDT(gwas_counts)
 message(sprintf("GWAS with mapped genes: %d", gwas_counts[gene_m_count>0, uniqueN(study_accession)]))
 #
