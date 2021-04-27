@@ -1,5 +1,7 @@
 #!/bin/bash
 #############################################################################
+### Go_TIGA_Workflow_GCAPI.sh - Variant using catalog API.
+#############################################################################
 ### Go_TIGA_Workflow.sh - TSVs for TIGA web app, DISEASES, TCRD.
 #############################################################################
 ### NHGRI-EBI GWAS Catalog: http://www.ebi.ac.uk/gwas/
@@ -9,8 +11,12 @@
 ### Previously (2018), additional information is available via the API,
 ### "Genomic Mappings" with EnsemblIDs for mapped genes, now available via
 ### download assn file.
+### Issue: API provides many more "Ensembl_pipeline" gene mappings than download
+### file, so we merge both.
+#############################################################################
 ### From EnsemblIDs, we query Ensembl API for annotations including gene biotype,
-### thereby filtering for protein_coding.
+### including "protein_coding", but prefer TCRD mappings to define protein
+### coding.
 #############################################################################
 # Install BioClients from https://github.com/jeremyjyang/BioClients
 # or with "pip3 install BioClients".
@@ -32,6 +38,7 @@ DATADIR="${cwd}/data"
 #GC_REL="2020-07-15"
 #GC_REL="2020-12-16"
 #GC_REL="2021-02-12"
+#GC_REL="2021-03-29"
 if [ $# -eq 1 ]; then
 	GC_REL=$1
 else
@@ -57,6 +64,7 @@ if [ ! -d $ODIR ]; then
 	mkdir -p $ODIR
 fi
 #exit #DEBUG
+#ODIR="$DATADIR/20210212_GCAPI" #DEBUG
 #
 SRCDIR="$GWASCATALOGDIR/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
 #
@@ -121,61 +129,46 @@ gzip -f ${graphmlfile}
 #
 #############################################################################
 ### GENES:
-#SNP to gene links:
-snp2genefile="${ODIR}/gwascat_snp2gene.tsv"
+#SNP to gene links, from download association file:
+snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 #
-#############################################################################
-### REPORTED GENES (ignored by TIGA):
-#
-printf "STUDY_ACCESSION\tSNP\tGSYMB\tENSG\tREPORTED_OR_MAPPED\n" >${snp2genefile}
-#
-# "REPORTED_GENE(S),SNPS,STUDY_ACCESSION" (14, 22, 37)
-###
-cat $tsvfile_assn |sed -e '1d' \
-	|perl -n perl/snp2gene_reported.pl \
-	>>${snp2genefile}
-#
-#############################################################################
 ### MAPPED GENES:
 ### Separate mapped into up-/down-stream.
 # "m" - mapped within gene
 # "mu" - mapped to upstream gene
 # "md" - mapped to downstream gene
-# UPSTREAM_GENE_ID,DOWNSTREAM_GENE_ID,SNP_GENE_IDS,SNPS,STUDY_ACCESSION (16,17,18,22,37)
-###
-cat $tsvfile_assn |sed -e '1d' \
-	|perl -n perl/snp2gene_mapped.pl \
-	>>${snp2genefile}
+### (REPORTED GENES not used for TIGA scoring.)
+#
+${cwd}/python/snp2gene.py $tsvfile_assn --o ${snp2genefile_file}
 #
 ###
-#############################################################################
-### Entrez gene IDs: UPSTREAM_GENE_ID, DOWNSTREAM_GENE_ID, SNP_GENE_IDS
-#if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
-#	cat $tsvfile_assn |sed -e '1d' \
-#		|awk -F '\t' '{print $16}' \
-#		|egrep -v '(^$|^NA$)' \
-#		|sort -u \
-#		>$ODIR/gwascat_upstream.ensg
-#	cat $tsvfile_assn |sed -e '1d' \
-#		|awk -F '\t' '{print $17}' \
-#		|egrep -v '(^$|^NA$)' \
-#		|sort -u \
-#		>$ODIR/gwascat_downstream.ensg
-#	cat $tsvfile_assn |sed -e '1d' \
-#		|awk -F '\t' '{print $18}' \
-#		|egrep -v '(^$|^NA$)' \
-#		|perl -ne 'print join("\n",split(/, */))' \
-#		|sort -u \
-#		>$ODIR/gwascat_snp.ensg
-#	cat $ODIR/gwascat_upstream.ensg $ODIR/gwascat_downstream.ensg $ODIR/gwascat_snp.ensg \
-#		|sort -u \
-#		>$ODIR/gwascat.ensg
-#	#
-#	# ~13hr
-#	python3 -m BioClients.ensembl.Client get_info -v \
-#		--i $ODIR/gwascat.ensg |gzip -c \
-#		>$ODIR/gwascat_EnsemblInfo.tsv.gz
-#fi
+# (Alternative to download file; may be incomplete/different.)
+# SNPs, SNP2GENE, via API:
+cat $tsvfile_assn |sed -e '1d' \
+	|awk -F '\t' '{print $22}' \
+	|perl -pe 's/[; ]+/\n/g' \
+	|perl -pe 's/ x /\n/g' \
+	|grep '^rs' \
+	|sort -u \
+	>${ODIR}/gwascat_snp.rs
+printf "SNPs: %d\n" $(cat $ODIR/gwascat_snp.rs |wc -l)
+python3 -m BioClients.gwascatalog.Client get_snps -q \
+	--i ${ODIR}/gwascat_snp.rs \
+	--o ${ODIR}/gwascat_snp_API.tsv
+#
+#SNP to gene links, from API:
+snp2genefile_api="${ODIR}/gwascat_snp2gene_API.tsv"
+python3 -m BioClients.util.pandas.Utils selectcols \
+	--i $ODIR/gwascat_snp_API.tsv \
+	--coltags "rsId,isIntergenic,isUpstream,isDownstream,distance,source,mappingMethod,isClosestGene,chromosomeName,chromosomePosition,geneName,ensemblGeneIds" \
+	--o ${snp2genefile_api}
+#
+#Merge FILE and API snp2gene files:
+snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
+${cwd}/R/snp2gene_merge.R \
+	${snp2genefile_file} \
+	${snp2genefile_api} \
+	${snp2genefile_merged}
 #
 #############################################################################
 # http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.103.entrez.tsv.gz
@@ -201,7 +194,6 @@ if [ ! -f "$ODIR/gwascat_icite.tsv" ]; then
 		--o $ODIR/gwascat_icite.tsv
 fi
 #
-#
 ###
 # TCRD:
 TCRD_DBNAME="tcrd684"
@@ -219,7 +211,7 @@ ${cwd}/sh/Go_TIGA_DbCreate.sh \
 	"tiga_${GC_REL_Y}${GC_REL_M}${GC_REL_D}" \
 	${ODIR}/gwascat_gwas.tsv \
 	${ODIR}/gwascat_assn.tsv \
-	${snp2genefile} \
+	${snp2genefile_merged} \
 	${ODIR}/gwascat_trait.tsv \
 	${ODIR}/gwascat_icite.tsv \
 	${ODIR}/gwascat_counts.tsv \
@@ -232,7 +224,7 @@ ${cwd}/R/tiga_gt_prepfilter.R \
 	$ODIR/gwascat_gwas.tsv \
 	$ODIR/gwascat_counts.tsv \
 	$ODIR/gwascat_assn.tsv \
-	${snp2genefile} \
+	${snp2genefile_merged} \
 	$ODIR/gwascat_trait.tsv \
 	$ODIR/gwascat_icite.tsv \
 	$ODIR/gwascat_EnsemblInfo.tsv.gz \
@@ -262,19 +254,10 @@ ${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
 	--i $ODIR/gt_variables.tsv.gz \
 	--o $ODIR/gt_stats_mu.tsv.gz
 ###
-# Copy for TIGA web app.
-cp \
-	${ODIR}/gwascat_gwas.tsv \
-	${ODIR}/filtered_studies.tsv \
-	${ODIR}/filtered_genes.tsv \
-	${ODIR}/filtered_traits.tsv \
-	${ODIR}/gt_provenance.tsv.gz \
-	${ODIR}/gt_stats.tsv.gz \
-	${ODIR}/efo_graph.graphml.gz \
-	${ODIR}/tcrd_info.tsv \
-	${ODIR}/gwascat_release.txt \
-	${ODIR}/efo_release.txt \
-	${cwd}/R/tiga/data/
+printf "Copy files for TIGA web app with command:\n"
+printf "cp ${ODIR}/gwascat_gwas.tsv ${ODIR}/filtered_studies.tsv ${ODIR}/filtered_genes.tsv ${ODIR}/filtered_traits.tsv ${ODIR}/gt_provenance.tsv.gz ${ODIR}/gt_stats.tsv.gz ${ODIR}/efo_graph.graphml.gz ${ODIR}/tcrd_info.tsv ${ODIR}/gwascat_release.txt ${ODIR}/efo_release.txt ${cwd}/R/tiga/data/\n"
+printf "Remove TIGA web app Rdata with command:\n"
+printf "rm -f ${cwd}/R/tiga/tiga.Rdata\n"
 #
 printf "Elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
 #
