@@ -173,13 +173,14 @@ ${cwd}/R/snp2gene_merge.R \
 #############################################################################
 # http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.103.entrez.tsv.gz
 ENTREZGENEFILE="Homo_sapiens.GRCh38.103.entrez.tsv.gz"
-if [ ! -e $ODIR/gwascat_EnsemblInfo.tsv.gz ]; then
+ensemblinfofile="$ODIR/gwascat_EnsemblInfo.tsv"
+if [ ! -e ${ensemblinfofile} ]; then
 	wget -O - "http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
 	python3 -m BioClients.ensembl.Client get_info -q \
-		--i $ODIR/ensembl_human_genes.ensg |gzip -c \
-		>$ODIR/gwascat_EnsemblInfo.tsv.gz
+		--i $ODIR/ensembl_human_genes.ensg \
+		--o ${ensemblinfofile}
 fi
 #############################################################################
 ### PMIDs:
@@ -237,7 +238,7 @@ ${cwd}/R/tiga_gt_prepfilter.R \
 	${snp2genefile_merged} \
 	$ODIR/gwascat_trait.tsv \
 	$ODIR/gwascat_icite.tsv \
-	$ODIR/gwascat_EnsemblInfo.tsv.gz \
+	${ensemblinfofile} \
 	$ODIR/tcrd_targets.tsv \
 	$ODIR/gt_prepfilter.Rdata \
 	$ODIR/filtered_studies.tsv \
