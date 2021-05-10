@@ -1,25 +1,22 @@
 #!/bin/bash
 #############################################################################
-### Go_TIGA_Workflow_GCAPI.sh - Variant using catalog API.
-#############################################################################
-### Go_TIGA_Workflow.sh - TSVs for TIGA web app, DISEASES, TCRD.
+### Go_TIGA_Workflow.sh - Produces TSVs for TIGA web app, DISEASES, TCRD.
 #############################################################################
 ### NHGRI-EBI GWAS Catalog: http://www.ebi.ac.uk/gwas/
 ### ftp://ftp.ebi.ac.uk/pub/databases/gwas/releases/{YYYY}/{MM}/{DD}/
 ### Note that "v1.0.1", "v1.0.2", "v1.0.3" refer to formats, not releases.
 #############################################################################
-### Previously (2018), additional information is available via the API,
-### "Genomic Mappings" with EnsemblIDs for mapped genes, now available via
-### download assn file.
-### Issue: API provides many more "Ensembl_pipeline" gene mappings than download
-### file, so we merge both.
+### Using catalog API, for additional SNP-gene mappings.
+### Genomic Mappings with EnsemblIDs for mapped genes, available via
+### download assn file, but API provides many more "Ensembl_pipeline"
+### gene mappings than download file, so we currently merge both.
 #############################################################################
 ### From EnsemblIDs, we query Ensembl API for annotations including gene biotype,
 ### including "protein_coding", but prefer TCRD mappings to define protein
 ### coding.
 #############################################################################
-# Install BioClients from https://github.com/jeremyjyang/BioClients
-# or with "pip3 install BioClients".
+# Dependency: https://github.com/jeremyjyang/BioClients
+# ("pip3 install BioClients")
 #############################################################################
 # Issue: ENSEMBL API USE (SLOW): Streamline via FTP comprehensive geneslist.
 # http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.103.entrez.tsv.gz
@@ -27,12 +24,19 @@
 #
 set -e
 #
+function MessageBreak {
+  printf "============================================\n"
+  printf "=== [%s] %s\n" "$(date +'%Y-%m-%d:%H:%M:%S')" "$1"
+}
+#
 T0=$(date +%s)
 #
 cwd=$(pwd)
 #
 GWASCATALOGDIR="$(cd $HOME/../data/GWASCatalog; pwd)"
 DATADIR="${cwd}/data"
+###
+MessageBreak "Starting $(basename $0)"
 ###
 # GWASCatalog release:
 #GC_REL="2020-07-15"
@@ -63,8 +67,6 @@ ODIR="${DATADIR}/${GC_REL_Y}${GC_REL_M}${GC_REL_D}"
 if [ ! -d $ODIR ]; then
 	mkdir -p $ODIR
 fi
-#exit #DEBUG
-#ODIR="$DATADIR/20210212_GCAPI" #DEBUG
 #
 SRCDIR="$GWASCATALOGDIR/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
 #
@@ -87,16 +89,19 @@ fi
 tsvfile_gwas="${ODIR}/gwascat_gwas.tsv"
 tsvfile_assn="${ODIR}/gwascat_assn.tsv"
 ###
+MessageBreak "Clean studies:"
 #Clean studies:
 ${cwd}/R/gwascat_gwas.R $gwasfile $tsvfile_gwas
 #
 ###
+MessageBreak "Clean associations:"
 #Clean, separate OR_or_beta into oddsratio, beta columns:
 ${cwd}/R/gwascat_assn.R $assnfile $tsvfile_assn
 #
 #############################################################################
 ### TRAITS:
 #
+MessageBreak "TRAITS:"
 tsvfile_trait="${ODIR}/gwascat_trait.tsv"
 ###
 # EFO:
@@ -129,6 +134,7 @@ gzip -f ${graphmlfile}
 #
 #############################################################################
 ### GENES:
+MessageBreak "GENES:"
 #SNP to gene links, from download association file:
 snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 #
@@ -152,6 +158,7 @@ cat $tsvfile_assn |sed -e '1d' \
 	|sort -u \
 	>${ODIR}/gwascat_snp.rs
 printf "SNPs: %d\n" $(cat $ODIR/gwascat_snp.rs |wc -l)
+MessageBreak "GWASCATALOG API REQUESTS:"
 python3 -m BioClients.gwascatalog.Client get_snps -q \
 	--i ${ODIR}/gwascat_snp.rs \
 	--o ${ODIR}/gwascat_snp_API.tsv
@@ -178,12 +185,14 @@ if [ ! -e ${ensemblinfofile} ]; then
 	wget -O - "http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
+	MessageBreak "ENSEMBL API REQUESTS:"
 	python3 -m BioClients.ensembl.Client get_info -q \
 		--i $ODIR/ensembl_human_genes.ensg \
 		--o ${ensemblinfofile}
 fi
 #############################################################################
 ### PMIDs:
+MessageBreak "PUBLICATIONS (iCite):"
 cat $tsvfile_gwas \
 	|sed -e '1d' |awk -F '\t' '{print $2}' |sort -nu \
 	>$ODIR/gwascat.pmid
@@ -197,7 +206,8 @@ fi
 #
 ###
 # TCRD:
-TCRD_DBNAME="tcrd684"
+MessageBreak "IDG (TCRD):"
+TCRD_DBNAME="tcrd6110"
 python3 -m BioClients.idg.tcrd.Client listTargets \
 	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
 	--o $ODIR/tcrd_targets.tsv
@@ -206,19 +216,8 @@ python3 -m BioClients.idg.tcrd.Client info \
 	--o $ODIR/tcrd_info.tsv
 #
 ###
-# Generate counts via MySql: (OBSOLETE)
-#${cwd}/sh/Go_TIGA_DbCreate.sh \
-#	"${ODIR}" \
-#	"tiga_${GC_REL_Y}${GC_REL_M}${GC_REL_D}" \
-#	${ODIR}/gwascat_gwas.tsv \
-#	${ODIR}/gwascat_assn.tsv \
-#	${snp2genefile_merged} \
-#	${ODIR}/gwascat_trait.tsv \
-#	${ODIR}/gwascat_icite.tsv \
-#	${ODIR}/gwascat_gwas_counts.tsv \
-#	${ODIR}/gwascat_trait_counts.tsv
-###
-# Generate counts via Python: (NEW WAY)
+MessageBreak "Generate counts:"
+# Generate counts via Python:
 ${cwd}/python/tiga_gwas_counts.py \
 	--ifile_gwas $ODIR/gwascat_gwas.tsv \
 	--ifile_assn $ODIR/gwascat_assn.tsv \
@@ -229,6 +228,7 @@ ${cwd}/python/tiga_gwas_counts.py \
 	--ofile_trait $ODIR/gwascat_trait_counts.tsv
 #
 ###
+MessageBreak "PREPFILTER:"
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.
 ${cwd}/R/tiga_gt_prepfilter.R \
@@ -245,20 +245,25 @@ ${cwd}/R/tiga_gt_prepfilter.R \
 	$ODIR/filtered_traits.tsv \
 	$ODIR/filtered_genes.tsv
 ###
+MessageBreak "PROVENANCE:"
 # Provenance for gene-trait pairs (STUDY_ACCESSION, PUBMEDID).
 ${cwd}/R/tiga_gt_provenance.R \
 	$ODIR/gt_prepfilter.Rdata \
 	$ODIR/gt_provenance.tsv.gz
 ###
+MessageBreak "VARIABLES:"
 # Generates variables, statistics, evidence features for gene-trait pairs.
 ${cwd}/R/tiga_gt_variables.R \
 	$ODIR/gt_prepfilter.Rdata \
 	$ODIR/gt_variables.tsv.gz
 ###
+MessageBreak "STATS:"
 # Scores and ranks gene-trait pairs based on selected variables.
 ${cwd}/R/tiga_gt_stats.R \
 	$ODIR/gt_variables.tsv.gz \
 	$ODIR/gt_stats.tsv.gz
+###
+MessageBreak "STATS_MU:"
 # Mu scores for benchmark comparision.
 ${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
 	-q \
@@ -271,4 +276,5 @@ printf "Remove TIGA web app Rdata with command:\n"
 printf "rm -f ${cwd}/R/tiga/tiga.Rdata\n"
 #
 printf "Elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
+MessageBreak "Done $(basename $0)"
 #
