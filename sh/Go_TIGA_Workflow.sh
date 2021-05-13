@@ -85,9 +85,15 @@ if [ ! -f "${assnfile}" ]; then
 	exit
 fi
 ###
-#Output files:
+### OUTPUT FILES:
 tsvfile_gwas="${ODIR}/gwascat_gwas.tsv"
 tsvfile_assn="${ODIR}/gwascat_assn.tsv"
+tsvfile_trait="${ODIR}/gwascat_trait.tsv"
+efofile="${ODIR}/efo.tsv"
+tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv"
+snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
+snp2genefile_api="${ODIR}/gwascat_snp2gene_API.tsv"
+snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
 ###
 MessageBreak "Clean studies:"
 #Clean studies:
@@ -102,7 +108,6 @@ ${cwd}/R/gwascat_assn.R $assnfile $tsvfile_assn
 ### TRAITS:
 #
 MessageBreak "TRAITS:"
-tsvfile_trait="${ODIR}/gwascat_trait.tsv"
 ###
 # EFO:
 EFO_DIR="$HOME/../data/EFO/data"
@@ -115,13 +120,11 @@ EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.ow
 wget -q -O $OWLFILE $EFO_URL
 #
 LIBDIR="$HOME/../app/lib"
-efofile="${ODIR}/efo.tsv"
 ###
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 	-ifile_ont ${OWLFILE} -vv -ont2tsv -o ${efofile}
 #
 ###
-tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv"
 #
 ${cwd}/R/gwascat_trait.R $gwasfile $efofile $tsvfile_trait $tsvfile_trait_sub
 #
@@ -135,8 +138,6 @@ gzip -f ${graphmlfile}
 #############################################################################
 ### GENES:
 MessageBreak "GENES:"
-#SNP to gene links, from download association file:
-snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 #
 ### MAPPED GENES:
 ### Separate mapped into up-/down-stream.
@@ -145,6 +146,7 @@ snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 # "md" - mapped to downstream gene
 ### (REPORTED GENES not used for TIGA scoring.)
 #
+#SNP to gene links, from download association file:
 ${cwd}/python/snp2gene.py $tsvfile_assn --o ${snp2genefile_file}
 #
 ###
@@ -164,22 +166,22 @@ python3 -m BioClients.gwascatalog.Client get_snps -q \
 	--o ${ODIR}/gwascat_snp_API.tsv
 #
 #SNP to gene links, from API:
-snp2genefile_api="${ODIR}/gwascat_snp2gene_API.tsv"
 python3 -m BioClients.util.pandas.Utils selectcols \
 	--i $ODIR/gwascat_snp_API.tsv \
 	--coltags "rsId,isIntergenic,isUpstream,isDownstream,distance,source,mappingMethod,isClosestGene,chromosomeName,chromosomePosition,geneName,ensemblGeneIds" \
 	--o ${snp2genefile_api}
 #
 #Merge FILE and API snp2gene files:
-snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
 ${cwd}/R/snp2gene_merge.R \
 	${snp2genefile_file} \
 	${snp2genefile_api} \
 	${snp2genefile_merged}
 #
 #############################################################################
-# http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.103.entrez.tsv.gz
-ENTREZGENEFILE="Homo_sapiens.GRCh38.103.entrez.tsv.gz"
+# How to specify latest without knowing exact filename?
+# http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.*.entrez.tsv.gz
+#ENTREZGENEFILE="Homo_sapiens.GRCh38.103.entrez.tsv.gz"
+ENTREZGENEFILE="Homo_sapiens.GRCh38.104.entrez.tsv.gz"
 ensemblinfofile="$ODIR/gwascat_EnsemblInfo.tsv"
 if [ ! -e ${ensemblinfofile} ]; then
 	wget -O - "http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
