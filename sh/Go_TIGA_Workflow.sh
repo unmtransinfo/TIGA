@@ -82,7 +82,7 @@ if [ ! -f "${assnfile}" ]; then
 	exit
 fi
 ###
-#Output files:
+### OUTPUT FILES:
 tsvfile_gwas="${ODIR}/gwascat_gwas.tsv"
 tsvfile_assn="${ODIR}/gwascat_assn.tsv"
 efofile="${ODIR}/efo.tsv"
@@ -92,7 +92,6 @@ tsvfile_icite="${ODIR}/gwascat_icite.tsv"
 snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 snp2genefile_api="${ODIR}/gwascat_snp2gene_API.tsv"
 snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
-#
 ###
 MessageBreak "Clean studies:"
 #Clean studies:
@@ -109,7 +108,7 @@ ${cwd}/R/gwascat_assn.R $assnfile $tsvfile_assn
 MessageBreak "TRAITS:"
 ###
 # EFO:
-EFO_DIR="$HOME/../data/EFO/data"
+EFO_DIR="$(cd $HOME/../data/EFO/data; pwd)"
 OWLFILE="$EFO_DIR/efo.owl"
 #EFO_RELEASE="3.20.0"
 EFO_RELEASE="3.25.0"
@@ -118,7 +117,7 @@ printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
 EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
 wget -q -O $OWLFILE $EFO_URL
 #
-LIBDIR="$HOME/../app/lib"
+LIBDIR="$(cd $HOME/../app/lib; pwd)"
 ###
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 	-ifile_ont ${OWLFILE} -vv -ont2tsv -o ${efofile}
@@ -138,7 +137,7 @@ gzip -f ${graphmlfile}
 #
 #############################################################################
 ### GENES:
-#SNP to gene links, from download association file:
+MessageBreak "GENES:"
 #
 ### MAPPED GENES:
 ### Separate mapped into up-/down-stream.
@@ -148,6 +147,7 @@ gzip -f ${graphmlfile}
 ### (REPORTED GENES not used for TIGA scoring.)
 #
 MessageBreak "SNP2GENE (from association file):"
+#SNP to gene links, from download association file:
 ${cwd}/python/snp2gene.py $tsvfile_assn --o ${snp2genefile_file}
 #
 ###
@@ -189,7 +189,7 @@ if [ ! -e ${ensemblinfofile} ]; then
 	wget -O - "ftp://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
-	MessageBreak "ENSEMBL API REQUESTS:"
+	MessageBreak "ENSEMBL API REQUESTS (get_info):"
 	python3 -m BioClients.ensembl.Client get_info -q \
 		--i $ODIR/ensembl_human_genes.ensg \
 		--o ${ensemblinfofile}
