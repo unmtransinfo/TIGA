@@ -10,6 +10,7 @@
 ### Genomic Mappings with EnsemblIDs for mapped genes, available via
 ### download assn file, but API provides many more "Ensembl_pipeline"
 ### gene mappings than download file, so we currently merge both.
+### Issue: Catalog API slow (~50hrs for 154656 SNPs)
 #############################################################################
 ### From EnsemblIDs, we query Ensembl API for annotations including gene biotype,
 ### including "protein_coding", but prefer TCRD mappings to define protein
@@ -17,9 +18,6 @@
 #############################################################################
 # Dependency: https://github.com/jeremyjyang/BioClients
 # ("pip3 install BioClients")
-#############################################################################
-# Issue: ENSEMBL API USE (SLOW): Streamline via FTP comprehensive geneslist.
-# http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.103.entrez.tsv.gz
 #############################################################################
 #
 set -e
@@ -39,7 +37,6 @@ DATADIR="${cwd}/data"
 MessageBreak "Starting $(basename $0)"
 ###
 # GWASCatalog release:
-#GC_REL="2020-07-15"
 #GC_REL="2020-12-16"
 #GC_REL="2021-02-12"
 #GC_REL="2021-03-29"
@@ -88,6 +85,14 @@ fi
 #Output files:
 tsvfile_gwas="${ODIR}/gwascat_gwas.tsv"
 tsvfile_assn="${ODIR}/gwascat_assn.tsv"
+efofile="${ODIR}/efo.tsv"
+tsvfile_trait="${ODIR}/gwascat_trait.tsv"
+tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv"
+tsvfile_icite="${ODIR}/gwascat_icite.tsv"
+snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
+snp2genefile_api="${ODIR}/gwascat_snp2gene_API.tsv"
+snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
+#
 ###
 MessageBreak "Clean studies:"
 #Clean studies:
@@ -102,7 +107,6 @@ ${cwd}/R/gwascat_assn.R $assnfile $tsvfile_assn
 ### TRAITS:
 #
 MessageBreak "TRAITS:"
-tsvfile_trait="${ODIR}/gwascat_trait.tsv"
 ###
 # EFO:
 EFO_DIR="$HOME/../data/EFO/data"
@@ -115,17 +119,17 @@ EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.ow
 wget -q -O $OWLFILE $EFO_URL
 #
 LIBDIR="$HOME/../app/lib"
-efofile="${ODIR}/efo.tsv"
 ###
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 	-ifile_ont ${OWLFILE} -vv -ont2tsv -o ${efofile}
 #
 ###
-tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv"
 #
+MessageBreak "Clean traits:"
 ${cwd}/R/gwascat_trait.R $gwasfile $efofile $tsvfile_trait $tsvfile_trait_sub
 #
 ###
+MessageBreak "Create EFO GraphML file:"
 # From efo.tsv create GraphML file:
 graphmlfile="${ODIR}/efo_graph.graphml"
 ${cwd}/R/efo_graph.R ${efofile} ${tsvfile_trait_sub} ${graphmlfile}
@@ -134,9 +138,7 @@ gzip -f ${graphmlfile}
 #
 #############################################################################
 ### GENES:
-MessageBreak "GENES:"
 #SNP to gene links, from download association file:
-snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 #
 ### MAPPED GENES:
 ### Separate mapped into up-/down-stream.
@@ -145,6 +147,7 @@ snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 # "md" - mapped to downstream gene
 ### (REPORTED GENES not used for TIGA scoring.)
 #
+MessageBreak "SNP2GENE (from association file):"
 ${cwd}/python/snp2gene.py $tsvfile_assn --o ${snp2genefile_file}
 #
 ###
@@ -158,31 +161,32 @@ cat $tsvfile_assn |sed -e '1d' \
 	|sort -u \
 	>${ODIR}/gwascat_snp.rs
 printf "SNPs: %d\n" $(cat $ODIR/gwascat_snp.rs |wc -l)
-MessageBreak "GWASCATALOG API REQUESTS:"
+MessageBreak "GWASCATALOG API REQUESTS (get_snps):"
 python3 -m BioClients.gwascatalog.Client get_snps -q \
 	--i ${ODIR}/gwascat_snp.rs \
 	--o ${ODIR}/gwascat_snp_API.tsv
 #
-#SNP to gene links, from API:
-snp2genefile_api="${ODIR}/gwascat_snp2gene_API.tsv"
+#SNP2GENE, from API:
 python3 -m BioClients.util.pandas.Utils selectcols \
 	--i $ODIR/gwascat_snp_API.tsv \
 	--coltags "rsId,isIntergenic,isUpstream,isDownstream,distance,source,mappingMethod,isClosestGene,chromosomeName,chromosomePosition,geneName,ensemblGeneIds" \
 	--o ${snp2genefile_api}
 #
 #Merge FILE and API snp2gene files:
-snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
 ${cwd}/R/snp2gene_merge.R \
 	${snp2genefile_file} \
 	${snp2genefile_api} \
 	${snp2genefile_merged}
 #
 #############################################################################
-# http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/Homo_sapiens.GRCh38.103.entrez.tsv.gz
-ENTREZGENEFILE="Homo_sapiens.GRCh38.103.entrez.tsv.gz"
+# Download latest Ensembl human gene file.
+# ftp://ftp.ensembl.org/pub/current_tsv/homo_sapiens/
+#ENTREZGENEFILE="Homo_sapiens.GRCh38.104.entrez.tsv.gz"
+ENTREZGENEFILE=$(lftp ftp://anonymous:@ftp.ensembl.org -e "cd pub/current_tsv/homo_sapiens/ ; ls *.entrez.tsv.gz; quit" |sed 's/^.* //')
+printf "ENTREZGENEFILE: %s\n" "${ENTREZGENEFILE}"
 ensemblinfofile="$ODIR/gwascat_EnsemblInfo.tsv"
 if [ ! -e ${ensemblinfofile} ]; then
-	wget -O - "http://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
+	wget -O - "ftp://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
 	MessageBreak "ENSEMBL API REQUESTS:"
@@ -198,10 +202,10 @@ cat $tsvfile_gwas \
 	>$ODIR/gwascat.pmid
 printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
 ###
-if [ ! -f "$ODIR/gwascat_icite.tsv" ]; then
+if [ ! -f "${tsvfile_icite}" ]; then
 	python3 -m BioClients.icite.Client get_stats -q \
 		--i $ODIR/gwascat.pmid \
-		--o $ODIR/gwascat_icite.tsv
+		--o ${tsvfile_icite}
 fi
 #
 ###
@@ -219,11 +223,11 @@ python3 -m BioClients.idg.tcrd.Client info \
 MessageBreak "Generate counts:"
 # Generate counts via Python:
 ${cwd}/python/tiga_gwas_counts.py \
-	--ifile_gwas $ODIR/gwascat_gwas.tsv \
-	--ifile_assn $ODIR/gwascat_assn.tsv \
-	--ifile_trait $ODIR/gwascat_trait.tsv \
+	--ifile_gwas ${tsvfile_gwas} \
+	--ifile_assn ${tsvfile_assn} \
+	--ifile_trait ${tsvfile_trait} \
 	--ifile_snp2gene ${snp2genefile_merged} \
-	--ifile_icite $ODIR/gwascat_icite.tsv \
+	--ifile_icite ${tsvfile_icite} \
 	--ofile_gwas $ODIR/gwascat_gwas_counts.tsv \
 	--ofile_trait $ODIR/gwascat_trait_counts.tsv
 #
@@ -232,12 +236,12 @@ MessageBreak "PREPFILTER:"
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.
 ${cwd}/R/tiga_gt_prepfilter.R \
-	$ODIR/gwascat_gwas.tsv \
+	${tsvfile_gwas} \
 	$ODIR/gwascat_gwas_counts.tsv \
-	$ODIR/gwascat_assn.tsv \
+	${tsvfile_assn} \
 	${snp2genefile_merged} \
-	$ODIR/gwascat_trait.tsv \
-	$ODIR/gwascat_icite.tsv \
+	${tsvfile_trait} \
+	${tsvfile_icite} \
 	${ensemblinfofile} \
 	$ODIR/tcrd_targets.tsv \
 	$ODIR/gt_prepfilter.Rdata \
