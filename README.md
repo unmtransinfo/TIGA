@@ -15,7 +15,10 @@ builds upon the __GWAS Catalog__ with more specific applications and use cases,
 focused on protein-coding genes and well defined traits semantically related to disease
 states relevant to discovery of drugs and druggable targets.
 
-* [Manuscript preprint, November 2020](https://www.biorxiv.org/content/10.1101/2020.11.11.378596v1): "TIGA: Target illumination GWAS analytics", Jeremy Yang, Dhouha Grissa, Christophe Lambert, Cristian Bologa, Stephen Mathias, Anna Waller, David Wild,  Lars Juhl Jensen, Tudor Oprea.
+* ["TIGA: Target illumination GWAS analytics", Jeremy Yang, Dhouha Grissa,
+Christophe Lambert, Cristian Bologa, Stephen Mathias, Anna Waller, David Wild,
+Lars Juhl Jensen, Tudor Oprea, Bioinformatics, btab427,
+https://doi.org/10.1093/bioinformatics/btab427, published 04 June 2021.](https://academic.oup.com/bioinformatics/advance-article-abstract/doi/10.1093/bioinformatics/btab427/6292081)
 * [Poster presented at February 2021 Annual IDG Meeting](https://zenodo.org/record/4594201)
 
 ## Dependencies

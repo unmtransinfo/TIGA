@@ -224,8 +224,9 @@ Christophe Lambert<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP> and Tudor Oprea<SUP
 Internal Medicine; <SUP>2</SUP>Novo Nordisk Foundation Center for Protein Research, Copenhagen,
 Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and Engineering, Integrative Data Science Lab.</I>
 <BR/>
-<B>Feedback welcome</B> to corresponding author  
-<a href=\"mailto:jjyang_AT_salud_DOT_unm_DOT_edu\">Jeremy Yang</a>.<br/>
+<B>Publication:</B> <a href=\"https://academic.oup.com/bioinformatics/advance-article-abstract/doi/10.1093/bioinformatics/btab427/6292081\"> Yang et al, Bioinformatics, 04 June 2021</a>
+<BR/>
+<B>Feedback welcome</B> to <a href=\"mailto:jjyang_AT_salud_DOT_unm_DOT_edu\">Jeremy Yang</a>.<br/>
 This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
   htm <- paste(htm, sprintf("<hr>\nPowered by: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
