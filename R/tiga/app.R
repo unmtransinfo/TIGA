@@ -275,7 +275,8 @@ ui <- fluidPage(
 			wellPanel(p(tags$b("ALL gene-trait associations:")), downloadButton("gt_file", label="Gene-Trait Associations"), htmlOutput("gtFileInfoHtm")),
 			wellPanel(p(tags$b("ALL traits involved in gene-trait associations:")), downloadButton("traits_file", label="Traits"), htmlOutput("traitFileInfoHtm")),
 			wellPanel(p(tags$b("ALL genes involved in gene-trait associations:")), downloadButton("genes_file", label="Genes"), htmlOutput("geneFileInfoHtm")),
-			wellPanel(p(tags$b("Provenance for ALL gene-trait associations:")), downloadButton("provenance_file", label="Provenance"), htmlOutput("provFileInfoHtm"))
+			wellPanel(p(tags$b("Provenance for ALL gene-trait associations:")), downloadButton("provenance_file", label="Provenance"), htmlOutput("provFileInfoHtm")),
+			HTML("For latest and archived files also see: <b><a href=\"https://unmtid-shinyapps.net/download/TIGA/\">TIGA downloads directory</a></b>")
 		),
 		tabPanel(value="help", title=HTML("<i><br/>Help</i>"), htmlOutput("helpHtm"))
 	))),

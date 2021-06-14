@@ -279,6 +279,9 @@ printf "cp ${ODIR}/gwascat_gwas.tsv ${ODIR}/filtered_studies.tsv ${ODIR}/filtere
 printf "Remove TIGA web app Rdata with command:\n"
 printf "rm -f ${cwd}/R/tiga/tiga.Rdata\n"
 #
+###
+printf "Also remember to copy TIGA download files to: https://unmtid-shinyapps.net/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} with symlink https://unmtid-shinyapps.net/download/TIGA/latest.\n"
+#
 printf "Elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
 MessageBreak "Done $(basename $0)"
 #

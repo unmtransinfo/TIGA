@@ -54,6 +54,7 @@ Steps for updating the TIGA dataset from sources.
     1. gwascat_release.txt
     1. efo_release.txt
     1. tcrd_info.tsv
+1. TIGA download files should be copied to the [TIGA Download Directory](https://unmtid-shinyapps.net/download/TIGA/) for automated access.
 
 ## Notes
 
