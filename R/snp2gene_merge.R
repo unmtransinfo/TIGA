@@ -5,7 +5,7 @@ library(data.table)
 
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
-ODIR <- "data/20210212_GCAPI"
+ODIR <- "data/20210506"
 
 ifile_file <- ifelse(length(args)>0, args[1], paste0(ODIR, "/gwascat_snp2gene_FILE.tsv"))
 ifile_api <- ifelse(length(args)>1, args[2], paste0(ODIR, "/gwascat_snp2gene_API.tsv"))
@@ -41,16 +41,21 @@ message(sprintf("API unique SNPs: %d", snp2gene_api[, uniqueN(SNP)]))
 message(sprintf("API unique ENSGs: %d", snp2gene_api[, uniqueN(ENSG)]))
 message(sprintf("API unique SNP2GENE pairs: %d", nrow(unique(snp2gene_api[, .(SNP, ENSG)]))))
 
-message(sprintf("API unique SNPs not in FILE: %d",
-	length(setdiff(snp2gene_api[, unique(SNP)], snp2gene_file[, unique(SNP)]))))
-message(sprintf("API unique ENSGs not in FILE: %d",
-	length(setdiff(snp2gene_api[, unique(ENSG)], snp2gene_file[, unique(ENSG)]))))
-message(sprintf("FILE unique SNPs not in API: %d",
-	length(setdiff(snp2gene_file[, unique(SNP)], snp2gene_api[, unique(SNP)]))))
-message(sprintf("FILE unique rs-SNPs not in API: %d",
-                sum(grepl("^rs", setdiff(snp2gene_file[, unique(SNP)], snp2gene_api[, unique(SNP)])))))
-message(sprintf("FILE unique ENSGs not in API: %d",
-	length(setdiff(snp2gene_file[, unique(ENSG)], snp2gene_api[, unique(ENSG)]))))
+message(sprintf("API unique SNPs not in FILE: %d (%.1f%%)",
+	length(setdiff(snp2gene_api[, unique(SNP)], snp2gene_file[, unique(SNP)])),
+	100 * length(setdiff(snp2gene_api[, unique(SNP)], snp2gene_file[, unique(SNP)])) / snp2gene_api[, uniqueN(SNP)]))
+message(sprintf("API unique ENSGs not in FILE: %d (%.1f%%)",
+	length(setdiff(snp2gene_api[, unique(ENSG)], snp2gene_file[, unique(ENSG)])),
+	100 * length(setdiff(snp2gene_api[, unique(ENSG)], snp2gene_file[, unique(ENSG)])) / snp2gene_file[, uniqueN(ENSG)]))
+message(sprintf("FILE unique SNPs not in API: %d (%.1f%%)",
+	length(setdiff(snp2gene_file[, unique(SNP)], snp2gene_api[, unique(SNP)])),
+	100 * length(setdiff(snp2gene_file[, unique(SNP)], snp2gene_api[, unique(SNP)])) / snp2gene_api[, uniqueN(SNP)]))
+message(sprintf("FILE unique rs-SNPs not in API: %d (%.1f%%)",
+  sum(grepl("^rs", setdiff(snp2gene_file[, unique(SNP)], snp2gene_api[, unique(SNP)]))),
+  100 * sum(grepl("^rs", setdiff(snp2gene_file[, unique(SNP)], snp2gene_api[, unique(SNP)]))) / sum(grepl("^rs", snp2gene_api[, unique(SNP)]))))
+message(sprintf("FILE unique ENSGs not in API: %d (%.1f%%)",
+	length(setdiff(snp2gene_file[, unique(ENSG)], snp2gene_api[, unique(ENSG)])),
+	100 * length(setdiff(snp2gene_file[, unique(ENSG)], snp2gene_api[, unique(ENSG)])) / snp2gene_api[, uniqueN(ENSG)]))
 
 write_delim(data.table(SNP=setdiff(snp2gene_file[, unique(SNP)], snp2gene_api[, unique(SNP)])), paste0(ODIR, "/gwascat_snp2gene_FILE_NOT_API.rs"), delim="\t")
 
