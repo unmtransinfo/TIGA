@@ -25,9 +25,10 @@ message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 
 rel_y <- 2021
-rel_m <- 03
-rel_d <- 29
+rel_m <- 05
+rel_d <- 06
 ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+
 #
 ifile <- ifelse((length(args)>0), args[1], paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-associations_ontology-annotated.tsv", rel_y, rel_m, rel_d)))
 ofile <- ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_assn.tsv")) #
@@ -63,6 +64,15 @@ message(sprintf("Studies with OR_or_BETA: %d", assn[!is.na(OR_or_BETA), uniqueN(
 message(sprintf("Studies with SNPS and DISEASE_TRAIT and OR_or_BETA: %d", assn[(!is.na(DISEASE_TRAIT) & !is.na(SNPS) & !is.na(OR_or_BETA)), uniqueN(STUDY_ACCESSION)]))
 message(sprintf("Associations with OR_or_BETA values: %d (%.1f%%)", nrow(assn[!is.na(OR_or_BETA)]), 100*nrow(assn[!is.na(OR_or_BETA)])/nrow(assn)))
 #
+###
+# SNP count
+# Currently only handling RefSNP (rs*) IDs.
+# Non-RefSNP examples:  chr12:57156410, SNP_A-2171106, chr12:57156410, 6:32588205, chr14:95189723:D, 1:237929787:T_TCA, APOE
+# SNPS field SNPs delimited by " x " or "; "
+study2snp <- unique(assn[grepl("^rs[0-9]+", SNPS), list(SNP=unlist(strsplit(SNPS, "[ ;x]"))), by=c("SNP", "STUDY_ACCESSION")])
+study2snp <- study2snp[grepl("^rs[0-9]+", SNP)]
+message(sprintf("Unique RefSNP IDs: %d (for studies: %d)", study2snp[, uniqueN(SNP)], study2snp[, uniqueN(STUDY_ACCESSION)]))
+#
 debug_test <- function(ensg_test, assn, pval_mlog_threshold) {
   assn_test <- assn[SNP_GENE_IDS==ensg_test | UPSTREAM_GENE_ID==ensg_test | DOWNSTREAM_GENE_ID==ensg_test]
   message(sprintf("DEBUG: %s rows: %d; rows(pVal_mlog>=%g): %d", ensg_test, nrow(assn_test), pval_mlog_threshold, nrow(assn_test[PVALUE_MLOG>=pval_mlog_threshold])))
@@ -70,7 +80,7 @@ debug_test <- function(ensg_test, assn, pval_mlog_threshold) {
 }
 #
 pval_threshold <- 5e-8
-pval_mlog_threshold <- -log10(5e-8)
+pval_mlog_threshold <- -log10(pval_threshold)
 #
 ensg_test <- "ENSG00000170312"
 debug_test(ensg_test, assn, pval_mlog_threshold) #CDK1 
