@@ -69,7 +69,7 @@ message(sprintf("Associations with OR_or_BETA values: %d (%.1f%%)", nrow(assn[!i
 # Currently only handling RefSNP (rs*) IDs.
 # Non-RefSNP examples:  chr12:57156410, SNP_A-2171106, chr12:57156410, 6:32588205, chr14:95189723:D, 1:237929787:T_TCA, APOE
 # SNPS field SNPs delimited by " x " or "; "
-study2snp <- unique(assn[grepl("^rs[0-9]+", SNPS), list(SNP=unlist(strsplit(SNPS, "[ ;x]"))), by=c("SNP", "STUDY_ACCESSION")])
+study2snp <- unique(assn[grepl("^rs[0-9]+", SNPS), list(SNP=unlist(strsplit(SNPS, "[ ;x]"))), by=c("STUDY_ACCESSION")])
 study2snp <- study2snp[grepl("^rs[0-9]+", SNP)]
 message(sprintf("Unique RefSNP IDs: %d (for studies: %d)", study2snp[, uniqueN(SNP)], study2snp[, uniqueN(STUDY_ACCESSION)]))
 #

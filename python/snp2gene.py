@@ -10,6 +10,9 @@ import numpy as np
 # "dbSNP Reference SNP (rs or RefSNP) number is a locus accession for a
 # variant type assigned by dbSNP."
 ###
+# dbSNP API:
+# https://api.ncbi.nlm.nih.gov/variation/v0/beta/refsnp/328
+###
 # Despite its name, RefSNP is assigned to all variation types listed below with precise locations for both common and rare variations, including mutations. Most are typically small variations (<= 50bp).
 # 
 # * Single nucleotide variation (SNV)
@@ -19,7 +22,7 @@ import numpy as np
 # * retrotransposable element insertions
 ###
 
-# What about non-rs SNPS values?
+# What about non-RefSNP (non-rs) SNPs?
 
 ###
 # Input gwascat_assn.tsv, from gwascat_assn.R
@@ -62,7 +65,7 @@ if __name__=="__main__":
 	for col in s2gr.columns.difference([col_split])
 	}).assign(**{col_split:np.concatenate(s2gr[col_split].values)})[s2gr.columns.tolist()]
   s2gr = s2gr.drop_duplicates()
-  logging.info(f"SNP2GENE after spliting delimited SNPs, rows: {s2gr.shape[0]}")
+  logging.info(f"SNP2GENE (REPORTED) after spliting delimited SNPs, rows: {s2gr.shape[0]}")
 
   # Split delimited GENES to multiple rows:
   col_split="GSYMB"
@@ -90,9 +93,11 @@ if __name__=="__main__":
   s2gr["ENSG"] = ""
   s2gr["MAPPED_OR_REPORTED"] = "r"
   s2gr.columns = ["STUDY_ACCESSION", "SNPS", "GSYMB", "ENSG", "MAPPED_OR_REPORTED"]
+  logging.info(f"SNP2GENE (REPORTED) SNPs: {s2gr.SNPS.nunique()}")
 
   # MAPPED
-  s2gm = assn[["STUDY_ACCESSION", "SNPS",
+  s2gm = assn[["STUDY_ACCESSION",
+	"SNPS", # (delimited?)
 	"MAPPED_GENE", # (symbol[s])
 	"UPSTREAM_GENE_ID", # (ENSG)
 	"DOWNSTREAM_GENE_ID", # (ENSG)
@@ -143,9 +148,11 @@ if __name__=="__main__":
   for key,val in s2gm[tag].value_counts().iteritems(): logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
   #
   s2gm = s2gm[["STUDY_ACCESSION", "SNPS", "GSYMB", "ENSG", "MAPPED_OR_REPORTED"]]
+  logging.info(f"SNP2GENE (MAPPED) SNPs: {s2gm.SNPS.nunique()}")
   #
   s2g = pd.concat([s2gr, s2gm])
   s2g = s2g.sort_values(["STUDY_ACCESSION", "SNPS", "GSYMB", "ENSG", "MAPPED_OR_REPORTED"])
+  logging.info(f"SNP2GENE (ALL) SNPs: {s2g.SNPS.nunique()}")
   #
   for key,val in s2g[tag].value_counts().iteritems(): logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
   #
