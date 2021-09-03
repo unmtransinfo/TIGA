@@ -755,7 +755,7 @@ server <- function(input, output, session) {
     if (nrow(prov_out)==0) { return(NULL) }
     prov_out <- merge(prov_out, gene_table[, .(ensemblId, geneSymbol, geneName)], by="ensemblId")
     prov_out <- merge(prov_out, trait_table[, .(efoId, trait)], by="efoId")
-    prov_out <- prov_out[, .(geneSymbol, ensemblId, geneName, efoId, trait, STUDY_ACCESSION, STUDY, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG, PUBMEDID)]
+    prov_out <- prov_out[, .(geneSymbol, ensemblId, geneName, efoId, trait, STUDY_ACCESSION, STUDY, DATE_PUBLISHED, PUBMEDID)]
     prov_out <- unique(prov_out)
     return(prov_out)
   })
