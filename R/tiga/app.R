@@ -752,7 +752,7 @@ server <- function(input, output, session) {
 
   Provenance_export <- reactive({
     prov_out <- data.table(merge(gt_prov[efoId == qryIds()$trait & ensemblId == qryIds()$gene, .(efoId, ensemblId, STUDY_ACCESSION)], study_table[, .(STUDY_ACCESSION, STUDY, PUBMEDID, DATE_PUBLISHED)], by="STUDY_ACCESSION", all.x=T, all.y=F))
-    if (nrow(prov_out)) return(NULL)
+    if (nrow(prov_out)==0) { return(NULL) }
     prov_out <- merge(prov_out, gene_table[, .(ensemblId, geneSymbol, geneName)], by="ensemblId")
     prov_out <- merge(prov_out, trait_table[, .(efoId, trait)], by="efoId")
     prov_out <- prov_out[, .(geneSymbol, ensemblId, geneName, efoId, trait, STUDY_ACCESSION, STUDY, DATE_PUBLISHED, DATE_ADDED_TO_CATALOG, PUBMEDID)]
