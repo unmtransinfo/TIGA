@@ -67,3 +67,9 @@ how to update the TIGA dataset from sources.
 ## TIGA Application
 
 * <https://unmtid-shinyapps.net/tiga/>
+
+## TIGA Downloads
+
+Latest release and archives of full dataset and utility files.
+
+* <https://unmtid-shinyapps.net/downloads/TIGA/>

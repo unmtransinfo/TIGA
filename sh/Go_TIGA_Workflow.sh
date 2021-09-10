@@ -275,14 +275,21 @@ ${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
 	--i $ODIR/gt_variables.tsv.gz \
 	--o $ODIR/gt_stats_mu.tsv.gz
 ###
-printf "Copy files for TIGA web app with command:\n"
-printf "cp ${ODIR}/gwascat_gwas.tsv ${ODIR}/filtered_studies.tsv ${ODIR}/filtered_genes.tsv ${ODIR}/filtered_traits.tsv ${ODIR}/gt_provenance.tsv.gz ${ODIR}/gt_stats.tsv.gz ${ODIR}/efo_graph.graphml.gz ${ODIR}/tcrd_info.tsv ${ODIR}/gwascat_release.txt ${ODIR}/efo_release.txt ${cwd}/R/tiga/data/\n"
-printf "Remove TIGA web app Rdata with command:\n"
-printf "rm -f ${cwd}/R/tiga/tiga.Rdata\n"
+MessageBreak "FINAL OUTPUT FILES:"
+# INPUTS: gwascat_gwas.tsv filtered_studies.tsv filtered_genes.tsv filtered_traits.tsv gt_provenance.tsv.gz gt_stats.tsv.gz efo_graph.graphml.gz tcrd_info.tsv gwascat_release.txt efo_release.txt
+# OUTPUTS: tiga.Rdata tiga_gene-trait_stats.tsv tiga_gene-trait_provenance.tsv tiga_genes.tsv tiga_traits.tsv
 #
+${cwd}/R/tiga_final_files.R $ODIR
 ###
-printf "Also remember to copy TIGA download files to: https://unmtid-shinyapps.net/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} with symlink https://unmtid-shinyapps.net/download/TIGA/latest.\n"
+# Show commands for installing updated datafiles.
+printf "Copy Rdata for TIGA web app with command:\n"
+printf "cp ${ODIR}/tiga.Rdata ${cwd}/R/tiga/\n"
+printf "Copy TIGA download files to: unmtid-shinyapps.net/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} with symlink \"latest\".\n"
+printf "ssh unmtid-shinyapps.net mkdir /var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D}"
+printf "scp $ODIR/tiga_gene-trait_stats.tsv $ODIR/tiga_gene-trait_provenance.tsv $ODIR/tiga_genes.tsv $ODIR/tiga_traits.tsv unmtid-shinyapps.net:/var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D}"
+printf "ssh unmtid-shinyapps.net rm /var/www/html/download/TIGA/latest"
+printf "ssh unmtid-shinyapps.net ln -s /var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} /var/www/html/download/TIGA/latest"
 #
 printf "Elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
-MessageBreak "Done $(basename $0)"
+MessageBreak "DONE $(basename $0)"
 #

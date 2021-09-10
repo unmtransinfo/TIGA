@@ -53,23 +53,38 @@ OFILE_GENES <- paste0(DATADIR, "/tiga_genes.tsv")
 OFILE_TRAITS <- paste0(DATADIR, "/tiga_traits.tsv")
 #
 message(sprintf("DATADIR: %s", DATADIR))
+IFILE_GTSTATS <- paste0(DATADIR, "/gt_stats.tsv.gz")
+IFILE_PROVENANCE <- paste0(DATADIR, "/gt_provenance.tsv.gz")
+IFILE_FILTERED_STUDIES <- paste0(DATADIR, "/filtered_studies.tsv")
+IFILE_FILTERED_TRAITS <- paste0(DATADIR, "/filtered_traits.tsv")
+IFILE_FILTERED_GENES <- paste0(DATADIR, "/filtered_genes.tsv")
+IFILE_GWAS <- paste0(DATADIR, "/gwascat_gwas.tsv")
+IFILE_RELEASE_GWASCAT <- paste0(DATADIR, "/gwascat_release.txt")
+IFILE_RELEASE_EFO <- paste0(DATADIR, "/efo_release.txt")
+IFILE_RELEASE_TCRD <- paste0(DATADIR, "/tcrd_info.tsv")
+INFILE_EFOGRAPH <- paste0(DATADIR, "/efo_graph.graphml")
+#
+for (f in c(IFILE_GTSTATS, IFILE_PROVENANCE, IFILE_FILTERED_STUDIES, IFILE_FILTERED_TRAITS, IFILE_FILTERED_GENES, IFILE_GWAS, IFILE_RELEASE_GWASCAT, IFILE_RELEASE_EFO, IFILE_RELEASE_TCRD)) {
+  message(sprintf("INPUT FILE: %s (%s)", f, ifelse(file.exists(f), "exists", "MISSING-QUITTING")))
+  if (!file.exists(f)) { quit() }
+}
 #
 MIN_ASSN <- 1
 #
-gt <- read_delim(paste0(DATADIR, "/gt_stats.tsv.gz"), '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), pvalue_mlog_max=col_double(), or_median=col_double(), n_beta=col_double(), study_N_mean=col_double(), rcras=col_double() , meanRank=col_double(), meanRankScore=col_double()))
+gt <- read_delim(IFILE_GTSTATS, '\t', col_types=cols(.default=col_character(), n_study=col_integer(), n_snp=col_integer(), n_snpw=col_double(), geneNtrait=col_integer(), geneNstudy=col_integer(), traitNgene=col_integer(), traitNstudy=col_integer(), pvalue_mlog_median=col_double(), pvalue_mlog_max=col_double(), or_median=col_double(), n_beta=col_double(), study_N_mean=col_double(), rcras=col_double() , meanRank=col_double(), meanRankScore=col_double()))
 setDT(gt)
 setnames(gt, old=c("geneIdgTdl"), new=c("TDL"))
 #
-gt_prov <- read_delim(paste0(DATADIR, "/gt_provenance.tsv.gz"), "\t", col_types=cols(.default=col_character()))
+gt_prov <- read_delim(IFILE_PROVENANCE, "\t", col_types=cols(.default=col_character()))
 setDT(gt_prov)
 #
-filtered_studies <- read_delim(paste0(DATADIR, "/filtered_studies.tsv"), "\t")
+filtered_studies <- read_delim(IFILE_FILTERED_STUDIES, "\t")
 setDT(filtered_studies)
 filtered_studies[, type := "study"]
-filtered_traits <- read_delim(paste0(DATADIR, "/filtered_traits.tsv"), "\t")
+filtered_traits <- read_delim(IFILE_FILTERED_TRAITS, "\t")
 setDT(filtered_traits)
 filtered_traits[, type := "trait"]
-filtered_genes <- read_delim(paste0(DATADIR, "/filtered_genes.tsv"), "\t")
+filtered_genes <- read_delim(IFILE_FILTERED_GENES, "\t")
 setDT(filtered_genes)
 filtered_genes[, type := "gene"]
 filtered_gene_menu <- filtered_genes$ensemblId #named vector
@@ -107,19 +122,19 @@ gene_table <- gene_table[!duplicated(ensemblId)]
 gene_menu <- gene_table
 gene_menu[, geneSymbol := ifelse(!is.na(geneSymbol), geneSymbol, ensemblId)] #NAs break autocomplete.
 #
-study_table <- read_delim(paste0(DATADIR, "/gwascat_gwas.tsv"), "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
+study_table <- read_delim(IFILE_GWAS, "\t", col_types = cols(.default = col_character(), DATE=col_date(), DATE_ADDED_TO_CATALOG=col_date()))
 setDT(study_table)
 # Filter studies without TIGA evidence:
 study_table <- study_table[STUDY_ACCESSION %in% gt_prov$STUDY_ACCESSION]
 study_table <- study_table[, .(STUDY_ACCESSION, STUDY, MAPPED_TRAIT, MAPPED_TRAIT_URI, PUBMEDID, DATE_PUBLISHED = DATE, DATE_ADDED_TO_CATALOG)][order(DATE_PUBLISHED)]
 #
-system(paste0("if [ -f \"", DATADIR, "/efo_graph.graphml.gz\" ]; then gunzip -f ", DATADIR, "/efo_graph.graphml.gz ; fi"))
-efoGraph <- read_graph(paste0(DATADIR, "/efo_graph.graphml"), format="graphml")
-system(paste0("if [ -f \"", DATADIR, "/efo_graph.graphml\" ]; then gzip -f ", DATADIR, "/efo_graph.graphml ; fi"))
+system(paste0("gunzip -f ", INFILE_EFOGRAPH, ".gz"))
+efoGraph <- read_graph(INFILE_EFOGRAPH, format="graphml")
+system(paste0("gzip -f ", INFILE_EFOGRAPH))
 #
-GWASCATALOG_RELEASE <- trimws(readr::read_file(paste0(DATADIR, "/gwascat_release.txt")))
-EFO_RELEASE <- trimws(readr::read_file(paste0(DATADIR, "/efo_release.txt")))
-tcrd_info <- read_delim(paste0(DATADIR, "/tcrd_info.tsv"), "\t")
+GWASCATALOG_RELEASE <- trimws(readr::read_file(IFILE_RELEASE_GWASCAT))
+EFO_RELEASE <- trimws(readr::read_file(IFILE_RELEASE_EFO))
+tcrd_info <- read_delim(IFILE_RELEASE_TCRD, "\t")
 TCRD_RELEASE <- tcrd_info$data_ver[1]
 #
 ###
