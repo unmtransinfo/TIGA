@@ -37,16 +37,10 @@ DATADIR="${cwd}/data"
 MessageBreak "Starting $(basename $0)"
 ###
 # GWASCatalog release:
-#GC_REL="2020-12-16"
-#GC_REL="2021-02-12"
-#GC_REL="2021-03-29"
-#GC_REL="2021-05-06"
 if [ $# -eq 1 ]; then
 	GC_REL=$1
 else
 	printf "ERROR: syntax $(basename $0) \"YYYY-MM-DD\"\n"
-	printf "$(date +'%Y') releases:\n"
-	ls -l ${GWASCATALOGDIR}/releases/$(date +'%Y')/*
 	exit
 fi
 #
