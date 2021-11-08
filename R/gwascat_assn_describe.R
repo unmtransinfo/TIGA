@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 ###
 # Descriptive only, no changes to assn.
-# See also: gwascat_beta.R
+# See also: gwascat_beta.R, gwascat_SNPs.Rmd
 ###
 #############################################################################
 library(readr)
@@ -10,7 +10,10 @@ library(data.table)
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 
-ODIR <- "data/20210212"
+rel_y <- 2021
+rel_m <- 08
+rel_d <- 17
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
 
 ifile <- ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_assn.tsv"))
 message(sprintf("Input ASSN file: %s", ifile))
@@ -44,6 +47,24 @@ for (i in 1:nrow(context_counts)) {
 message(sprintf("Multiple: (N=%d)", sum(context_counts[grepl(" [;x] ", CONTEXT), .(N)])))
 
 ###
+# GENOTYPING_TECHNOLOGY
+tech_counts <- assn[, .(N_study = uniqueN(STUDY_ACCESSION)), by="GENOTYPING_TECHNOLOGY"][order(-N_study)]
+print(tech_counts)
+
+###
+# Missing (UP|DOWN)STREM_GENE_DISTANCE implies within_gene.
+message(sprintf("Associations with MAPPED_GENE: %d (%.1f%%)", nrow(assn[!is.na(MAPPED_GENE)]), 100*nrow(assn[!is.na(MAPPED_GENE)])/nrow(assn)))
+message(sprintf("Associations within MAPPED_GENE: %d (%.1f%%)", 
+  nrow(assn[!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)]), 100*nrow(assn[!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)])/nrow(assn)))
+message(sprintf("Associations with MAPPED_GENE and (UP|DOWN)STREAM_GENE_DISTANCE: %d (%.1f%%)", 
+  nrow(assn[!is.na(MAPPED_GENE) & (!is.na(UPSTREAM_GENE_DISTANCE) | !is.na(DOWNSTREAM_GENE_DISTANCE))]), 100*nrow(assn[!is.na(MAPPED_GENE) & (!is.na(UPSTREAM_GENE_DISTANCE) | !is.na(DOWNSTREAM_GENE_DISTANCE))])/nrow(assn)))
+###
+
+###
+# SNP_GENE_IDS, UPSTREAM_GENE_ID and DOWNSTREAM_GENE_ID are Ensembl gene IDs, previously only available via API.
+# Now we could use these for snp2gene mappings and avoid use of API. (To do.)
+
+###
 # SNPS formats (rs prefix means RefSNP. What of others?)
 prefix_counts <- data.table(prefix = sub("[0-9].*$", "", assn$SNPS))[, .(.N), by=prefix][order(-N)]
 message("SNP ID non-numeric-prefix counts:")
@@ -58,20 +79,3 @@ message(sprintf("SNPS multiple with delimiter \";\": %d", nrow(assn[grepl(";", S
 message(sprintf("SNPS multiple with delimiter \"x\": %d", nrow(assn[grepl(" x ", SNPS)])))
 message(sprintf("SNPS multiple with delimiter \",\": %d", nrow(assn[grepl(",", SNPS)])))
 
-###
-# SNP_GENE_IDS, UPSTREAM_GENE_ID and DOWNSTREAM_GENE_ID are Ensembl gene IDs, previously only available via API.
-# Now we could use these for snp2gene mappings and avoid use of API. (To do.)
-
-###
-# GENOTYPING_TECHNOLOGY
-tech_counts <- assn[, .(N_study = uniqueN(STUDY_ACCESSION)), by="GENOTYPING_TECHNOLOGY"][order(-N_study)]
-print(tech_counts)
-
-###
-# Missing (UP|DOWN)STREM_GENE_DISTANCE implies within_gene.
-message(sprintf("Associations with MAPPED_GENE: %d (%.1f%%)", nrow(assn[!is.na(MAPPED_GENE)]), 100*nrow(assn[!is.na(MAPPED_GENE)])/nrow(assn)))
-message(sprintf("Associations within MAPPED_GENE: %d (%.1f%%)", 
-  nrow(assn[!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)]), 100*nrow(assn[!is.na(MAPPED_GENE) & is.na(UPSTREAM_GENE_DISTANCE) & is.na(DOWNSTREAM_GENE_DISTANCE)])/nrow(assn)))
-message(sprintf("Associations with MAPPED_GENE and (UP|DOWN)STREAM_GENE_DISTANCE: %d (%.1f%%)", 
-  nrow(assn[!is.na(MAPPED_GENE) & (!is.na(UPSTREAM_GENE_DISTANCE) | !is.na(DOWNSTREAM_GENE_DISTANCE))]), 100*nrow(assn[!is.na(MAPPED_GENE) & (!is.na(UPSTREAM_GENE_DISTANCE) | !is.na(DOWNSTREAM_GENE_DISTANCE))])/nrow(assn)))
-###

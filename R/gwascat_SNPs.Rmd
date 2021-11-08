@@ -1,0 +1,86 @@
+---
+title: "GWAS Catalog SNP descriptive analysis"
+author: "Jeremy Yang"
+output:
+  html_document:
+    fig_caption: yes
+    number_sections: yes
+    toc: yes
+  pdf_document:
+    toc: yes
+editor_options:
+  chunk_output_type: console
+---
+
+# Introduction
+
+NHGRI-EBI GWAS Catalog SNP descriptive analysis. The header tag from GWAS Catalog associations file is "SNPS".
+
+```{r echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+base::date() 
+```          
+             
+```{r echo=FALSE, message=FALSE}
+library(readr)
+library(data.table)
+```          
+
+# Read GWAS Catalog associations
+
+```{r}
+rel_y <- 2021
+rel_m <- 08
+rel_d <- 17
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+ifile <- paste0(ODIR, "/gwascat_assn.tsv")
+sprintf("GWAS Catalog release: %d-%02d-%02d", rel_y, rel_m, rel_d)
+```
+
+```{r}
+assn <- read_delim(ifile, "\t", col_types=cols(.default=col_character(),
+	INTERGENIC=col_logical(), `P-VALUE`=col_double(), PVALUE_MLOG=col_double(),
+	OR_or_BETA=col_double(), UPSTREAM_GENE_DISTANCE=col_integer(),
+	DOWNSTREAM_GENE_DISTANCE=col_integer(), DATE=col_date(format="%Y-%m-%d"),
+	DATE_ADDED_TO_CATALOG=col_date(format="%Y-%m-%d"),
+	risk_allele_freq=col_double(), oddsratio=col_double(), beta=col_double()))
+setDT(assn)
+sprintf("Input ASSN File (%s) rows: %d", sub("^.*/", "", ifile), nrow(assn))
+```
+
+# Prefix counts, SNP ID formats.
+
+* rs prefix means RefSNP. What of others?
+* Confirm no prefix-less (all numeric) IDs.
+* Aggregate infrequent prefixes to "Other".
+
+```{r}
+prefix_counts <- data.table(prefix = sub("[0-9].*$", "", assn$SNPS))[, .(.N), by=prefix][order(-N)]
+message(sprintf("Check count of all-numeric (prefix-less) IDs: %d", assn[grepl("^[0-9]+$", SNPS), uniqueN(SNPS)]))
+n_other <- sum(prefix_counts[N<10, N])
+i_other <- nrow(prefix_counts[N>=10])+1
+prefixes_other <- prefix_counts[N<10, prefix]
+prefix_counts <- prefix_counts[1:i_other]
+prefix_counts[i_other, `:=`(prefix="Other", N=n_other)]
+writeLines(sprintf("%2d. %18s: N = %6d (%.3f%%)", 1:nrow(prefix_counts[N>=10]), prefix_counts[N>=10, prefix], prefix_counts[N>=10, N],
+	100 * prefix_counts[N>=10, N] / sum(prefix_counts[, N])))
+n_samp <- 10
+for (i in 1:nrow(prefix_counts)) {
+  if (prefix_counts[i, prefix]=="Other") { next }
+  Examples <- paste(collapse = ", ", sample(assn[sub("[0-9].*$", "", SNPS)==prefix_counts[i, prefix], SNPS], n_samp))
+  prefix_counts[i, "Examples"] <- Examples
+}
+Examples_other <- paste(collapse = ", ", sample(assn[sub("[0-9].*$", "", SNPS) %in% prefixes_other, SNPS], n_samp))
+prefix_counts[prefix=="Other", "Examples"] <- Examples_other
+prefix_counts[, Percentage := 100 * N / sum(prefix_counts[,N])]
+knitr::kable(prefix_counts[, .(Prefix=prefix, SNP_count=N, Percentage=Percentage, Examples=Examples)], caption="SNP ID prefixes", digits=3)
+```
+
+# SNPS delimiters (semantic difference?)
+
+```{r}
+sprintf("SNPS multiple with delimiter \";\": %d", nrow(assn[grepl(";", SNPS)]))
+sprintf("SNPS multiple with delimiter \"x\": %d", nrow(assn[grepl(" x ", SNPS)]))
+sprintf("SNPS multiple with delimiter \",\": %d", nrow(assn[grepl(",", SNPS)]))
+```
+
