@@ -85,6 +85,7 @@ tsvfile_trait="${ODIR}/gwascat_trait.tsv"
 tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv"
 tsvfile_icite="${ODIR}/gwascat_icite.tsv"
 snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
+snpfile_api="${ODIR}/gwascat_snp_API.tsv"
 snp2genefile_api="${ODIR}/gwascat_snp2gene_API.tsv"
 snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
 ###
@@ -157,13 +158,17 @@ cat $tsvfile_assn |sed -e '1d' \
 	>${ODIR}/gwascat_snp.rs
 printf "SNPs: %d\n" $(cat $ODIR/gwascat_snp.rs |wc -l)
 MessageBreak "GWASCATALOG API REQUESTS (get_snps):"
-python3 -m BioClients.gwascatalog.Client get_snps -q \
-	--i ${ODIR}/gwascat_snp.rs \
-	--o ${ODIR}/gwascat_snp_API.tsv
+if [ -f "${snpfile_api}" ]; then
+	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${snpfile_api}
+else
+	python3 -m BioClients.gwascatalog.Client get_snps -q \
+		--i ${ODIR}/gwascat_snp.rs \
+		--o ${snpfile_api}
+fi
 #
 #SNP2GENE, from API:
 python3 -m BioClients.util.pandas.Utils selectcols \
-	--i $ODIR/gwascat_snp_API.tsv \
+	--i ${snpfile_api} \
 	--coltags "rsId,isIntergenic,isUpstream,isDownstream,distance,source,mappingMethod,isClosestGene,chromosomeName,chromosomePosition,geneName,ensemblGeneIds" \
 	--o ${snp2genefile_api}
 #
