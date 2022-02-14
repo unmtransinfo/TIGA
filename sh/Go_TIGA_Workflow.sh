@@ -78,11 +78,11 @@ if [ ! -f "${assnfile}" ]; then
 fi
 ###
 ### OUTPUT FILES:
-tsvfile_gwas="${ODIR}/gwascat_gwas.tsv"
-tsvfile_assn="${ODIR}/gwascat_assn.tsv"
+tsvfile_gwas="${ODIR}/gwascat_gwas.tsv" #gwascat_gwas.R
+tsvfile_assn="${ODIR}/gwascat_assn.tsv" #gwascat_assn.R
 efofile="${ODIR}/efo.tsv"
-tsvfile_trait="${ODIR}/gwascat_trait.tsv"
-tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv"
+tsvfile_trait="${ODIR}/gwascat_trait.tsv" #gwascat_trait.R
+tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv" #gwascat_trait.R
 tsvfile_icite="${ODIR}/gwascat_icite.tsv"
 snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 snpfile_api="${ODIR}/gwascat_snp_API.tsv"
@@ -91,12 +91,12 @@ snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
 ###
 MessageBreak "Clean studies:"
 #Clean studies:
-${cwd}/R/gwascat_gwas.R $gwasfile $tsvfile_gwas
+${cwd}/R/gwascat_gwas.R $GC_REL_Y $GC_REL_M $GC_REL_D
 #
 ###
 MessageBreak "Clean associations:"
 #Clean, separate OR_or_beta into oddsratio, beta columns:
-${cwd}/R/gwascat_assn.R $assnfile $tsvfile_assn
+${cwd}/R/gwascat_assn.R $GC_REL_Y $GC_REL_M $GC_REL_D
 #
 #############################################################################
 ### TRAITS:
@@ -121,13 +121,13 @@ java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 ###
 #
 MessageBreak "Clean traits:"
-${cwd}/R/gwascat_trait.R $gwasfile $efofile $tsvfile_trait $tsvfile_trait_sub
+${cwd}/R/gwascat_trait.R $GC_REL_Y $GC_REL_M $GC_REL_D
 #
 ###
 MessageBreak "Create EFO GraphML file:"
 # From efo.tsv create GraphML file:
-graphmlfile="${ODIR}/efo_graph.graphml"
-${cwd}/R/efo_graph.R ${efofile} ${tsvfile_trait_sub} ${graphmlfile}
+graphmlfile="${ODIR}/efo_graph.graphml" #efo_graph.R
+${cwd}/R/efo_graph.R $GC_REL_Y $GC_REL_M $GC_REL_D
 gzip -f ${graphmlfile}
 #
 #

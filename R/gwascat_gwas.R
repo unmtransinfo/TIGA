@@ -8,18 +8,19 @@ library(data.table)
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 
-rel_y <- 2021
-rel_m <- 03
-rel_d <- 29
-ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
-#
-ifile <- ifelse((length(args)>0), args[1], paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies_ontology-annotated.tsv", rel_y, rel_m, rel_d)))
-ofile <- ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_gwas.tsv")) #
-
-if (length(args)>2) {
-  message("ERROR: Syntax: gwascat_gwas.R GWASFILE OFILE\n\t...or no args for defaults.")
+if (length(args)!=3) {
+  message("ERROR: Syntax: gwascat_gwas.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
+rel_y <- args[1]
+rel_m <- args[2]
+rel_d <- args[3]
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+#
+ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies_ontology-annotated.tsv", rel_y, rel_m, rel_d))
+ofile <- paste0(ODIR, "/gwascat_gwas.tsv")
+
+
 message(sprintf("Input: %s", ifile))
 message(sprintf("Output: %s", ofile))
 

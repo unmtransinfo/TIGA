@@ -14,9 +14,19 @@ library(igraph, quietly=T)
 message(paste(commandArgs(), collapse=" "))
 #
 args <- commandArgs(trailingOnly=TRUE)
-efofile <- ifelse((length(args)>0), args[1], "data/efo.tsv")
-efosubgwasfile <- ifelse((length(args)>1), args[2], "data/efo_sub_gwas.tsv") #from gwascat_trait.R
-ofile <- ifelse((length(args)>2), args[3], "data/efo_graph.graphml")
+#
+if (length(args)!=3) {
+  message("ERROR: Syntax: efo_graph.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
+  quit()
+}
+rel_y <- args[1]
+rel_m <- args[2]
+rel_d <- args[3]
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+#
+efofile <- paste0(ODIR, "/efo.tsv")
+efosubgwasfile <- paste0(ODIR, "/efo_sub_gwas.tsv") #from gwascat_trait.R
+ofile <- paste0(ODIR, "/efo_graph.graphml")
 #
 message(sprintf("efofile: %s", efofile))
 message(sprintf("efosubgwasfile: %s", efosubgwasfile))

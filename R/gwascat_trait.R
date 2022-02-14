@@ -16,20 +16,20 @@ message(paste(commandArgs(), collapse=" "))
 
 args <- commandArgs(trailingOnly=TRUE)
 
-rel_y <- 2021
-rel_m <- 03
-rel_d <- 29
-ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
-#
-ifile <- ifelse((length(args)>0), args[1], paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies_ontology-annotated.tsv", rel_y, rel_m, rel_d)))
-ifile_efo <- ifelse((length(args)>1), args[2], paste0(ODIR, "/efo.tsv"))
-ofile <- ifelse((length(args)>2), args[3], paste0(ODIR, "/gwascat_trait.tsv")) #
-ofile_subclass <- ifelse((length(args)>3), args[4], paste0(ODIR, "/efo_sub_gwas.tsv")) #
-
-if (length(args)>4) {
-  message("ERROR: Syntax: gwascat_trait.R GWASFILE EFOFILE OFILE OFILE_SUBCLASS")
+if (length(args)!=3) {
+  message("ERROR: Syntax: gwascat_trait.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
+rel_y <- args[1]
+rel_m <- args[2]
+rel_d <- args[3]
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+#
+ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies_ontology-annotated.tsv", rel_y, rel_m, rel_d))
+ifile_efo <- paste0(ODIR, "/efo.tsv")
+ofile <- paste0(ODIR, "/gwascat_trait.tsv")
+ofile_subclass <- paste0(ODIR, "/efo_sub_gwas.tsv")
+
 message(sprintf("Input: %s", ifile))
 message(sprintf("Input EFO: %s", ifile_efo))
 message(sprintf("Output: %s", ofile))
