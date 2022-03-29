@@ -19,9 +19,9 @@ if (length(args)!=3) {
   message("ERROR: Syntax: efo_graph.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
-rel_y <- args[1]
-rel_m <- args[2]
-rel_d <- args[3]
+rel_y <- as.integer(args[1])
+rel_m <- as.integer(args[2])
+rel_d <- as.integer(args[3])
 ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
 #
 efofile <- paste0(ODIR, "/efo.tsv")

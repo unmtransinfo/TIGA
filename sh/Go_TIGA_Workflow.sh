@@ -106,8 +106,8 @@ MessageBreak "TRAITS:"
 # EFO:
 EFO_DIR="$(cd $HOME/../data/EFO/data; pwd)"
 OWLFILE="$EFO_DIR/efo.owl"
-#EFO_RELEASE="3.20.0"
-EFO_RELEASE="3.25.0"
+#EFO_RELEASE="3.25.0"
+EFO_RELEASE="3.40.0"
 printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
 #
 EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
