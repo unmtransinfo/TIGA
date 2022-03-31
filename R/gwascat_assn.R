@@ -28,9 +28,9 @@ if (length(args)!=3) {
   message("ERROR: Syntax: gwascat_assn.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
-rel_y <- args[1]
-rel_m <- args[2]
-rel_d <- args[3]
+rel_y <- as.integer(args[1])
+rel_m <- as.integer(args[2])
+rel_d <- as.integer(args[3])
 ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
 #
 ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-associations_ontology-annotated.tsv", rel_y, rel_m, rel_d))

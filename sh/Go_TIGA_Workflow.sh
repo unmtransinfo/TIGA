@@ -185,7 +185,9 @@ ${cwd}/R/snp2gene_merge.R \
 ENTREZGENEFILE=$(lftp ftp://anonymous:@ftp.ensembl.org -e "cd pub/current_tsv/homo_sapiens/ ; ls *.entrez.tsv.gz; quit" |sed 's/^.* //')
 printf "ENTREZGENEFILE: %s\n" "${ENTREZGENEFILE}"
 ensemblinfofile="$ODIR/gwascat_EnsemblInfo.tsv"
-if [ ! -e ${ensemblinfofile} ]; then
+if [ -f ${ensemblinfofile} ]; then
+	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${ensemblinfofile}
+else
 	wget -O - "ftp://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
@@ -197,12 +199,14 @@ fi
 #############################################################################
 ### PMIDs:
 MessageBreak "PUBLICATIONS (iCite):"
-cat $tsvfile_gwas \
-	|sed -e '1d' |awk -F '\t' '{print $2}' |sort -nu \
-	>$ODIR/gwascat.pmid
-printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
 ###
-if [ ! -f "${tsvfile_icite}" ]; then
+if [ -f "${tsvfile_icite}" ]; then
+	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${tsvfile_icite}
+else
+	cat $tsvfile_gwas \
+		|sed -e '1d' |awk -F '\t' '{print $2}' |sort -nu \
+		>$ODIR/gwascat.pmid
+	printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
 	python3 -m BioClients.icite.Client get_stats -q \
 		--i $ODIR/gwascat.pmid \
 		--o ${tsvfile_icite}

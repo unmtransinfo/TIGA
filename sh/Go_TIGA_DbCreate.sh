@@ -2,7 +2,7 @@
 #############################################################################
 ### Go_TIGA_DbCreate.sh (MySql) 
 #############################################################################
-### PROBABLY SHOULD OBSOLETE THIS AND IMPLEMENT ALL IN Python/Pandas.
+### OBSOLETE -- NOW IMPLEMENTED ALL IN Python/Pandas.
 #############################################################################
 ### EFO-subclass study-study pairs efo_sub_gwas.tsv now from gwascat_trait.R.
 #############################################################################
