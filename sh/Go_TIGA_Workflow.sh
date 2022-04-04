@@ -77,6 +77,19 @@ if [ ! -f "${assnfile}" ]; then
 	exit
 fi
 ###
+# TCRD:
+# Version specified here:
+TCRD_DBNAME="tcrd6124"
+#
+MessageBreak "IDG (TCRD):"
+python3 -m BioClients.idg.tcrd.Client listTargets \
+	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
+	--o $ODIR/tcrd_targets.tsv
+python3 -m BioClients.idg.tcrd.Client info \
+	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
+	--o $ODIR/tcrd_info.tsv
+#
+###
 ### OUTPUT FILES:
 tsvfile_gwas="${ODIR}/gwascat_gwas.tsv" #gwascat_gwas.R
 tsvfile_assn="${ODIR}/gwascat_assn.tsv" #gwascat_assn.R
@@ -211,17 +224,6 @@ else
 		--i $ODIR/gwascat.pmid \
 		--o ${tsvfile_icite}
 fi
-#
-###
-# TCRD:
-MessageBreak "IDG (TCRD):"
-TCRD_DBNAME="tcrd6110"
-python3 -m BioClients.idg.tcrd.Client listTargets \
-	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
-	--o $ODIR/tcrd_targets.tsv
-python3 -m BioClients.idg.tcrd.Client info \
-	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
-	--o $ODIR/tcrd_info.tsv
 #
 ###
 MessageBreak "Generate counts:"
