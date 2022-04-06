@@ -18,10 +18,7 @@ message(t_start)
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
-#ODIR <- "data"
-#ODIR <- "data/20201216"
-#ODIR <- "data/20210212"
-ODIR <- "data/20210329"
+ODIR <- "data/20220324"
 #
 ifile_gwas <-	ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_gwas.tsv")) #gwascat_gwas.R
 ifile_counts <-	ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_gwas_counts.tsv")) # NOW tiga_gwas_counts.py (OLD Go_gwascat_DbCreate.sh)
@@ -29,7 +26,7 @@ ifile_assn <-	ifelse((length(args)>2), args[3], paste0(ODIR, "/gwascat_assn.tsv"
 ifile_snp2gene <-ifelse((length(args)>3), args[4], paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv")) #snp2gene.py
 ifile_trait <-	ifelse((length(args)>4), args[5], paste0(ODIR, "/gwascat_trait.tsv")) #gwascat_trait.R
 ifile_icite <-	ifelse((length(args)>5), args[6], paste0(ODIR, "/gwascat_icite.tsv")) #BioClients.icite API
-ifile_ensembl <-ifelse((length(args)>6), args[7], paste0(ODIR, "/gwascat_EnsemblInfo.tsv.gz")) #BioClients.ensembl API
+ifile_ensembl <-ifelse((length(args)>6), args[7], paste0(ODIR, "/gwascat_EnsemblInfo.tsv")) #BioClients.ensembl API
 ifile_tcrd <-	ifelse((length(args)>7), args[8], paste0(ODIR, "/tcrd_targets.tsv")) #BioClients.idg API
 ofile <-	ifelse((length(args)>8), args[9], paste0(ODIR, "/gt_prepfilter.Rdata"))
 ofile_filtered_studies <- ifelse((length(args)>9), args[10], paste0(ODIR, "/filtered_studies.tsv"))
@@ -103,7 +100,7 @@ icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(), 
 setDT(icite)
 rcr_median <- median(icite$relative_citation_ratio, na.rm=T) #global median ignoring NAs.
 year_this <- as.integer(format(Sys.time(), "%Y"))
-message(sprintf("Estimating undefined RCR for new publications (and any undefined) as global median."))
+message(sprintf("Estimated RCR for new publications (and any undefined) (global median): %.3f", rcr_median))
 #icite[is.na(relative_citation_ratio) & (year>=year_this-1) , relative_citation_ratio := rcr_median] #redundant
 icite[is.na(relative_citation_ratio), relative_citation_ratio := rcr_median]
 #
@@ -122,10 +119,11 @@ icite_gwas[, rcras_pmid := log2(relative_citation_ratio+1)/study_perpmid_count]
 icite_gwas <- icite_gwas[gene_r_count>0 | gene_m_count>0] #Need genes to be useful
 icite_gwas[gene_r_count==0, gene_r_count := NA]
 icite_gwas[gene_m_count==0, gene_m_count := NA]
-icite_gwas[, rcras_study := 1/gene_r_count * rcras_pmid]
+icite_gwas[, rcras_study := 1/gene_m_count * rcras_pmid] #Use mapped genes, not reported.
 icite_gwas[is.na(rcras_study), rcras_study := 0]
 icite_gwas <- icite_gwas[, .(pmid, STUDY_ACCESSION, year, relative_citation_ratio, rcras_pmid, rcras_study, trait_count, gene_r_count, gene_m_count, study_perpmid_count)]
 setkey(icite_gwas, pmid, STUDY_ACCESSION) #Ensures unique study-pmid pairs each row.
+message(sprintf("rcras_pmid: [%.3f, %.3f]; rcras_study: [%.3f, %.3f]", icite_gwas[, min(rcras_pmid)], icite_gwas[, max(rcras_pmid)], icite_gwas[, min(rcras_study)], icite_gwas[, max(rcras_study)]))
 ###
 # Link to Ensembl via IDs from Catalog.
 # (In 2020 (not 2018), EnsemblIDs available in catalog downloads, so API not required.)
