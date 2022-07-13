@@ -72,15 +72,15 @@ library(plotly, quietly=T)
 From GWAS Catalog, TCRD, and EFO.
 
 ```{r}
-ODIR <- "data/20210212"
+ODIR <- "data/20220324"
 ifile_gwas <- paste0(ODIR, "/gwascat_gwas.tsv")
 ifile_assn <- paste0(ODIR, "/gwascat_assn.tsv")
-ifile_snp2gene <- paste0(ODIR, "/gwascat_snp2gene.tsv")
+ifile_snp2gene <- paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv")
 ifile_trait <- paste0(ODIR, "/gwascat_trait.tsv")
 ifile_icite <-paste0(ODIR, "/gwascat_icite.tsv")
 ifile_tcrd <- paste0(ODIR, "/tcrd_targets.tsv")
 ifile_efo <- paste0(ODIR, "/efo.tsv")
-ifile_efo2do <- paste0(ODIR, "/oxo_efo2doid_d2.tsv")
+ifile_efo_groups <- paste0(ODIR, "/efo_groups.tsv")
 ifile_efo_gwas <- paste0(ODIR, "/efo_sub_gwas.tsv")
 gt_provfile <- paste0(ODIR, "/gt_provenance.tsv.gz")
 gt_statsfile <- paste0(ODIR, "/gt_stats.tsv.gz")
@@ -95,7 +95,7 @@ snp2gene <- read_delim(ifile_snp2gene, "\t", col_types=cols(.default=col_charact
 setDT(snp2gene)
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
 setDT(trait)
-tcrd <- read_delim(ifile_tcrd, "\t", col_types=cols(.default=col_character()))
+tcrd <- read_delim(ifile_tcrd, "\t", col_types=cols(.default=col_character(), idgList=col_logical()))
 setDT(tcrd)
 ```
 
@@ -117,7 +117,7 @@ plot_ly(gwas_platforms_cast, x=~YEAR, y=~NR, name="Not Reported", type="scatter"
   add_trace(y = ~Affymetrix, name="Affymetrix") %>%
   add_trace(y = ~Illumina, name="Illumina") %>%
   layout(title = 'GWAS counts by year &amp; vendor',
-         xaxis = list(title="", showgrid=F, range=c(2005, 2020), dtick=1, tickangle=45),
+         xaxis = list(title="", showgrid=F, range=c(2012, 2021), dtick=1, tickangle=45),
          yaxis = list(title="", showgrid=F),
          margin = list(t=100, l=100),
          font = list(family="monospace", size=24),
@@ -131,7 +131,7 @@ Statistical power and strength of evidence is dependent on size of the cohort.
 Sample size box plots by year.
 
 ```{r}
-plot_ly(gwas[YEAR<2021], x=~YEAR, y=~study_N, type="box") %>%
+plot_ly(gwas[YEAR>2010 & YEAR<2022], x=~YEAR, y=~study_N, type="box") %>%
     layout(title="GWAS sample sizes",
          xaxis=list(title="", tickangle=45), yaxis=list(title="Study_N", type="log"),
          margin = list(t=100, l=100),
@@ -169,24 +169,25 @@ RCR annotations from iCite API; PMIDs from GWASCatalog.
 We estimate RCR=median as reasonable prior for new publications and any lacking RCR from iCite. 
 
 ```{r warning=FALSE}
+xmax <- 15
 icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
                        relative_citation_ratio=col_double(), field_citation_rate=col_double(),
                        citation_count=col_integer(), nih_percentile=col_double(),
                        expected_citations_per_year=col_double(), citations_per_year=col_double(),
                        year=col_integer()))
 gwas_icite <- merge(gwas[, .(STUDY_ACCESSION, PUBMEDID)], icite, by.x="PUBMEDID", by.y="pmid", all.x=T, all.y=F)
-qtl <- quantile(gwas_icite$relative_citation_ratio, seq(0,1,.1), na.rm=T)
-anns <- c(sprintf("N_pmid = %d", nrow(gwas_icite)), sprintf("mean = %.1f ; median = %.1f ; max = %.1f", mean(gwas_icite$relative_citation_ratio, na.rm=T), median(gwas_icite$relative_citation_ratio, na.rm=T), max(gwas_icite$relative_citation_ratio, na.rm=T)), sprintf("90%%ile = %.1f", qtl["90%"]), ("(Plot truncated at 25.)"))
+qtl <- quantile(gwas_icite$relative_citation_ratio, seq(0, 1, .1), na.rm=T)
+anns <- c(sprintf("N_pmid = %d", nrow(gwas_icite)), sprintf("mean = %.1f ; median = %.1f ; max = %.1f", mean(gwas_icite$relative_citation_ratio, na.rm=T), median(gwas_icite$relative_citation_ratio, na.rm=T), max(gwas_icite$relative_citation_ratio, na.rm=T)), sprintf("90%%ile = %.1f", qtl["90%"]), (sprintf("(Plot truncated at %d.)", xmax)))
 plot_ly(gwas_icite, x=~relative_citation_ratio, type="histogram", marker=list(color="#22AA22")) %>%
   layout(title = 'Relative Citation Ratio (RCR) distribution',
-         xaxis = list(title="RCR", type="normal", range=c(0,25), showgrid=T),
+         xaxis = list(title="RCR", type="normal", range=c(0, xmax), showgrid=T),
          yaxis = list(title="", showgrid=T),
          margin = list(t=100, l=100, r=100),
          font = list(family="monospace", size=18)) %>%
   add_annotations(text=paste0(anns, collapse="<br>"), showarrow=F, x=0.5, y=.9, xref="paper", yref="paper")
 ```
 
-RCR for top GWAS journals by paper count
+### RCR for top GWAS journals by paper count
 
 ```{r warning=FALSE}
 gwas_icite[!(journal %in% gwas_icite[, .N, by=journal][order(-N)][1:10, journal]), journal := "Other"]
@@ -251,8 +252,8 @@ annos2 <- c(
 )
 plots <- list(
   plot_ly(alpha=0.6) %>%
-    add_histogram(name="UPSTREAM", x=assn$UPSTREAM_GENE_DISTANCE, histnorm="probability") %>%
-    add_histogram(name="DOWNSTREAM", x=assn$DOWNSTREAM_GENE_DISTANCE, histnorm="probability") %>%
+    add_histogram(name="UPSTREAM", x=assn[(INTERGENIC) & !is.na(UPSTREAM_GENE_DISTANCE) & UPSTREAM_GENE_DISTANCE<xmax, UPSTREAM_GENE_DISTANCE], histnorm="probability") %>%
+    add_histogram(name="DOWNSTREAM", x=assn[(INTERGENIC) & !is.na(DOWNSTREAM_GENE_DISTANCE) & DOWNSTREAM_GENE_DISTANCE<xmax, DOWNSTREAM_GENE_DISTANCE], histnorm="probability") %>%
   add_annotations(text=paste0(annos1, collapse="<br>"), x=1, xanchor="right", y=.7, yanchor="bottom", xref="paper", yref="paper", showarrow=F) %>%
   add_annotations(text="Distribution of mapped genomic distances", x=.5, xanchor="center", y=.7, yanchor="top", xref="paper", yref="paper", showarrow=F) %>%
     layout(yaxis=list(title="probability")),
@@ -262,13 +263,12 @@ plots <- list(
     layout(yaxis=list(title="f(x)"))
   )
 subplot(plots, nrows=2, shareX=T, titleX=F, titleY=T, margin=.05) %>%
-  layout(title="Association/SNP-GENE_DISTANCE<br>(UP|DOWN)STREAM",
+  layout(title="GWAS MAPPED SNP-GENE DISTANCE",
          margin = list(l=80, t=100, r=50),
          xaxis=list(title="BPs", range=c(0, xmax)),
          font=list(family="monospace", size=24),
          legend = list(x=.8, y=.4), showlegend=T)
 ```
-
 
 # SNP to gene mappings
 
@@ -313,7 +313,6 @@ sprintf("MAPPED_GENE values: %d", uniqueN(assn$MAPPED_GENE))
 assn_reported <- assn[, .(STUDY_ACCESSION, `REPORTED_GENE(S)`)]
 assn_reported <- unique(assn_reported[, list(GENE=unlist(strsplit(`REPORTED_GENE(S)`, ", *"))), by=STUDY_ACCESSION])
 sprintf("REPORTED_GENE values: %d", uniqueN(assn_reported$GENE))
-#
 ```
 
 TCRD mapping.
@@ -331,9 +330,10 @@ sprintf("ENSGs mapped to TCRD: %d", length(ensgs_common))
 tcrd <- merge(tcrd, data.table(ensg=ensgs_tiga, in_gwascat=rep(T, length(ensgs_tiga))),
 	by.x="ensemblGeneId", by.y="ensg", all.x=T, all.y=F)
 tcrd$in_gwascat[is.na(tcrd$in_gwascat)] <- F
-tcrd$idgList <- as.logical(tcrd$idgList)
 tcrd$TDL <- factor(tcrd$TDL, levels=c("NA", "Tdark", "Tbio", "Tchem", "Tclin"), ordered=T)
-knitr::kable(tcrd[(in_gwascat), .(N_mapped_genes = .N), by="TDL"][order(-TDL)], caption="GWAS mapped gene counts by TDL")
+tdlcounts <- merge(tcrd[(in_gwascat), .(N_mapped_genes = .N), by="TDL"], tcrd[, .(N_genes = .N), by="TDL"], by="TDL")
+tdlcounts <- rbindlist(list(tdlcounts, data.table(TDL=NA, N_mapped_genes=sum(tdlcounts[, N_mapped_genes]), N_genes=sum(tdlcounts[, N_genes]))))
+knitr::kable(tdlcounts[order(-TDL)], caption="GWAS mapped gene counts by TDL")
 ```
 
 # Gene-SNP-Study-Trait (G2T) associations
@@ -414,31 +414,15 @@ sprintf("GWAS studies related by EFO-subclass: %d",
         uniqueN(union(efo_gwas[study_accession != study_accession_subclass, study_accession], efo_gwas[study_accession != study_accession_subclass, study_accession_subclass])))
 ```
 
-## EFO to DOID (Disease Ontology ID)
+## EFO hierarchical groupings
 
-From EBI Ontology Xref Service (OxO).
 One-to-many and many-to-one mappings exist.
-Keep only closest mappings, maximum distance=2.
 
 ```{r}
-efo2do <- read_delim(ifile_efo2do, "\t", col_types=cols(.default=col_character()))
-setDT(efo2do)
-efo2do[, `:=`(curie_id = sub(":", "_", curie_id, fixed=T), mapped_curie = sub(":", "_", mapped_curie, fixed=T), mapping_source_prefix = NULL, mapping_target_prefix = NULL)]
-setnames(efo2do, old=c("curie_id", "label",  "mapped_curie", "mapped_label"), new=c("efoId", "efo_name", "do_id", "doid_name"))
-efo2do <- efo2do[, .SD[distance == min(distance)], by=c("efoId", "do_id")] #keep only closest mappings
-gwas_efo_ids <- unique(efo_gwas$efoId)
-efo2do_gwas <- efo2do[(efoId %in% gwas_efo_ids)]
-setorder(efo2do_gwas, efoId, do_id)
-sprintf("GWAS EFO_IDs (Total): %d", length(gwas_efo_ids))
-sprintf("GWAS EFO_ID to DO_ID mappings (distance<=2): EFO_IDs: %d, DO_IDs: %d", 
-        uniqueN(efo2do_gwas[, efoId]), uniqueN(efo2do_gwas[, do_id]))
-sprintf("GWAS EFO_ID to DO_ID mappings (efo_name=doid_name): EFO_IDs: %d, DO_IDs: %d", 
-        uniqueN(efo2do_gwas[efo_name==doid_name, efoId]), uniqueN(efo2do_gwas[efo_name==doid_name, do_id]))
-sprintf("GWAS EFO_ID to DO_ID mappings (distance=1): EFO_IDs: %d, DO_IDs: %d", 
-        uniqueN(efo2do_gwas[distance==1, efoId]), uniqueN(efo2do_gwas[distance==1, do_id]))
-sprintf("GWAS EFO_ID to DO_ID mappings (distance=2): EFO_IDs: %d, DO_IDs: %d", 
-        uniqueN(efo2do_gwas[distance==2, efoId]), uniqueN(efo2do_gwas[distance==2, do_id]))
-knitr::kable(efo2do_gwas[sample(1:nrow(efo2do_gwas), 10)], caption="EBI OXO EFO-DOID (sample)")
+efo_groups <- read_delim(ifile_efo_groups, "\t", col_types=cols(.default=col_character(), in_gwc=col_logical(), level=col_integer(), N_sub=col_integer(), N_sub_gwc=col_integer()))
+setDT(efo_groups)
+setorder(efo_groups, -N_sub_gwc)
+knitr::kable(efo_groups[(in_gwc)][1:24, .(Id, label, level, N_sub_gwc)], caption="GWAS traits with most sub-classes in dataset")
 ```
 
 # GENE-TRAIT stats
@@ -448,10 +432,7 @@ studies, for each gene-trait association.
 
 
 ```{r}
-gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), 
-n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), geneNtrait=col_integer(), traitNgene=col_integer(), pvalue_mlog_max=col_double(),
-or_median=col_double(), n_beta=col_integer(),
-meanRank=col_double(), meanRankScore=col_double()))
+gt <- read_delim(gt_statsfile, "\t", col_types=cols(.default=col_character(), n_study=col_integer(), study_N_mean=col_integer(), n_snp=col_integer(), geneNtrait=col_integer(), traitNgene=col_integer(), pvalue_mlog_max=col_double(), or_median=col_double(), n_beta=col_integer(), meanRank=col_double(), meanRankScore=col_double()))
 setDT(gt)
 sprintf("nrow(gt) = %d", nrow(gt))
 ```
@@ -475,7 +456,7 @@ trait_top <- trait[, .(MAPPED_TRAIT, N_study=uniqueN(STUDY_ACCESSION)), by="efoI
 trait_top <- unique(merge(trait_top, gt[, .(N_genes=uniqueN(ensemblId)), by="efoId"], by="efoId", all.x=T, all.y=F))
 knitr::kable(trait_top[order(-N_study), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-studied traits")
 knitr::kable(trait_top[order(-N_genes), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-polygenic traits")
-write_delim(trait_top[, .(efoId, MAPPED_TRAIT, N_study, N_genes)], "data/trait_counts.tsv", "\t")
+#write_delim(trait_top[, .(efoId, MAPPED_TRAIT, N_study, N_genes)], "data/trait_counts.tsv", "\t")
 ```
 
 # Prototype TIGA web app.
@@ -505,22 +486,7 @@ Color unmapped gray.
 Plot for a selected trait:
 
 ```{r}
-#trait_id <- "EFO_0001360" #T2DM
-#trait_id <- "EFO_0000249" #Alzheimer
-#trait_id <- "EFO_0000289" #bipolar disorder
-#trait_id <- "EFO_0000249" #Alzheimers disease
-#trait_id <- "EFO_0000305" #breast carcinoma
-#trait_id <- "EFO_0000270" #asthma
-#trait_id <- "EFO_0000692" #schizophrenia
-#trait_id <- "EFO_0005842" #colorectal cancer
-#trait_id <- "EFO_0001663" #prostate carcinoma
-#trait_id <- "EFO_0000685" #rheumatoid arthritis
-#trait_id <- "EFO_0003761" #unipolar depression
-trait_id <- "EFO_0002508" #Parkinsons disease
-#trait_id <- "EFO_0001645" #coronary heart disease
-#trait_id <- "EFO_0003885" #multiple sclerosis
-#trait_id <- "EFO_0000384" #Crohns disease
-#trait_id <- "EFO_0004574" #total cholesterol measurement
+trait_id <- "MONDO_0005180" #Parkinson disease
 
 query_trait <- gt[efoId==trait_id, first(trait)]
 ```
@@ -537,12 +503,20 @@ t2g[, ok2plot := as.logical(.I <= NMAX_PLOT)]
 message(sprintf("meanRankScore_filter result: %d / %d", sum(t2g[, ok2plot]), nrow(t2g)))
 ```
 
+### Top hits:
+
+```{r}
+setorder(t2g, meanRank)
+knitr::kable(t2g[1:10][, .(GSYMB=geneSymbol, name=geneName, family=geneFamily, geneIdgTdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, meanRankScore, meanRank)], caption=sprintf("TIGA: %s, top hits", query_trait))
+```
+
 ### Plot
 
 ```{r}
 t2g[is.na(geneIdgTdl), geneIdgTdl := "NA"]
 t2g$geneIdgTdl <- factor(t2g$geneIdgTdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
-t2g[, markersize := 10*n_study]
+#t2g[, markersize := 10*n_study]
+t2g[, markersize := 10]
 t2g[, text := paste0("<b>", geneSymbol, "</b> (", ensemblId, ")<br><b>", geneName, "</b><br>", "Family: ", geneFamily, "<br>", "TDL: ", geneIdgTdl, "<br>", "N_traits=", geneNtrait, " ; N_snp=", n_snp, " ; N_study=", n_study, "study_N = ",
 "OR = ", or_median, "; ",  study_N_mean, "; ",
 " ; pVal=", sprintf("%.2g",10^(-pvalue_mlog_max)), "RCRAS = ", rcras, "; ", 
@@ -558,10 +532,5 @@ plot_ly(type='scatter', mode='markers', data=t2g[(ok2plot)],
   add_annotations(text=sprintf("N: %d (%d shown)", nrow(t2g), sum(t2g$ok2plot)), showarrow=F, x=0, y=1.0, xref="paper", yref="paper")
 ```
 
-Top hits:
 
-```{r}
-setorder(t2g, meanRank)
-knitr::kable(t2g[1:10][, .(GSYMB=geneSymbol, name=geneName, family=geneFamily, geneIdgTdl, n_study, study_N_mean, rcras, or_median, pvalue_mlog_median, meanRankScore, meanRank)], caption=sprintf("TIGA: %s, top hits", query_trait))
-```
 
