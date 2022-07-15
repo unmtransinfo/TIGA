@@ -18,13 +18,19 @@ if (length(commandArgs(trailingOnly=T))>0) {
   args <- commandArgs(trailingOnly=T)
 }
 
-if (length(args)!=3) {
+if (interactive()) {
+  rel_y <- as.integer(readline(prompt="Enter RELEASE_YEAR: "))
+  rel_m <- as.integer(readline(prompt="Enter RELEASE_MONTH: "))
+  rel_d <- as.integer(readline(prompt="Enter RELEASE_DAY: "))
+} else if (length(args)==3) {
+  rel_y <- as.integer(args[1])
+  rel_m <- as.integer(args[2])
+  rel_d <- as.integer(args[3])
+} else {
   message("ERROR: Syntax: gwascat_trait.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
-rel_y <- as.integer(args[1])
-rel_m <- as.integer(args[2])
-rel_d <- as.integer(args[3])
+
 ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
 #
 ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies_ontology-annotated.tsv", rel_y, rel_m, rel_d))

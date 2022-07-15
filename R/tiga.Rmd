@@ -452,11 +452,25 @@ Which traits are most studied, based on N_study? But also, which of these may be
 be suitably specific for drug discovery?
 
 ```{r}
+xmax <- 10
+trait_study_counts <- trait[, .(N_study = uniqueN(STUDY_ACCESSION)), by=c("MAPPED_TRAIT", "MAPPED_TRAIT_URI")]
+trait_study_counts <- trait_study_counts[, .(trait_count = .N), by="N_study"][order(N_study)]
+knitr::kable(rbindlist(list(trait_study_counts[1:xmax], data.table(N_study=sprintf(">%d", xmax), trait_count=trait_study_counts[N_study>xmax, sum(trait_count)]))), caption="Trait study-count distribution")
+```
+
+Most-studied traits
+
+```{r}
 trait_top <- trait[, .(MAPPED_TRAIT, N_study=uniqueN(STUDY_ACCESSION)), by="efoId"]
 trait_top <- unique(merge(trait_top, gt[, .(N_genes=uniqueN(ensemblId)), by="efoId"], by="efoId", all.x=T, all.y=F))
-knitr::kable(trait_top[order(-N_study), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-studied traits")
-knitr::kable(trait_top[order(-N_genes), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-polygenic traits")
 #write_delim(trait_top[, .(efoId, MAPPED_TRAIT, N_study, N_genes)], "data/trait_counts.tsv", "\t")
+knitr::kable(trait_top[order(-N_study), .(MAPPED_TRAIT, N_study, N_genes)][1:18], caption="Most-studied traits")
+```
+
+Most-polygenic traits
+
+```{r}
+knitr::kable(trait_top[order(-N_genes), .(MAPPED_TRAIT, N_study, N_genes)][1:28], caption="Most-polygenic traits")
 ```
 
 # Prototype TIGA web app.
