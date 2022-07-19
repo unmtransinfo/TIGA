@@ -17,16 +17,25 @@ library(plotly, quietly=T)
 
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)==2) {
-  (ifile <- args[1])
-  (ofile <- args[2])
-} else if (length(args)==0) {
-  ifile <- "data/gwascat_assn.tsv"
-  ofile <- "data/gwascat_beta.tsv"
+
+if (interactive()) {
+  rel_y <- as.integer(readline(prompt="Enter RELEASE_YEAR: "))
+  rel_m <- as.integer(readline(prompt="Enter RELEASE_MONTH: "))
+  rel_d <- as.integer(readline(prompt="Enter RELEASE_DAY: "))
+} else if (length(args)==3) {
+  rel_y <- as.integer(args[1])
+  rel_m <- as.integer(args[2])
+  rel_d <- as.integer(args[3])
 } else {
-  message("ERROR: Syntax: gwascat_assn.R ASSNFILE OFILE\n\t...or no args for defaults.")
+  message("ERROR: Syntax: gwascat_beta.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
+
+ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+
+ifile <- paste0(ODIR, "/gwascat_assn.tsv")
+ofile <- paste0(ODIR, "/gwascat_beta.tsv")
+
 writeLines(sprintf("Input: %s", ifile))
 writeLines(sprintf("Output: %s", ofile))
 
@@ -61,6 +70,11 @@ assn[, ci_95_text := sub("^([0-9\\-]+\\.[0-9]+)\\.([0-9]+\\.[0-9]+)$", "[\\1-\\2
 ###
 # Beta units parsed from CI_95 text, or NA from NA.
 # Heuristic: all units include "(in|de)crease"
+# From FAQ (July 19, 2022):
+# How can I separate OR from beta in the associations download?
+# It is not currently possible to download the entire Catalog with OR and beta in separate columns. 
+# However, betas and ORs can be distinguished as all betas have a unit and direction e.g. “unit increase” or “cm decrease”. 
+# In the download, this is included in the "95% CI (TEXT)” column.
 assn[, beta_units := sub("^.*\\]\\s*", "", ci_95_text)]
 assn[, ci_min := as.numeric(sub("^\\[(.+)\\-(.+)\\].*$", "\\1", ci_95_text))]
 assn[, ci_max := as.numeric(sub("^\\[(.+)\\-(.+)\\].*$", "\\2", ci_95_text))]
@@ -85,16 +99,34 @@ assn[, beta_units_unparsable := (!is.na(beta_units) & !grepl("(in|de)crease", be
 message(sprintf("Associations with beta units unparseable: %d / %d (%.1f%%)",
 	assn[(beta_units_unparsable), .N], assn[, .N], 100* assn[(beta_units_unparsable), .N]/assn[, .N]))
 #
+# beta_units must include "(in|de)crease"
+assn[(!is.na(beta_units) & !grepl("(in|de)crease", beta_units)), beta_units := NA]
+#
+# Resolve non-standard terms.
+message(sprintf("BEFORE heuristic resolution, number of unique beta_unit values: %d", assn[, uniqueN(beta_units)]))
+assn[, beta_units := sub("Unit", "unit", beta_units)]
+assn[, beta_units := sub("units (in|de)crease", "unit \\1crease", beta_units)]
+assn[, beta_units := sub("([Zz] score|Z-score|[Zz]-unit|[Zz]-score unit|[Zz]score|\\([Zz][- ]score\\))", "z-score", beta_units)]
+assn[, beta_units := sub("NR ", "", beta_units)] # NR = not reported (specific unit)
+assn[, beta_units := sub("s.d. ", "SD", beta_units)]
+assn[, beta_units := sub("^\\s*(in|de)crease\\s*$", "unit \\1crease", beta_units)]
+assn[, beta_units := sub("SD\\s*(in|de)crease", "SD unit \\1crease", beta_units)]
+assn[, beta_units := sub("uni ", "unit ", beta_units)]
+assn[, beta_units := sub("cM ", "cm ", beta_units)]
+assn[, beta_units := sub("percentage ", "% ", beta_units)]
+message(sprintf("AFTER heuristic resolution, number of unique beta_unit values: %d", assn[, uniqueN(beta_units)]))
+#
 #Commonest BETA units
 tbl <- data.table(table(assn$beta_units))
 setnames(tbl, c("beta_units", "Freq"))
 setorder(tbl, -Freq)
-writeLines(sprintf("%2d. %8d: %s", 1:20, tbl[1:20, Freq], tbl[1:20, beta_units]))
+n <- nrow(tbl)
+writeLines(sprintf("%2d. %8d: %s", 1:n, tbl[1:n, Freq], tbl[1:n, beta_units]))
 writeLines(sprintf("Pct of associations either \"unit increase\" or \"unit decrease\": %.1f%% (%d/%d)", 
     100*tbl[grepl("unit (in|de)crease", beta_units), sum(Freq)]/tbl[, sum(Freq)], tbl[grepl("unit (in|de)crease", beta_units), sum(Freq)], tbl[, sum(Freq)]))
 ###
-#Approach: beta value counts for mu scoring/ranking.
-#However, only count betas with CIs which are unidirectional (not + and -).
+# Approach: beta value counts for mu scoring/ranking.
+# However, only count betas with CIs which are unidirectional (not + and -).
 #
 assn[, ci_spans_zero := ((ci_min * ci_max)<0)]
 message(sprintf("Associations with CIs spanning zero: %d / %d (%.1f%%)",
@@ -106,7 +138,7 @@ message(sprintf("TRAIT_URIs filtered by criterion (CI spanning zero): %d / %d",
 message(sprintf("MAPPED_GENEs filtered by criterion (CI spanning zero): %d / %d",
 	length(setdiff(assn[(ci_spans_zero), unique(MAPPED_GENE)], assn[, unique(MAPPED_GENE)])), assn[, uniqueN(MAPPED_GENE)]))
 #
-stop("DEBUG")
+#stop("DEBUG")
 #
 xxx <- assn[(grepl("^unit (in|de)crease", beta_units) & ci_is_nr==F), .(TRAIT_URI, TRAIT, `95%_CI_(TEXT)`, ci_95_text, beta, beta_units, ci_min, ci_max)]
 setorder(xxx, -ci_min, na.last=T)
@@ -117,7 +149,7 @@ anns <- c(sprintf("median:%.3f<br>mean:%.3f<br>range:[%.3f-%.3f]", median(xxx$ci
 plot_ly() %>%
   add_boxplot(name="CI_MIN", data=xxx, y=~ci_min) %>%
   add_boxplot(name="CI_MAX", data=xxx, y=~ci_max) %>%
-  layout(title="Effect size beta 95%_CI",
+  layout(title="Effect size beta 95% CI",
          xaxis=list(title="", tickangle=45), yaxis=list(title="", type="log"),
          margin = list(t=100, l=100),
          font = list(family="monospace", size=16)) %>%
