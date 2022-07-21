@@ -166,10 +166,10 @@ knitr::kable(gwas_journals[1:12], caption="Top journals by N_gwas")
 # Relative Citation Ratio (RCR)
 
 RCR annotations from iCite API; PMIDs from GWASCatalog.
-We estimate RCR=median as reasonable prior for new publications and any lacking RCR from iCite. 
+We estimate RCR=median as reasonable prior for new publications and any lacking RCR from iCite. But don't include in 
+visualization since these will obscure distribution.
 
 ```{r warning=FALSE}
-xmax <- 15
 icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
                        relative_citation_ratio=col_double(), field_citation_rate=col_double(),
                        citation_count=col_integer(), nih_percentile=col_double(),
@@ -177,10 +177,14 @@ icite <- read_delim(ifile_icite, "\t", col_types=cols(.default=col_character(),
                        year=col_integer()))
 gwas_icite <- merge(gwas[, .(STUDY_ACCESSION, PUBMEDID)], icite, by.x="PUBMEDID", by.y="pmid", all.x=T, all.y=F)
 qtl <- quantile(gwas_icite$relative_citation_ratio, seq(0, 1, .1), na.rm=T)
-anns <- c(sprintf("N_pmid = %d", nrow(gwas_icite)), sprintf("mean = %.1f ; median = %.1f ; max = %.1f", mean(gwas_icite$relative_citation_ratio, na.rm=T), median(gwas_icite$relative_citation_ratio, na.rm=T), max(gwas_icite$relative_citation_ratio, na.rm=T)), sprintf("90%%ile = %.1f", qtl["90%"]), (sprintf("(Plot truncated at %d.)", xmax)))
-plot_ly(gwas_icite, x=~relative_citation_ratio, type="histogram", marker=list(color="#22AA22")) %>%
+rcr_max <- 15
+year_min <- min(gwas_icite[, year], na.rm=T)
+year_max <- as.integer(format(Sys.Date(), "%Y"))-2
+anns <- c(sprintf("N_pmid = %d", nrow(gwas_icite)), sprintf("mean = %.1f ; median = %.1f ; max = %.1f", mean(gwas_icite$relative_citation_ratio, na.rm=T), median(gwas_icite$relative_citation_ratio, na.rm=T), max(gwas_icite$relative_citation_ratio, na.rm=T)), sprintf("90%%ile = %.1f", qtl["90%"]), sprintf("%d - %d", year_min, year_max),
+    sprintf("Plot RCR <= %d; count(RCR > %d) = %d", rcr_max, rcr_max, gwas_icite[relative_citation_ratio>rcr_max, .N]))
+plot_ly(gwas_icite[year<=year_max], x=~relative_citation_ratio, type="histogram", marker=list(color="#22AA22")) %>%
   layout(title = 'Relative Citation Ratio (RCR) distribution',
-         xaxis = list(title="RCR", type="normal", range=c(0, xmax), showgrid=T),
+         xaxis = list(title="RCR", type="normal", range=c(0, rcr_max), showgrid=T),
          yaxis = list(title="", showgrid=T),
          margin = list(t=100, l=100, r=100),
          font = list(family="monospace", size=18)) %>%
