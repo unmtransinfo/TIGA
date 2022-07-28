@@ -139,7 +139,8 @@ Odds ratio (OR) is the median, beta is a count of non-zero beta values, hence a
 measure of effect-evidence but not magnitude. Missing ORs represented as 0 for plotting.
 Note that for a given trait or gene, studies and associations may have ORs, betas, or collectively, both,
 though the plot displays only the datatype selected or auto-chosen.
-By default the axis is auto-chosen to reflect the predominant type.
+By default the axis is auto-chosen to reflect the predominant type
+for higher-evidence cases.
 <BR/>
 Note that this app will accept query parameters <B>trait</B> (EFO_ID) and/or <B>gene</B>
 (ENSEMBL_ID) via URL, e.g.
@@ -387,12 +388,13 @@ server <- function(input, output, session) {
     return(Hits2Show()[, `:=`(or_median = ifelse(is.na(or_median), 0, or_median), n_beta = ifelse(is.na(n_beta), 0, n_beta))]) #NA represented as zero for plotting.
   })
 
+  # Auto-select OR or beta based on which values exist (new: in higher-evidence cases)
   yAxisAuto <- reactive({
     if (is.null(Hits())) {
       return(input$yAxis)
     } else if (input$yAxis=="auto") {
-      n_or <- Hits()[!is.na(or_median), .N]
-      n_nbeta <- Hits()[n_beta>0, .N]
+      n_or <- Hits()[meanRankScore>=median(meanRankScore) & !is.na(or_median), .N]
+      n_nbeta <- Hits()[meanRankScore>=median(meanRankScore) & n_beta>0, .N]
       return(ifelse(n_nbeta>n_or, "n_beta", "or_median"))
     } else {
       return(input$yAxis)

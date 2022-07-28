@@ -6,6 +6,9 @@
 ### ftp://ftp.ebi.ac.uk/pub/databases/gwas/releases/{YYYY}/{MM}/{DD}/
 ### Note that "v1.0.1", "v1.0.2", "v1.0.3" refer to formats, not releases.
 #############################################################################
+### Need to manually check https://github.com/EBISPOT/efo/releases
+### for latest EFO release prior to GWC release.
+#############################################################################
 ### Using catalog API, for additional SNP-gene mappings.
 ### Genomic Mappings with EnsemblIDs for mapped genes, available via
 ### download assn file, but API provides many more "Ensembl_pipeline"
@@ -102,13 +105,13 @@ snpfile_api="${ODIR}/gwascat_snp_API.tsv"
 snp2genefile_api="${ODIR}/gwascat_snp2gene_API.tsv"
 snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
 ###
-MessageBreak "Clean studies:"
 #Clean studies:
+MessageBreak "Clean studies:"
 ${cwd}/R/gwascat_gwas.R $GC_REL_Y $GC_REL_M $GC_REL_D
 #
 ###
-MessageBreak "Clean associations:"
 #Clean, separate OR_or_beta into oddsratio, beta columns:
+MessageBreak "Clean associations:"
 ${cwd}/R/gwascat_assn.R $GC_REL_Y $GC_REL_M $GC_REL_D
 #
 #############################################################################
@@ -119,8 +122,10 @@ MessageBreak "TRAITS:"
 # EFO:
 EFO_DIR="$(cd $HOME/../data/EFO/data; pwd)"
 OWLFILE="$EFO_DIR/efo.owl"
-#EFO_RELEASE="3.25.0"
-EFO_RELEASE="3.40.0"
+###
+# Should be latest EFO release prior to GWC release.
+#EFO_RELEASE="3.40.0" # 2022-03-15
+EFO_RELEASE="3.43.0" # 2022-06-15 
 printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
 #
 EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
@@ -137,8 +142,8 @@ MessageBreak "Clean traits:"
 ${cwd}/R/gwascat_trait.R $GC_REL_Y $GC_REL_M $GC_REL_D
 #
 ###
-MessageBreak "Create EFO GraphML file:"
 # From efo.tsv create GraphML file:
+MessageBreak "Create EFO GraphML file:"
 graphmlfile="${ODIR}/efo_graph.graphml" #efo_graph.R
 ${cwd}/R/efo_graph.R $GC_REL_Y $GC_REL_M $GC_REL_D
 gzip -f ${graphmlfile}
@@ -146,7 +151,6 @@ gzip -f ${graphmlfile}
 #
 #############################################################################
 ### GENES:
-MessageBreak "GENES:"
 #
 ### MAPPED GENES:
 ### Separate mapped into up-/down-stream.
@@ -154,9 +158,10 @@ MessageBreak "GENES:"
 # "mu" - mapped to upstream gene
 # "md" - mapped to downstream gene
 ### (REPORTED GENES not used for TIGA scoring.)
+MessageBreak "GENES:"
 #
-MessageBreak "SNP2GENE (from association file):"
 #SNP to gene links, from download association file:
+MessageBreak "SNP2GENE (from association file):"
 ${cwd}/python/snp2gene.py $tsvfile_assn --o ${snp2genefile_file}
 #
 ###
@@ -180,7 +185,7 @@ else
 fi
 #
 #SNP2GENE, from API:
-python3 -m BioClients.util.pandas.Utils selectcols \
+python3 -m BioClients.util.pandas.App selectcols \
 	--i ${snpfile_api} \
 	--coltags "rsId,isIntergenic,isUpstream,isDownstream,distance,source,mappingMethod,isClosestGene,chromosomeName,chromosomePosition,geneName,ensemblGeneIds" \
 	--o ${snp2genefile_api}
@@ -226,8 +231,8 @@ else
 fi
 #
 ###
-MessageBreak "Generate counts:"
 # Generate counts via Python:
+MessageBreak "Generate counts:"
 ${cwd}/python/tiga_gwas_counts.py \
 	--ifile_gwas ${tsvfile_gwas} \
 	--ifile_assn ${tsvfile_assn} \
@@ -238,9 +243,9 @@ ${cwd}/python/tiga_gwas_counts.py \
 	--ofile_trait $ODIR/gwascat_trait_counts.tsv
 #
 ###
-MessageBreak "PREPFILTER:"
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.
+MessageBreak "PREPFILTER:"
 ${cwd}/R/tiga_gt_prepfilter.R \
 	${tsvfile_gwas} \
 	$ODIR/gwascat_gwas_counts.tsv \
@@ -255,35 +260,36 @@ ${cwd}/R/tiga_gt_prepfilter.R \
 	$ODIR/filtered_traits.tsv \
 	$ODIR/filtered_genes.tsv
 ###
-MessageBreak "PROVENANCE:"
 # Provenance for gene-trait pairs (STUDY_ACCESSION, PUBMEDID).
+MessageBreak "PROVENANCE:"
 ${cwd}/R/tiga_gt_provenance.R \
 	$ODIR/gt_prepfilter.Rdata \
 	$ODIR/gt_provenance.tsv.gz
 ###
-MessageBreak "VARIABLES:"
 # Generates variables, statistics, evidence features for gene-trait pairs.
+MessageBreak "VARIABLES:"
 ${cwd}/R/tiga_gt_variables.R \
 	$ODIR/gt_prepfilter.Rdata \
 	$ODIR/gt_variables.tsv.gz
 ###
-MessageBreak "STATS:"
 # Scores and ranks gene-trait pairs based on selected variables.
+MessageBreak "STATS:"
 ${cwd}/R/tiga_gt_stats.R \
 	$ODIR/gt_variables.tsv.gz \
 	$ODIR/gt_stats.tsv.gz
 ###
-MessageBreak "STATS_MU:"
-# Mu scores for benchmark comparision.
-${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
-	-q \
-	--i $ODIR/gt_variables.tsv.gz \
-	--o $ODIR/gt_stats_mu.tsv.gz
+# Mu scores for benchmark comparision. (Not needed for routine updates.)
+#MessageBreak "STATS_MU:"
+#${cwd}/python/tiga_gt_stats_mu.py --mutags "pvalue_mlog_max,rcras,n_snpw" \
+#	-q \
+#	--i $ODIR/gt_variables.tsv.gz \
+#	--o $ODIR/gt_stats_mu.tsv.gz
 ###
-MessageBreak "FINAL OUTPUT FILES:"
+# Generate final output files.
 # INPUTS: gwascat_gwas.tsv filtered_studies.tsv filtered_genes.tsv filtered_traits.tsv gt_provenance.tsv.gz gt_stats.tsv.gz efo_graph.graphml.gz tcrd_info.tsv gwascat_release.txt efo_release.txt
 # OUTPUTS: tiga.Rdata tiga_gene-trait_stats.tsv tiga_gene-trait_provenance.tsv tiga_genes.tsv tiga_traits.tsv
 #
+MessageBreak "FINAL OUTPUT FILES:"
 ${cwd}/R/tiga_final_files.R $ODIR
 ###
 # Show commands for installing updated datafiles.
