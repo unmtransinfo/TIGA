@@ -144,20 +144,22 @@ for higher-evidence cases.
 <BR/>
 Note that this app will accept query parameters <B>trait</B> (EFO_ID) and/or <B>gene</B>
 (ENSEMBL_ID) via URL, e.g.
-<B><TT>?trait=EFO_1000654</TT></B>, <B><TT>?gene=ENSG00000094914</TT></B>,
-<B><TT>?trait=EFO_1000654&gene=ENSG00000094914</TT></B>.
-<BR/>
+<UL>
+  <LI><B><TT>?trait=EFO_0004541</TT></B>
+  <LI><B><TT>?gene=ENSG00000160785</TT></B>
+  <LI><B><TT>?trait=EFO_0004541&gene=ENSG00000160785</TT></B>
+</UL>
 <B>Authors:</B>
-Jeremy Yang<SUP>1</SUP>, Dhouha Grissa<SUP>2</SUP>, Stephen Mathias<SUP>1</SUP>,
+Jeremy Yang<SUP>1,3</SUP>, Dhouha Grissa<SUP>2</SUP>, Stephen Mathias<SUP>1</SUP>,
 Cristian Bologa<SUP>1</SUP>, Anna Waller<SUP>1</SUP>, David Wild<SUP>3</SUP>,
 Christophe Lambert<SUP>1</SUP>, Lars Juhl Jensen<SUP>2</SUP> and Tudor Oprea<SUP>1</SUP>.<BR/>
 <I><SUP>1</SUP>University of New Mexico, Translational Informatics Division, Dept. of
 Internal Medicine; <SUP>2</SUP>Novo Nordisk Foundation Center for Protein Research, Copenhagen,
 Denmark; <SUP>3</SUP>Indiana University, School of Informatics, Computing and Engineering, Integrative Data Science Lab.</I>
 <BR/>
-<B>Publication:</B> <a href=\"https://academic.oup.com/bioinformatics/advance-article-abstract/doi/10.1093/bioinformatics/btab427/6292081\"> Yang et al, Bioinformatics, 04 June 2021</a>
+<B>Publication:</B> <a href=\"https://academic.oup.com/bioinformatics/article/37/21/3865/6292081\"> Yang et al, Bioinformatics, 2021</a>
 <BR/>
-<B>Feedback welcome</B> to <a href=\"mailto:jjyang_AT_salud_DOT_unm_DOT_edu\">Jeremy Yang</a>.<br/>
+<B>Feedback welcome</B> to <a href=\"https://www.unm.edu/~jjyang/\" target=\"_blank\">Jeremy Yang</a>.<br/>
 This work was supported by the National Institutes of Health grant U24-CA224370.<BR/>")
   htm <- paste(htm, sprintf("<hr>\nPowered by: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
