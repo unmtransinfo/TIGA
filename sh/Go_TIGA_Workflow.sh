@@ -82,15 +82,22 @@ fi
 ###
 # TCRD:
 # Version specified here:
-TCRD_DBNAME="tcrd6124"
+TCRD_DBNAME="tcrd"
+TCRD_DBHOST="tcrd.newdrugtargets.org"
+TCRD_DBUSR="tcrd_read_only"
+TCRD_DBPW=""
 #
 MessageBreak "IDG (TCRD):"
+if [ ! -e $ODIR/tcrd_targets.tsv ]; then
 python3 -m BioClients.idg.tcrd.Client listTargets \
-	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
+	--dbname "${TCRD_DBNAME}" --dbhost="${TCRD_DBHOST}" --dbusr="${TCRD_DBUSR}" --dbpw="${TCRD_DBPW}" \
 	--o $ODIR/tcrd_targets.tsv
+fi
+if [ ! -e $ODIR/tcrd_info.tsv ]; then
 python3 -m BioClients.idg.tcrd.Client info \
-	--dbname "${TCRD_DBNAME}" --dbhost="tcrd.kmc.io" --dbusr="tcrd" --dbpw="" \
+	--dbname "${TCRD_DBNAME}" --dbhost="${TCRD_DBHOST}" --dbusr="${TCRD_DBUSR}" --dbpw="${TCRD_DBPW}" \
 	--o $ODIR/tcrd_info.tsv
+fi
 #
 ###
 ### OUTPUT FILES:
@@ -125,7 +132,8 @@ OWLFILE="$EFO_DIR/efo.owl"
 ###
 # Should be latest EFO release prior to GWC release.
 #EFO_RELEASE="3.40.0" # 2022-03-15
-EFO_RELEASE="3.43.0" # 2022-06-15 
+#EFO_RELEASE="3.43.0" # 2022-06-15 
+EFO_RELEASE="3.47.0" # 2022-10-17 
 printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
 #
 EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
