@@ -535,10 +535,11 @@ t2g[is.na(geneIdgTdl), geneIdgTdl := "NA"]
 t2g$geneIdgTdl <- factor(t2g$geneIdgTdl, levels=c("Tclin", "Tchem", "Tbio", "Tdark", "NA"), ordered=T)
 #t2g[, markersize := 10*n_study]
 t2g[, markersize := 10]
-t2g[, text := paste0("<b>", geneSymbol, "</b> (", ensemblId, ")<br><b>", geneName, "</b><br>", "Family: ", geneFamily, "<br>", "TDL: ", geneIdgTdl, "<br>", "N_traits=", geneNtrait, " ; N_snp=", n_snp, " ; N_study=", n_study, "study_N = ",
-"OR = ", or_median, "; ",  study_N_mean, "; ",
-" ; pVal=", sprintf("%.2g",10^(-pvalue_mlog_max)), "RCRAS = ", rcras, "; ", 
-"meanRankScore = ", meanRankScore, "; ","meanRank = ", meanRank, "; ")]
+t2g[, text := paste0("<b>", geneSymbol, "</b> (", ensemblId, ")<br><b>", geneName, "</b><br>", "Family: ", geneFamily, "<br>", "TDL: ", geneIdgTdl, "<br>", 
+"N_traits=", geneNtrait, " ; N_snp=", n_snp, " ; N_study=", n_study, " ; study_N = ", study_N_mean, "<br>", 
+"OR = ", or_median, "; ",  study_N_mean, "; pVal=", sprintf("%.2g", 10^(-pvalue_mlog_max)), " ; RCRAS = ", rcras, ";<br>", 
+"meanRankScore = ", sprintf("%.1f", meanRankScore), "; ",
+"meanRank = ", sprintf("%.1f", meanRank), "; ")]
 plot_ly(type='scatter', mode='markers', data=t2g[(ok2plot)], 
   color=~geneIdgTdl, colors=c("blue", "green", "red", "black", "gray"),
 	x=~meanRankScore,
