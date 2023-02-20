@@ -42,6 +42,8 @@ MessageBreak "Starting $(basename $0)"
 # GWASCatalog release:
 if [ $# -eq 1 ]; then
 	GC_REL=$1
+elif [ -f "${cwd}/LATEST_RELEASE.txt" ]; then
+	GC_REL=$(cat ${cwd}/LATEST_RELEASE.txt)
 else
 	printf "ERROR: syntax $(basename $0) \"YYYY-MM-DD\"\n"
 	exit
@@ -82,9 +84,9 @@ fi
 ###
 # TCRD:
 # Version specified here:
-TCRD_DBNAME="tcrd"
-TCRD_DBHOST="tcrd.newdrugtargets.org"
-TCRD_DBUSR="tcrd_read_only"
+TCRD_DBNAME="tcrd6134pharos2"
+TCRD_DBHOST="tcrd.ncats.io"
+TCRD_DBUSR="tcrd"
 TCRD_DBPW=""
 #
 MessageBreak "IDG (TCRD):"

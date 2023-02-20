@@ -18,7 +18,9 @@ message(t_start)
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
-ODIR <- "data/20220324"
+GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+message(sprintf("LATEST_RELEASE: %s", GC_REL))
+ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
 #
 ifile_gwas <-	ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_gwas.tsv")) #gwascat_gwas.R
 ifile_counts <-	ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_gwas_counts.tsv")) # NOW tiga_gwas_counts.py (OLD Go_gwascat_DbCreate.sh)

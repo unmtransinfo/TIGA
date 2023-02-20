@@ -18,6 +18,7 @@ library(igraph, quietly=T)
 library(shiny, quietly=T)
 library(shinyBS, quietly=T)
 library(shinysky, quietly=T)
+library(rclipboard)
 library(DT, quietly=T)
 library(plotly, quietly=T)
 #
@@ -170,6 +171,7 @@ ui <- fluidPage(
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
   #tags$style("label {display: table-cell; text-align: center; vertical-align: middle;} .form-group {display: table-row;}"),
   titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), APPNAME_FULL), windowTitle=APPNAME_FULL),
+#  rclipboardSetup(),
   fluidRow(
     column(4, 
       wellPanel(
@@ -191,7 +193,9 @@ ui <- fluidPage(
         fluidRow(column(2, HTML("<b><i>Plot</i></b>")),
         column(10, radioButtons("yAxis", "Y-Axis", choiceNames=c("OR", "N_beta", "Auto"), choiceValues=c("or_median", "n_beta", "auto"), selected="auto", inline=T)))),
 	wellPanel(htmlOutput(outputId="logHtm")),
-	wellPanel(htmlOutput(outputId="resultHtm"))),
+	wellPanel(htmlOutput(outputId="resultHtm"))
+#	,wellPanel(uiOutput("clip"))
+	),
     column(8,
 	tabsetPanel(id="tabset", type="tabs",
 		tabPanel(value="hitsTable", title=htmlOutput("hitsTableTabHtm"), htmlOutput("tigaTableTitleHtm"), DT::dataTableOutput("tigaTable"), br(), downloadButton("hits_file",
@@ -209,7 +213,7 @@ ui <- fluidPage(
 			wellPanel(p(tags$b("ALL traits involved in gene-trait associations:")), downloadButton("traits_file", label="Traits"), htmlOutput("traitFileInfoHtm")),
 			wellPanel(p(tags$b("ALL genes involved in gene-trait associations:")), downloadButton("genes_file", label="Genes"), htmlOutput("geneFileInfoHtm")),
 			wellPanel(p(tags$b("Provenance for ALL gene-trait associations:")), downloadButton("provenance_file", label="Provenance"), htmlOutput("provFileInfoHtm")),
-			HTML("For latest and archived files also see: <b><a href=\"https://unmtid-shinyapps.net/download/TIGA/\" target=\"_blank\">TIGA downloads directory</a></b>")
+			HTML("For latest and archived files also see: <b><a href=\"https://unmtid-shinyapps.net/download/TIGA/\" target=\"_blank\">TIGA downloads directory</a></b>. For source files see <b><a href=\"https://ftp.ebi.ac.uk/pub/databases/gwas/releases\">GWAS Catalog releases directory</a></b>")
 		),
 		tabPanel(value="help", title=HTML("<i><br/>Help</i>"), htmlOutput("helpHtm"))
 	))),
@@ -286,6 +290,8 @@ server <- function(input, output, session) {
     name <- gene_table[ensemblId==ensemblId_this, first(geneName)]
     return(name)
   }
+
+#  output$clip <- renderUI({ rclipButton("clipbtn", "Copy URL to clipboard", clipText = urlText(), modal=F, icon = icon("clipboard")) })
   
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
     #message(sprintf("DEBUG: efoId_this: %s; ensemblId_this: %s; efoId2Name(efoId_this): %s; ensemblId2Symbol(ensemblId_this): %s; ensemblId2Name(ensemblId_this): %s", efoId_this, ensemblId_this, efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this), ensemblId2Name(ensemblId_this)))
