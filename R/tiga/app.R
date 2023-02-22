@@ -18,7 +18,7 @@ library(igraph, quietly=T)
 library(shiny, quietly=T)
 library(shinyBS, quietly=T)
 library(shinysky, quietly=T)
-library(rclipboard)
+#library(rclipboard)
 library(DT, quietly=T)
 library(plotly, quietly=T)
 #

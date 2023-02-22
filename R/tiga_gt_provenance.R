@@ -18,17 +18,31 @@ t_start <- Sys.time()
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
-#ODIR <- "data"
-#ODIR <- "data/20201216"
-ODIR <- "data/20210212"
-#
-ifile	<- ifelse(length(args)>0, args[1], paste0(ODIR, "/gt_prepfilter.Rdata"))
-ofile	<- ifelse(length(args)>1, args[2], paste0(ODIR, "/gt_provenance.tsv.gz"))
-#
-if (length(args)>2) {
-  message("ERROR: Syntax: tiga_gt_provenance.R [GT_PREPFILTER_FILE [OFILE]]\n...or... no args for defaults")
+if (interactive()) {
+  rel_y <- as.integer(readline(prompt="Enter RELEASE_YEAR: "))
+  rel_m <- as.integer(readline(prompt="Enter RELEASE_MONTH: "))
+  rel_d <- as.integer(readline(prompt="Enter RELEASE_DAY: "))
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (length(args)==3) {
+  rel_y <- as.integer(args[1])
+  rel_m <- as.integer(args[2])
+  rel_d <- as.integer(args[3])
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (file.exists("LATEST_RELEASE.txt")) {
+  GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+  rel_y <- as.integer(sub("\\-.*$", "", GC_REL))
+  rel_m <- as.integer(sub("\\d+\\-(\\d+)\\-.*$", "\\1", GC_REL))
+  rel_d <- as.integer(sub("\\d+\\-\\d+\\-(\\d+).*$", "\\1", GC_REL))
+  message(sprintf("LATEST_RELEASE: %s", GC_REL))
+  ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
+} else {
+  message("ERROR: Syntax: tiga_gt_provenance.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
+#
+ifile	<- paste0(ODIR, "/gt_prepfilter.Rdata")
+ofile	<- paste0(ODIR, "/gt_provenance.tsv.gz")
+#
 writeLines(sprintf("Input prepfilter file: %s", ifile))
 writeLines(sprintf("Output provenance file: %s", ofile))
 #

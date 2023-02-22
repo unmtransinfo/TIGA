@@ -72,7 +72,12 @@ library(plotly, quietly=T)
 From GWAS Catalog, TCRD, and EFO.
 
 ```{r}
-ODIR <- "data/20220324"
+GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+message(sprintf("LATEST_RELEASE: %s", GC_REL))
+```
+
+```{r}
+ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
 ifile_gwas <- paste0(ODIR, "/gwascat_gwas.tsv")
 ifile_assn <- paste0(ODIR, "/gwascat_assn.tsv")
 ifile_snp2gene <- paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv")

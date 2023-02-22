@@ -22,10 +22,19 @@ if (interactive()) {
   rel_y <- as.integer(readline(prompt="Enter RELEASE_YEAR: "))
   rel_m <- as.integer(readline(prompt="Enter RELEASE_MONTH: "))
   rel_d <- as.integer(readline(prompt="Enter RELEASE_DAY: "))
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
 } else if (length(args)==3) {
   rel_y <- as.integer(args[1])
   rel_m <- as.integer(args[2])
   rel_d <- as.integer(args[3])
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (file.exists("LATEST_RELEASE.txt")) {
+  GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+  rel_y <- as.integer(sub("\\-.*$", "", GC_REL))
+  rel_m <- as.integer(sub("\\d+\\-(\\d+)\\-.*$", "\\1", GC_REL))
+  rel_d <- as.integer(sub("\\d+\\-\\d+\\-(\\d+).*$", "\\1", GC_REL))
+  message(sprintf("LATEST_RELEASE: %s", GC_REL))
+  ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
 } else {
   message("ERROR: Syntax: gwascat_trait.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()

@@ -18,27 +18,41 @@ message(t_start)
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 #
-GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
-message(sprintf("LATEST_RELEASE: %s", GC_REL))
-ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
-#
-ifile_gwas <-	ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_gwas.tsv")) #gwascat_gwas.R
-ifile_counts <-	ifelse((length(args)>1), args[2], paste0(ODIR, "/gwascat_gwas_counts.tsv")) # NOW tiga_gwas_counts.py (OLD Go_gwascat_DbCreate.sh)
-ifile_assn <-	ifelse((length(args)>2), args[3], paste0(ODIR, "/gwascat_assn.tsv")) #gwascat_assn.R
-ifile_snp2gene <-ifelse((length(args)>3), args[4], paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv")) #snp2gene.py
-ifile_trait <-	ifelse((length(args)>4), args[5], paste0(ODIR, "/gwascat_trait.tsv")) #gwascat_trait.R
-ifile_icite <-	ifelse((length(args)>5), args[6], paste0(ODIR, "/gwascat_icite.tsv")) #BioClients.icite API
-ifile_ensembl <-ifelse((length(args)>6), args[7], paste0(ODIR, "/gwascat_EnsemblInfo.tsv")) #BioClients.ensembl API
-ifile_tcrd <-	ifelse((length(args)>7), args[8], paste0(ODIR, "/tcrd_targets.tsv")) #BioClients.idg API
-ofile <-	ifelse((length(args)>8), args[9], paste0(ODIR, "/gt_prepfilter.Rdata"))
-ofile_filtered_studies <- ifelse((length(args)>9), args[10], paste0(ODIR, "/filtered_studies.tsv"))
-ofile_filtered_traits <- ifelse((length(args)>10), args[11], paste0(ODIR, "/filtered_traits.tsv"))
-ofile_filtered_genes <-	ifelse((length(args)>11), args[12], paste0(ODIR, "/filtered_genes.tsv"))
-#
-if (length(args)>12) {
-  message("ERROR: Syntax: tiga_gt_prepfilter.R GWASFILE [COUNTSFILE [ASSNFILE [SNP2GENEFILE [TRAITFILE [ICITEFILE [TCRDFILE [ENSEMBLFILE [OFILE [OFILE_FILTERED_STUDIES [OFILE_FILTERED_TRAITS [OFILE_FILTERED_GENES]]]]]]]]]]]]\n...or... no args for defaults")
+if (interactive()) {
+  rel_y <- as.integer(readline(prompt="Enter RELEASE_YEAR: "))
+  rel_m <- as.integer(readline(prompt="Enter RELEASE_MONTH: "))
+  rel_d <- as.integer(readline(prompt="Enter RELEASE_DAY: "))
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (length(args)==3) {
+  rel_y <- as.integer(args[1])
+  rel_m <- as.integer(args[2])
+  rel_d <- as.integer(args[3])
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (file.exists("LATEST_RELEASE.txt")) {
+  GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+  rel_y <- as.integer(sub("\\-.*$", "", GC_REL))
+  rel_m <- as.integer(sub("\\d+\\-(\\d+)\\-.*$", "\\1", GC_REL))
+  rel_d <- as.integer(sub("\\d+\\-\\d+\\-(\\d+).*$", "\\1", GC_REL))
+  message(sprintf("LATEST_RELEASE: %s", GC_REL))
+  ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
+} else {
+  message("ERROR: Syntax: tiga_gt_prepfilter.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
+#
+ifile_gwas <-	paste0(ODIR, "/gwascat_gwas.tsv") #gwascat_gwas.R
+ifile_counts <-	paste0(ODIR, "/gwascat_gwas_counts.tsv") # NOW tiga_gwas_counts.py (OLD Go_gwascat_DbCreate.sh)
+ifile_assn <-	paste0(ODIR, "/gwascat_assn.tsv") #gwascat_assn.R
+ifile_snp2gene <- paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv") #snp2gene.py
+ifile_trait <-	paste0(ODIR, "/gwascat_trait.tsv") #gwascat_trait.R
+ifile_icite <-	paste0(ODIR, "/gwascat_icite.tsv") #BioClients.icite API
+ifile_ensembl <- paste0(ODIR, "/gwascat_EnsemblInfo.tsv") #BioClients.ensembl API
+ifile_tcrd <- paste0(ODIR, "/tcrd_targets.tsv") #BioClients.idg API
+ofile <- paste0(ODIR, "/gt_prepfilter.Rdata")
+ofile_filtered_studies <- paste0(ODIR, "/filtered_studies.tsv")
+ofile_filtered_traits <- paste0(ODIR, "/filtered_traits.tsv")
+ofile_filtered_genes <-	paste0(ODIR, "/filtered_genes.tsv")
+#
 message(sprintf("Input gwas file: %s", ifile_gwas))
 message(sprintf("Input counts file: %s", ifile_counts))
 message(sprintf("Input assn file: %s", ifile_assn))

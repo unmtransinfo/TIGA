@@ -42,6 +42,7 @@ MessageBreak "Starting $(basename $0)"
 # GWASCatalog release:
 if [ $# -eq 1 ]; then
 	GC_REL=$1
+	printf "${GC_REL}\n" >${cwd}/LATEST_RELEASE.txt
 elif [ -f "${cwd}/LATEST_RELEASE.txt" ]; then
 	GC_REL=$(cat ${cwd}/LATEST_RELEASE.txt)
 else
@@ -116,12 +117,12 @@ snp2genefile_merged="${ODIR}/gwascat_snp2gene_MERGED.tsv"
 ###
 #Clean studies:
 MessageBreak "Clean studies:"
-${cwd}/R/gwascat_gwas.R $GC_REL_Y $GC_REL_M $GC_REL_D
+${cwd}/R/gwascat_gwas.R
 #
 ###
 #Clean, separate OR_or_beta into oddsratio, beta columns:
 MessageBreak "Clean associations:"
-${cwd}/R/gwascat_assn.R $GC_REL_Y $GC_REL_M $GC_REL_D
+${cwd}/R/gwascat_assn.R
 #
 #############################################################################
 ### TRAITS:
@@ -149,7 +150,7 @@ java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 ###
 #
 MessageBreak "Clean traits:"
-${cwd}/R/gwascat_trait.R $GC_REL_Y $GC_REL_M $GC_REL_D
+${cwd}/R/gwascat_trait.R
 #
 ###
 # From efo.tsv create GraphML file:
@@ -201,10 +202,7 @@ python3 -m BioClients.util.pandas.App selectcols \
 	--o ${snp2genefile_api}
 #
 #Merge FILE and API snp2gene files:
-${cwd}/R/snp2gene_merge.R \
-	${snp2genefile_file} \
-	${snp2genefile_api} \
-	${snp2genefile_merged}
+${cwd}/R/snp2gene_merge.R
 #
 #############################################################################
 # Download latest Ensembl human gene file.
@@ -256,37 +254,19 @@ ${cwd}/python/tiga_gwas_counts.py \
 # Pre-process and filter. Studies, genes and traits may be removed
 # due to insufficient evidence.
 MessageBreak "PREPFILTER:"
-${cwd}/R/tiga_gt_prepfilter.R \
-	${tsvfile_gwas} \
-	$ODIR/gwascat_gwas_counts.tsv \
-	${tsvfile_assn} \
-	${snp2genefile_merged} \
-	${tsvfile_trait} \
-	${tsvfile_icite} \
-	${ensemblinfofile} \
-	$ODIR/tcrd_targets.tsv \
-	$ODIR/gt_prepfilter.Rdata \
-	$ODIR/filtered_studies.tsv \
-	$ODIR/filtered_traits.tsv \
-	$ODIR/filtered_genes.tsv
+${cwd}/R/tiga_gt_prepfilter.R
 ###
 # Provenance for gene-trait pairs (STUDY_ACCESSION, PUBMEDID).
 MessageBreak "PROVENANCE:"
-${cwd}/R/tiga_gt_provenance.R \
-	$ODIR/gt_prepfilter.Rdata \
-	$ODIR/gt_provenance.tsv.gz
+${cwd}/R/tiga_gt_provenance.R
 ###
 # Generates variables, statistics, evidence features for gene-trait pairs.
 MessageBreak "VARIABLES:"
-${cwd}/R/tiga_gt_variables.R \
-	$ODIR/gt_prepfilter.Rdata \
-	$ODIR/gt_variables.tsv.gz
+${cwd}/R/tiga_gt_variables.R
 ###
 # Scores and ranks gene-trait pairs based on selected variables.
 MessageBreak "STATS:"
-${cwd}/R/tiga_gt_stats.R \
-	$ODIR/gt_variables.tsv.gz \
-	$ODIR/gt_stats.tsv.gz
+${cwd}/R/tiga_gt_stats.R
 ###
 # Mu scores for benchmark comparision. (Not needed for routine updates.)
 #MessageBreak "STATS_MU:"
@@ -300,7 +280,7 @@ ${cwd}/R/tiga_gt_stats.R \
 # OUTPUTS: tiga.Rdata tiga_gene-trait_stats.tsv tiga_gene-trait_provenance.tsv tiga_genes.tsv tiga_traits.tsv
 #
 MessageBreak "FINAL OUTPUT FILES:"
-${cwd}/R/tiga_final_files.R $ODIR
+${cwd}/R/tiga_final_files.R
 ###
 # Show commands for installing updated datafiles.
 printf "Copy Rdata for TIGA web app with command:\n"

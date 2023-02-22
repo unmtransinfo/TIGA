@@ -41,28 +41,45 @@ efoId2Uri <- function(efoId) { #(non-vector)
 #
 args <- commandArgs(trailingOnly=TRUE)
 #
-if (length(args)!=1) {
-  message("ERROR: Syntax: tiga_final.R DATADIR\n\tSpecify dir for input and output files.")
+if (interactive()) {
+  rel_y <- as.integer(readline(prompt="Enter RELEASE_YEAR: "))
+  rel_m <- as.integer(readline(prompt="Enter RELEASE_MONTH: "))
+  rel_d <- as.integer(readline(prompt="Enter RELEASE_DAY: "))
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (length(args)==3) {
+  rel_y <- as.integer(args[1])
+  rel_m <- as.integer(args[2])
+  rel_d <- as.integer(args[3])
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (file.exists("LATEST_RELEASE.txt")) {
+  GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+  rel_y <- as.integer(sub("\\-.*$", "", GC_REL))
+  rel_m <- as.integer(sub("\\d+\\-(\\d+)\\-.*$", "\\1", GC_REL))
+  rel_d <- as.integer(sub("\\d+\\-\\d+\\-(\\d+).*$", "\\1", GC_REL))
+  message(sprintf("LATEST_RELEASE: %s", GC_REL))
+  ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
+} else {
+  message("ERROR: Syntax: tiga_final.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
-DATADIR <- args[1]
-OFILE_RDATA <- paste0(DATADIR, "/tiga.Rdata")
-OFILE_GTSTATS <- paste0(DATADIR, "/tiga_gene-trait_stats.tsv")
-OFILE_PROVENANCE <- paste0(DATADIR, "/tiga_gene-trait_provenance.tsv")
-OFILE_GENES <- paste0(DATADIR, "/tiga_genes.tsv")
-OFILE_TRAITS <- paste0(DATADIR, "/tiga_traits.tsv")
 #
-message(sprintf("DATADIR: %s", DATADIR))
-IFILE_GTSTATS <- paste0(DATADIR, "/gt_stats.tsv.gz")
-IFILE_PROVENANCE <- paste0(DATADIR, "/gt_provenance.tsv.gz")
-IFILE_FILTERED_STUDIES <- paste0(DATADIR, "/filtered_studies.tsv")
-IFILE_FILTERED_TRAITS <- paste0(DATADIR, "/filtered_traits.tsv")
-IFILE_FILTERED_GENES <- paste0(DATADIR, "/filtered_genes.tsv")
-IFILE_GWAS <- paste0(DATADIR, "/gwascat_gwas.tsv")
-IFILE_RELEASE_GWASCAT <- paste0(DATADIR, "/gwascat_release.txt")
-IFILE_RELEASE_EFO <- paste0(DATADIR, "/efo_release.txt")
-IFILE_RELEASE_TCRD <- paste0(DATADIR, "/tcrd_info.tsv")
-INFILE_EFOGRAPH <- paste0(DATADIR, "/efo_graph.graphml")
+OFILE_RDATA <- paste0(ODIR, "/tiga.Rdata")
+OFILE_GTSTATS <- paste0(ODIR, "/tiga_gene-trait_stats.tsv")
+OFILE_PROVENANCE <- paste0(ODIR, "/tiga_gene-trait_provenance.tsv")
+OFILE_GENES <- paste0(ODIR, "/tiga_genes.tsv")
+OFILE_TRAITS <- paste0(ODIR, "/tiga_traits.tsv")
+#
+message(sprintf("ODIR: %s", ODIR))
+IFILE_GTSTATS <- paste0(ODIR, "/gt_stats.tsv.gz")
+IFILE_PROVENANCE <- paste0(ODIR, "/gt_provenance.tsv.gz")
+IFILE_FILTERED_STUDIES <- paste0(ODIR, "/filtered_studies.tsv")
+IFILE_FILTERED_TRAITS <- paste0(ODIR, "/filtered_traits.tsv")
+IFILE_FILTERED_GENES <- paste0(ODIR, "/filtered_genes.tsv")
+IFILE_GWAS <- paste0(ODIR, "/gwascat_gwas.tsv")
+IFILE_RELEASE_GWASCAT <- paste0(ODIR, "/gwascat_release.txt")
+IFILE_RELEASE_EFO <- paste0(ODIR, "/efo_release.txt")
+IFILE_RELEASE_TCRD <- paste0(ODIR, "/tcrd_info.tsv")
+INFILE_EFOGRAPH <- paste0(ODIR, "/efo_graph.graphml")
 #
 for (f in c(IFILE_GTSTATS, IFILE_PROVENANCE, IFILE_FILTERED_STUDIES, IFILE_FILTERED_TRAITS, IFILE_FILTERED_GENES, IFILE_GWAS, IFILE_RELEASE_GWASCAT, IFILE_RELEASE_EFO, IFILE_RELEASE_TCRD)) {
   message(sprintf("INPUT FILE: %s (%s)", f, ifelse(file.exists(f), "exists", "MISSING-QUITTING")))

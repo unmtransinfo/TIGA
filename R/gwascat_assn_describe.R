@@ -10,10 +10,9 @@ library(data.table)
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 
-rel_y <- 2021
-rel_m <- 08
-rel_d <- 17
-ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+message(sprintf("LATEST_RELEASE: %s", GC_REL))
+ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
 
 ifile <- ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_assn.tsv"))
 message(sprintf("Input ASSN file: %s", ifile))

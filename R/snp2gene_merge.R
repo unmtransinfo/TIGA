@@ -5,11 +5,32 @@ library(data.table)
 
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
-ODIR <- "data/20210506"
 
-ifile_file <- ifelse(length(args)>0, args[1], paste0(ODIR, "/gwascat_snp2gene_FILE.tsv"))
-ifile_api <- ifelse(length(args)>1, args[2], paste0(ODIR, "/gwascat_snp2gene_API.tsv"))
-ofile	<- ifelse(length(args)>2, args[3], paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv"))
+if (interactive()) {
+  rel_y <- as.integer(readline(prompt="Enter RELEASE_YEAR: "))
+  rel_m <- as.integer(readline(prompt="Enter RELEASE_MONTH: "))
+  rel_d <- as.integer(readline(prompt="Enter RELEASE_DAY: "))
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (length(args)==3) {
+  rel_y <- as.integer(args[1])
+  rel_m <- as.integer(args[2])
+  rel_d <- as.integer(args[3])
+  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
+} else if (file.exists("LATEST_RELEASE.txt")) {
+  GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+  rel_y <- as.integer(sub("\\-.*$", "", GC_REL))
+  rel_m <- as.integer(sub("\\d+\\-(\\d+)\\-.*$", "\\1", GC_REL))
+  rel_d <- as.integer(sub("\\d+\\-\\d+\\-(\\d+).*$", "\\1", GC_REL))
+  message(sprintf("LATEST_RELEASE: %s", GC_REL))
+  ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
+} else {
+  message("ERROR: Syntax: gene_merge.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
+  quit()
+}
+
+ifile_file <- paste0(ODIR, "/gwascat_snp2gene_FILE.tsv")
+ifile_api <- paste0(ODIR, "/gwascat_snp2gene_API.tsv")
+ofile	<- paste0(ODIR, "/gwascat_snp2gene_MERGED.tsv")
 
 message(sprintf("Input FILE file: %s", ifile_file))
 message(sprintf("Input API file: %s", ifile_api))
