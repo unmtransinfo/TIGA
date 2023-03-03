@@ -1,21 +1,51 @@
-#!/usr/bin/env Rscript
-###
-library(readr)
-library(data.table)
-library(plotly)
+---
+title: "TIGA Statistics by Release"
+author: "Jeremy Yang"
+output:
+  html_document:
+    number_sections: yes
+    toc: no
+  pdf_document:
+    toc: no
+editor_options:
+  chunk_output_type: console
+---
 
+# TIGA Statistics by Release
+
+Target Illumination GWAS Analytics (TIGA) processes data from the GWAS Catalog (GC), by NHGRI and EBI. Here we present the counts of entities for releases over the history of TIGA, specifically: Studies, Traits, Publications, and Genes. Many entities in GC are excluded from TIGA, for several reasons, mostly: (1) Only protein-coding genes included, and (2) Only associations with mapped EFO traits and dbSNP IDs included.
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+base::date()
+```
+
+```{r message=FALSE, warning=FALSE}
+library(readr, quietly=T)
+library(data.table, quietly=T)
+library(plotly, quietly=T)
+```
+
+# Read file
+
+```{r}
 tigastats <- read_delim(paste0(Sys.getenv("HOME"), "/Dropbox/UNM/TIGA/TIGA_Statistics.tsv"), delim="\t", skip=2,
   col_names = c("Release", "Studies", "Publications", "Traits", "Genes", "GC_Studies", "GC_Traits", "Comment"))
 setDT(tigastats)
 
 tigastats[, Comment := NULL]
 tigastats[, Release := as.Date(Release)]
+knitr::kable(tigastats)
+```
 
-fig <- plot_ly(tigastats, x=~Release, mode="markers")
-fig <- fig %>% add_lines(y=~Studies, name="Studies", mode="markers", line=list(shape="linear"), marker=list(size=15))
-fig <- fig %>% add_lines(y=~Publications, name="Publications", mode="markers", line=list(shape="linear"), marker=list(size=15)) 
-fig <- fig %>% add_lines(y=~Traits, name="Traits", mode="markers", line=list(shape="linear"), marker=list(size=15))
-fig <- fig %>% add_lines(y=~Genes, name="Genes", mode="markers", line=list(shape="linear"), marker=list(size=15))
+# Plot
+
+```{r}
+fig <- plot_ly(tigastats, x=~Release)
+fig <- fig %>% add_trace(y=~Studies, name="Studies", type="scatter", mode="lines+markers", line=list(shape="linear"), marker=list(size=15))
+fig <- fig %>% add_trace(y=~Publications, name="Publications", type="scatter", mode="lines+markers", line=list(shape="linear"), marker=list(size=15)) 
+fig <- fig %>% add_trace(y=~Traits, name="Traits", type="scatter", mode="lines+markers", line=list(shape="linear"), marker=list(size=15))
+fig <- fig %>% add_trace(y=~Genes, name="Genes", type="scatter", mode="lines+markers", line=list(shape="linear"), marker=list(size=15))
 fig <- fig %>% layout(title = "TIGA Statistics",
                       paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
                       xaxis = list(title = "Release Date (GWAS Catalog and TIGA)",
@@ -51,3 +81,4 @@ ann_pubs_max <- list(
 fig <- fig %>% layout(annotations = ann_pubs_min)
 fig <- fig %>% layout(annotations = ann_pubs_max)
 fig
+```

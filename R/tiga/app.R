@@ -168,6 +168,7 @@ This work was supported by the National Institutes of Health grant U24-CA224370.
 
 ##########################################################################################
 ui <- fluidPage(
+  tags$head(includeHTML(("google-analytics.html"))),
   tags$style(".green_class {color:#00ff00} .blue_class {color:#0000ff} .red_class {color:#ff0000} .black_class {color:black}"),
   #tags$style("label {display: table-cell; text-align: center; vertical-align: middle;} .form-group {display: table-row;}"),
   titlePanel(h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), APPNAME_FULL), windowTitle=APPNAME_FULL),
