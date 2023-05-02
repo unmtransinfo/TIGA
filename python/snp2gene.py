@@ -39,7 +39,7 @@ if __name__=="__main__":
 
   fout = open(args.ofile,"w") if args.ofile else sys.stdout
 
-  assn = pd.read_csv(args.INPUT_GWASCAT_ASSN_FILE, "\t", low_memory=False)
+  assn = pd.read_csv(args.INPUT_GWASCAT_ASSN_FILE, sep="\t", low_memory=False)
   logging.info(f"{args.INPUT_GWASCAT_ASSN_FILE} rows: {assn.shape[0]}")
   logging.debug(f"{args.INPUT_GWASCAT_ASSN_FILE} columns: {str(assn.columns)}")
   #assn.info()
@@ -121,7 +121,7 @@ if __name__=="__main__":
   s2gm["MAPPED_OR_REPORTED"] = ""
   s2gm = s2gm.replace(np.nan, "", regex=True)
   s2gm = s2gm.replace("nan", "", regex=True)
-  #s2gm[["SNP_GENE_IDS","UPSTREAM_GENE_ID","DOWNSTREAM_GENE_ID"]].to_csv("s2gm_DEBUG.tsv", "\t", index=False)
+  #s2gm[["SNP_GENE_IDS","UPSTREAM_GENE_ID","DOWNSTREAM_GENE_ID"]].to_csv("s2gm_DEBUG.tsv", sep="\t", index=False)
   n_m = (s2gm["SNP_GENE_IDS"]!="").sum()
   n_mu = (s2gm["UPSTREAM_GENE_ID"]!="").sum()
   n_md = (s2gm["DOWNSTREAM_GENE_ID"]!="").sum()
@@ -145,7 +145,7 @@ if __name__=="__main__":
   s2gm = pd.concat([s2gm_in, s2gm_up, s2gm_down])
   #
   tag="MAPPED_OR_REPORTED"
-  for key,val in s2gm[tag].value_counts().iteritems(): logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
+  for key,val in s2gm[tag].value_counts().items(): logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
   #
   s2gm = s2gm[["STUDY_ACCESSION", "SNPS", "GSYMB", "ENSG", "MAPPED_OR_REPORTED"]]
   logging.info(f"SNP2GENE (MAPPED) SNPs: {s2gm.SNPS.nunique()}")
@@ -154,7 +154,7 @@ if __name__=="__main__":
   s2g = s2g.sort_values(["STUDY_ACCESSION", "SNPS", "GSYMB", "ENSG", "MAPPED_OR_REPORTED"])
   logging.info(f"SNP2GENE (ALL) SNPs: {s2g.SNPS.nunique()}")
   #
-  for key,val in s2g[tag].value_counts().iteritems(): logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
+  for key,val in s2g[tag].value_counts().items(): logging.info(f"Count({tag}==\"{key}\"): {val:6d}")
   #
-  s2g.to_csv(fout, "\t", index=False)
+  s2g.to_csv(fout, sep="\t", index=False)
   #

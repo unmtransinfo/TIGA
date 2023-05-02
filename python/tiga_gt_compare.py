@@ -32,11 +32,11 @@ def CompareGeneTraitStats(ifileA, ifileB, entity, ofile):
   if entity=="gene":
     df_out = dfA[["ensemblId", "geneSymbol", "geneName"]][dfA["ensemblId"].isin(AminusB["ensemblId"])].drop_duplicates()
     df_out.sort_values(by=["ensemblId"], inplace=True)
-    df_out.to_csv(fout, "\t", index=False)
+    df_out.to_csv(fout, sep="\t", index=False)
   elif entity=="trait":
     df_out = dfA[["efoId", "trait"]][dfA["efoId"].isin(AminusB["efoId"])].drop_duplicates()
     df_out.sort_values(by=["efoId"], inplace=True)
-    df_out.to_csv(fout, "\t", index=False)
+    df_out.to_csv(fout, sep="\t", index=False)
   else:
     df_out=None
 

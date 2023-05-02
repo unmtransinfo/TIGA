@@ -28,7 +28,7 @@ def CheckGeneSnps(ensemblId, gwas, assn, fout):
     return
   logging.info(f"ASSN: Gene {ensemblId} found; associations: {assn_gene_this.shape[0]}")
   assn_gene_this = assn_gene_this.sort_values(["SNPS"])
-  assn_gene_this[ASSN_COLS].drop_duplicates().to_csv(fout, "\t", index=False)
+  assn_gene_this[ASSN_COLS].drop_duplicates().to_csv(fout, sep="\t", index=False)
 
 #############################################################################
 def CheckTraitSnps(efoId, gwas, assn, fout):
@@ -50,7 +50,7 @@ def CheckGeneTraitSnps(ensemblId, efoId, gwas, assn, fout):
     return
   logging.info(f"ASSN: Gene-Trait {ensemblId}-{efoId} found; associations: {assn_gt_this.shape[0]}")
   assn_gt_this = assn_gt_this.sort_values(["SNPS"])
-  assn_gene_this[ASSN_COLS].drop_duplicates().to_csv(fout, "\t", index=False)
+  assn_gene_this[ASSN_COLS].drop_duplicates().to_csv(fout, sep="\t", index=False)
 
 #############################################################################
 def CheckStudySnps(gwasId, gwas, assn, fout):
@@ -68,7 +68,7 @@ def CheckStudySnps(gwasId, gwas, assn, fout):
     ensgs |= ensgs_this
     logging.info(f"{i+1:2d}. {gwasId}: {assn_this.SNPS.values[i]}: ({len(ensgs_this)}) {str(ensgs_this)}; pValue={assn_this['P-VALUE'].values[i]:g}({'OK' if assn_this['P-VALUE'].values[i]<=PVAL_THRESHOLD else 'NOTOK'})")
   logging.info(f"ASSN: Study {gwasId} found; associations: {assn_this.shape[0]}; SNPs: {assn_this.SNPS.nunique()}; mapped genes: {len(ensgs)}")
-  assn_this[ASSN_COLS].drop_duplicates().to_csv(fout, "\t", index=False)
+  assn_this[ASSN_COLS].drop_duplicates().to_csv(fout, sep="\t", index=False)
 
 #############################################################################
 if __name__=="__main__":

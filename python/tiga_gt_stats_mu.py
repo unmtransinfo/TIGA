@@ -39,7 +39,7 @@ def ComputeMuScores(df, mutags, ofile):
     #if i==10: break #DEBUG
   if not quiet: tq.close()
   df['muScore'] = df['nBelow'] - df['nAbove'] 
-  df.to_csv(ofile, "\t", index=False)
+  df.to_csv(ofile, sep="\t", index=False)
   logging.info(f"nBelow range: [{min(df['nBelow'])},{max(df['nBelow'])}]")
   logging.info(f"nAbove range: [{min(df['nAbove'])},{max(df['nAbove'])}]")
   logging.info(f"muScore range: [{min(df['muScore'])},{max(df['muScore'])}]")

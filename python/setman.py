@@ -51,7 +51,7 @@ AandB: intersection of A and B
     setOut = setA - setB
     df_out = pd.DataFrame({args.op: list(setOut)})
     if args.sort: df_out = df_out.sort_values(by=args.op)
-    df_out.to_csv(fout, "\t", index=False, header=False)
+    df_out.to_csv(fout, sep="\t", index=False, header=False)
     logging.debug(f"Output lines: {df_out.shape[0]}")
     logging.info(f"Unique entities in output: {len(setOut)}")
 
@@ -59,7 +59,7 @@ AandB: intersection of A and B
     setOut = setA & setB
     df_out = pd.DataFrame({args.op: list(setOut)})
     if args.sort: df_out = df_out.sort_values(by=args.op)
-    df_out.to_csv(fout, "\t", index=False, header=False)
+    df_out.to_csv(fout, sep="\t", index=False, header=False)
     logging.debug(f"Unique entities in output: {len(setOut)} ({100*len(setOut)/len(setA):.1f} of A, {100*len(setOut)/len(setB):.1f} of B)")
     logging.debug(f"Output lines: {df_out.shape[0]}")
     logging.info(f"Unique entities in output: {len(setOut)}")

@@ -63,9 +63,9 @@ gwas_counts table (DataFrame):
   #
   gwas_counts = gwas_counts.fillna(0)
   gwas_counts.info()
-  gwas_counts.describe().round(3).to_csv(sys.stderr, "\t")
+  gwas_counts.describe().round(3).to_csv(sys.stderr, sep="\t")
   gwas_counts = gwas_counts.rename(columns={"STUDY_ACCESSION":"study_accession"})
-  gwas_counts.to_csv(fout_gwas, "\t", index=False)
+  gwas_counts.to_csv(fout_gwas, sep="\t", index=False)
 
   # Counts per trait. Not used at this time.
   trait_counts = trait[["STUDY_ACCESSION", "MAPPED_TRAIT_URI", "MAPPED_TRAIT"]].groupby("MAPPED_TRAIT_URI").agg(
@@ -74,8 +74,8 @@ gwas_counts table (DataFrame):
 	n_study=pd.NamedAgg(column="STUDY_ACCESSION", aggfunc="nunique"))
   trait_counts = trait_counts.fillna(0)
   trait_counts.info()
-  trait_counts.describe().round(3).to_csv(sys.stderr, "\t")
-  trait_counts.to_csv(fout_trait, "\t", index=False)
+  trait_counts.describe().round(3).to_csv(sys.stderr, sep="\t")
+  trait_counts.to_csv(fout_trait, sep="\t", index=False)
 
 #############################################################################
 if __name__=="__main__":
@@ -95,23 +95,23 @@ if __name__=="__main__":
   fout_gwas = open(args.ofile_gwas,"w") if args.ofile_gwas else sys.stdout
   fout_trait = open(args.ofile_trait,"w") if args.ofile_trait else sys.stdout
 
-  gwas = pd.read_csv(args.ifile_gwas, "\t", low_memory=False)
+  gwas = pd.read_csv(args.ifile_gwas, sep="\t", low_memory=False)
   logging.debug(f"{args.ifile_gwas} columns: {str(gwas.columns)}")
   logging.info(f"{args.ifile_gwas} rows: {gwas.shape[0]}; studies: {gwas.STUDY_ACCESSION.nunique()}")
 
-  assn = pd.read_csv(args.ifile_assn, "\t", low_memory=False)
+  assn = pd.read_csv(args.ifile_assn, sep="\t", low_memory=False)
   logging.debug(f"{args.ifile_assn} columns: {str(assn.columns)}")
   logging.info(f"{args.ifile_assn} rows: {assn.shape[0]}")
 
-  trait = pd.read_csv(args.ifile_trait, "\t", low_memory=False)
+  trait = pd.read_csv(args.ifile_trait, sep="\t", low_memory=False)
   logging.debug(f"{args.ifile_trait} columns: {str(trait.columns)}")
   logging.info(f"{args.ifile_trait} rows: {trait.shape[0]}; traits: {trait.MAPPED_TRAIT_URI.nunique()}")
 
-  snp2gene = pd.read_csv(args.ifile_snp2gene, "\t", low_memory=False)
+  snp2gene = pd.read_csv(args.ifile_snp2gene, sep="\t", low_memory=False)
   logging.debug(f"{args.ifile_snp2gene} columns: {str(snp2gene.columns)}")
   logging.info(f"{args.ifile_snp2gene} rows: {snp2gene.shape[0]}; genes: {snp2gene.ENSG.nunique()}; snps: {snp2gene.SNP.nunique()}")
 
-  icite = pd.read_csv(args.ifile_icite, "\t", low_memory=False) if args.ifile_icite else None
+  icite = pd.read_csv(args.ifile_icite, sep="\t", low_memory=False) if args.ifile_icite else None
   if icite is not None:
     logging.debug(f"{args.ifile_icite} columns: {str(icite.columns)}")
     logging.info(f"{args.ifile_icite} rows: {icite.shape[0]}; PMIDs: {icite.pmid.nunique()}")

@@ -32,7 +32,7 @@ def WriteVegasInputFiles(df, args):
       fout = sys.stdout
     else:
       fout = open(args.odir+'/'+args.prefix+acc+'.tsv', 'w')
-    df_this.to_csv(fout, '\t', index=False, header=False)
+    df_this.to_csv(fout, sep='\t', index=False, header=False)
   print("Total studies (%s): %d"%(args.study_id_tag, len(accs)), file=sys.stderr)
   print("Total files output: %d"%(i_acc), file=sys.stderr)
   print("Total p-values output: %d"%(i_pvs), file=sys.stderr)

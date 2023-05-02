@@ -136,7 +136,8 @@ OWLFILE="$EFO_DIR/efo.owl"
 # Should be latest EFO release prior to GWC release.
 #EFO_RELEASE="3.40.0" # 2022-03-15
 #EFO_RELEASE="3.43.0" # 2022-06-15 
-EFO_RELEASE="3.47.0" # 2022-10-17 
+#EFO_RELEASE="3.47.0" # 2022-10-17 
+EFO_RELEASE="3.52.0" # 2023-03-15 
 printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
 #
 EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
@@ -173,7 +174,7 @@ MessageBreak "GENES:"
 #
 #SNP to gene links, from download association file:
 MessageBreak "SNP2GENE (from association file):"
-${cwd}/python/snp2gene.py $tsvfile_assn --o ${snp2genefile_file}
+${cwd}/python/snp2gene.py --o ${snp2genefile_file} $tsvfile_assn
 #
 ###
 # (Alternative to download file; may be incomplete/different.)

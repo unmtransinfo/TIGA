@@ -42,7 +42,7 @@ def Graph2CYJS(G, ofile):
 def Groups2TSV(groups, fout):
   if groups is None: return
   logging.info(f"Output rows: {groups.shape[0]}; cols: {groups.shape[1]}")
-  groups.to_csv(fout, '\t', index=False)
+  groups.to_csv(fout, sep='\t', index=False)
 ###
 def GraphSummary(G):
   logging.info(nx.info(G))
@@ -130,7 +130,7 @@ if __name__=="__main__":
   t0 = time.time()
 
   logging.info(f"Reading {args.ifile_edge}")
-  efo_edges = pd.read_csv(args.ifile_edge, "\t", dtype=str)
+  efo_edges = pd.read_csv(args.ifile_edge, sep="\t", dtype=str)
   G = from_pandas_edgelist(efo_edges, source="source", target="target", edge_attr="edge_attr", create_using=nx.DiGraph)
   G.graph['name'] = args.graphname
 
@@ -139,7 +139,7 @@ if __name__=="__main__":
   ###
   if args.ifile_node_attr:
     logging.info(f"Reading {args.ifile_node_attr}")
-    efo_nodes = pd.read_csv(args.ifile_node_attr, "\t", index_col="id")
+    efo_nodes = pd.read_csv(args.ifile_node_attr, sep="\t", index_col="id")
     node_attr = efo_nodes.to_dict(orient='index')
     nx.set_node_attributes(G, node_attr)
   #
