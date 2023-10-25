@@ -72,4 +72,4 @@ how to update the TIGA dataset from sources.
 
 Latest release and archives of full dataset and utility files.
 
-* <https://unmtid-shinyapps.net/downloads/TIGA/>
+* <https://unmtid-shinyapps.net/download/TIGA/latest/>
