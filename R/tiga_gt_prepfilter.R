@@ -28,12 +28,12 @@ if (interactive()) {
   rel_m <- as.integer(args[2])
   rel_d <- as.integer(args[3])
   ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
-} else if (file.exists("LATEST_RELEASE.txt")) {
-  GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
+} else if (file.exists("LATEST_RELEASE_GWC.txt")) {
+  GC_REL <- trimws(read_file("LATEST_RELEASE_GWC.txt"))
   rel_y <- as.integer(sub("\\-.*$", "", GC_REL))
   rel_m <- as.integer(sub("\\d+\\-(\\d+)\\-.*$", "\\1", GC_REL))
   rel_d <- as.integer(sub("\\d+\\-\\d+\\-(\\d+).*$", "\\1", GC_REL))
-  message(sprintf("LATEST_RELEASE: %s", GC_REL))
+  message(sprintf("LATEST_RELEASE_GWC: %s", GC_REL))
   ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
 } else {
   message("ERROR: Syntax: tiga_gt_prepfilter.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")

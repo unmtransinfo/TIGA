@@ -40,13 +40,10 @@ DATADIR="${cwd}/data"
 MessageBreak "Starting $(basename $0)"
 ###
 # GWASCatalog release:
-if [ $# -eq 1 ]; then
-	GC_REL=$1
-	printf "${GC_REL}\n" >${cwd}/LATEST_RELEASE.txt
-elif [ -f "${cwd}/LATEST_RELEASE.txt" ]; then
-	GC_REL=$(cat ${cwd}/LATEST_RELEASE.txt)
+if [ -f "${cwd}/LATEST_RELEASE_GWC.txt" ]; then
+	GC_REL=$(cat ${cwd}/LATEST_RELEASE_GWC.txt)
 else
-	printf "ERROR: syntax $(basename $0) \"YYYY-MM-DD\"\n"
+	printf "ERROR: not found: ${cwd}/LATEST_RELEASE_GWC.txt\n"
 	exit
 fi
 #
@@ -70,6 +67,18 @@ SRCDIR="$GWASCATALOGDIR/releases/${GC_REL_Y}/${GC_REL_M}/${GC_REL_D}"
 #
 printf "${GC_REL_Y}-${GC_REL_M}-${GC_REL_D}\n" >${ODIR}/gwascat_release.txt
 #
+###
+# Should be latest EFO release prior to GWC release.
+if [ -f "${cwd}/LATEST_RELEASE_EFO.txt" ]; then
+	EFO_RELEASE=$(cat ${cwd}/LATEST_RELEASE_EFO.txt)
+else
+	printf "ERROR: not found: ${cwd}/LATEST_RELEASE_EFO.txt\n"
+	exit
+fi
+printf "EFO release: ${EFO_RELEASE}\n"
+printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
+#
+###
 #Source files:
 gwasfile="${SRCDIR}/gwas-catalog-studies_ontology-annotated.tsv"
 if [ ! -f "${gwasfile}" ]; then
@@ -133,12 +142,6 @@ MessageBreak "TRAITS:"
 EFO_DIR="$(cd $HOME/../data/EFO/data; pwd)"
 OWLFILE="$EFO_DIR/efo.owl"
 ###
-# Should be latest EFO release prior to GWC release.
-#EFO_RELEASE="3.40.0" # 2022-03-15
-#EFO_RELEASE="3.43.0" # 2022-06-15 
-#EFO_RELEASE="3.47.0" # 2022-10-17 
-EFO_RELEASE="3.52.0" # 2023-03-15 
-printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
 #
 EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
 wget -q -O $OWLFILE $EFO_URL
@@ -191,6 +194,7 @@ MessageBreak "GWASCATALOG API REQUESTS (get_snps):"
 if [ -f "${snpfile_api}" ]; then
 	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${snpfile_api}
 else
+	#python3 -m BioClients.gwascatalog.Client get_snps \
 	python3 -m BioClients.gwascatalog.Client get_snps -q \
 		--i ${ODIR}/gwascat_snp.rs \
 		--o ${snpfile_api}
@@ -219,7 +223,8 @@ else
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
 	MessageBreak "ENSEMBL API REQUESTS (get_info):"
-	python3 -m BioClients.ensembl.Client get_info -q \
+	#python3 -m BioClients.ensembl.Client get_info -q \
+	python3 -m BioClients.ensembl.Client get_info \
 		--i $ODIR/ensembl_human_genes.ensg \
 		--o ${ensemblinfofile}
 fi
@@ -234,7 +239,8 @@ else
 		|sed -e '1d' |awk -F '\t' '{print $2}' |sort -nu \
 		>$ODIR/gwascat.pmid
 	printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
-	python3 -m BioClients.icite.Client get_stats -q \
+	#python3 -m BioClients.icite.Client get_stats -q \
+	python3 -m BioClients.icite.Client get_stats \
 		--i $ODIR/gwascat.pmid \
 		--o ${tsvfile_icite}
 fi
@@ -292,6 +298,7 @@ printf "scp $ODIR/tiga_gene-trait_stats.tsv $ODIR/tiga_gene-trait_provenance.tsv
 printf "ssh unmtid-shinyapps.net rm /var/www/html/download/TIGA/latest\n"
 printf "ssh unmtid-shinyapps.net ln -s /var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} /var/www/html/download/TIGA/latest\n"
 #
-printf "Elapsed time: %ds\n" "$[$(date +%s) - ${T0}]"
+s=$[$(date +%s) - ${T0}]
+printf "Elapsed time: %ds (%s)\n" "$s" $(${cwd}/python/nicetime.py $s)
 MessageBreak "DONE $(basename $0)"
 #

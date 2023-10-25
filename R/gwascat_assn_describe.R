@@ -10,8 +10,8 @@ library(data.table)
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 
-GC_REL <- trimws(read_file("LATEST_RELEASE.txt"))
-message(sprintf("LATEST_RELEASE: %s", GC_REL))
+GC_REL <- trimws(read_file("LATEST_RELEASE_GWC.txt"))
+message(sprintf("LATEST_RELEASE_GWC: %s", GC_REL))
 ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
 
 ifile <- ifelse((length(args)>0), args[1], paste0(ODIR, "/gwascat_assn.tsv"))
