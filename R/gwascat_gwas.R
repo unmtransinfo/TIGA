@@ -8,12 +8,7 @@ library(data.table)
 message(paste(commandArgs(), collapse=" "))
 args <- commandArgs(trailingOnly=TRUE)
 
-if (interactive()) {
-  rel_y <- as.integer(readline(prompt="Enter RELEASE_YEAR: "))
-  rel_m <- as.integer(readline(prompt="Enter RELEASE_MONTH: "))
-  rel_d <- as.integer(readline(prompt="Enter RELEASE_DAY: "))
-  ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
-} else if (length(args)==3) {
+if (length(args)==3) {
   rel_y <- as.integer(args[1])
   rel_m <- as.integer(args[2])
   rel_d <- as.integer(args[3])
@@ -72,6 +67,14 @@ for (n in unique(pmid2gwas_counts$n_study)) {
 gwas2pmid_counts <- gwas[, .(n_pub = uniqueN(PUBMEDID)), by="STUDY_ACCESSION"]
 message(sprintf("Studies with multiple publications: %d", gwas2pmid_counts[n_pub>1, uniqueN(STUDY_ACCESSION)]))
 
+###
+# Pubs with very many studies.
+n_study_high <- 100
+n_study_veryhigh <- 1000
+message(sprintf("%4d publications contain %d+ studies.", pmid2gwas_counts[n_study >= n_study_high, .N], n_study_high))
+message(sprintf("%4d publications contain %d+ studies.", pmid2gwas_counts[n_study>=n_study_veryhigh, .N], n_study_veryhigh))
+message("Publications with greatest number of studies:")
+print(pmid2gwas_counts[n_study>=n_study_veryhigh][order(-n_study)])
 ###
 # Parse study_N from INITIAL_SAMPLE_SIZE. Sum sub-samples.
 gwas[, study_N := INITIAL_SAMPLE_SIZE] #data.table warning spurious. 
