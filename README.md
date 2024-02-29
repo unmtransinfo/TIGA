@@ -23,8 +23,8 @@ https://doi.org/10.1093/bioinformatics/btab427, published 04 June 2021.](https:/
 
 ## Dependencies
 
-* R 3.6+; readr, data.table, igraph, muStat, RMySQL (Webapp: shiny, DT, shinyBS, [shinysky](https://github.com/AnalytixWare/ShinySky), plotly)
-* Python 3.7+; pandas, [BioClients](https://github.com/jeremyjyang/BioClients)
+* R 4.1+; readr, data.table, igraph, muStat, RMySQL (Webapp: shiny, DT, shinyBS, [shinysky](https://github.com/AnalytixWare/ShinySky), plotly)
+* Python 3.9+; pandas, [BioClients](https://github.com/jeremyjyang/BioClients)
 * Java 8+; Jena, [IU_IDSL_JENA](https://github.com/IUIDSL/iu_idsl_jena)
 
 ## GWAS Catalog features
@@ -49,6 +49,12 @@ non-convertible units (e.g. mg vs mm). Nor are beta
 coefficients comparable with OR, so it is questionable that these values
 are combined in one field `OR_or_BETA`.  Current TIGA workaround is to use
 simple count of beta values supporting gene-trait association.
+* GWAS Catalog developers have devoted major effort to more precisely mapping traits
+to EFO, and EFO has increasingly aligned with MONDO. This represents a major
+improvement with regard to semantic precision and scientific rigor. However,
+this also means that results from the Catalog and TIGA have changed from
+release to release, which can be confusing, and presents a challenge for
+aggregating studies by trait.
 
 ## Features of TIGA
 

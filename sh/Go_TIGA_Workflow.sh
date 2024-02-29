@@ -80,7 +80,9 @@ printf "${EFO_RELEASE}\n" >${ODIR}/efo_release.txt
 #
 ###
 #Source files:
-gwasfile="${SRCDIR}/gwas-catalog-studies_ontology-annotated.tsv"
+#FILESET CHANGE: 2024-01-22 (see email from Elliot Sollis)
+#gwasfile="${SRCDIR}/gwas-catalog-studies_ontology-annotated.tsv"
+gwasfile="${SRCDIR}/gwas-catalog-studies-download-alternative-v1.0.2.1.txt"
 if [ ! -f "${gwasfile}" ]; then
 	echo "ERROR: FILE NOT FOUND: ${gwasfile}"
 	exit
