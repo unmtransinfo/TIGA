@@ -103,6 +103,9 @@ Reported genes ignored for consistency and accountable confidence assessment in 
 <LI>In this version, effect size measure (1) odds ratio (OR) or (2) BETA required.
 <LI>Due to lack of reported, extracted, parsed and harmonized beta units, N_beta count is employed
 as simple, rational measure of effect evidence and confidence (but not magnitude).
+<LI>The GWAS Catalog has devoted major effort to more precisely mapping traits to EFO, and EFO has increasingly aligned with MONDO. 
+This represents a major improvement with regard to semantic precision and scientific rigor. However, this also means that results from the 
+Catalog and TIGA have changed from release to release, which can be confusing, and presents a challenge for aggregating studies by trait.
 </UL>
 <B>Aggregate statistics and scores:</B>
 <UL>
