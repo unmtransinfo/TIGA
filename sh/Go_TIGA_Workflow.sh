@@ -294,11 +294,11 @@ ${cwd}/R/tiga_final_files.R
 # Show commands for installing updated datafiles.
 printf "Copy Rdata for TIGA web app with command:\n"
 printf "cp ${ODIR}/tiga.Rdata ${cwd}/R/tiga/\n"
-printf "Copy TIGA download files to: unmtid-shinyapps.net/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} with revised symlink \"latest\":\n"
-printf "ssh unmtid-shinyapps.net mkdir /var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D}\n"
-printf "scp $ODIR/tiga_gene-trait_stats.tsv $ODIR/tiga_gene-trait_provenance.tsv $ODIR/tiga_genes.tsv $ODIR/tiga_traits.tsv unmtid-shinyapps.net:/var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D}\n"
-printf "ssh unmtid-shinyapps.net rm /var/www/html/download/TIGA/latest\n"
-printf "ssh unmtid-shinyapps.net ln -s /var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} /var/www/html/download/TIGA/latest\n"
+printf "Copy TIGA download files to: unmtid-dbs.net/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} with revised symlink \"latest\":\n"
+printf "ssh unmtid-dbs.net mkdir /var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D}\n"
+printf "scp $ODIR/tiga_gene-trait_stats.tsv $ODIR/tiga_gene-trait_provenance.tsv $ODIR/tiga_genes.tsv $ODIR/tiga_traits.tsv unmtid-dbs.net:/var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D}\n"
+printf "ssh unmtid-dbs.net rm /var/www/html/download/TIGA/latest\n"
+printf "ssh unmtid-dbs.net ln -s /var/www/html/download/TIGA/${GC_REL_Y}${GC_REL_M}${GC_REL_D} /var/www/html/download/TIGA/latest\n"
 #
 s=$[$(date +%s) - ${T0}]
 printf "Elapsed time: %ds (%s)\n" "$s" $(${cwd}/python/nicetime.py $s)
