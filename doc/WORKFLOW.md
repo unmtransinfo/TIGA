@@ -4,9 +4,9 @@ Steps for updating the TIGA dataset from sources.
 
 ## Dependencies
 
-* R 3.6+; readr, data.table, igraph, muStat, RMySQL (Webapp: shiny, DT, shinyBS, shinysky, plotly)
-* Python 3.7+; pandas, [BioClients](https://github.com/jeremyjyang/BioClients)
-* Java 8+; Jena, [IU_IDSL_JENA](https://github.com/IUIDSL/iu_idsl_jena)
+* R 4.2+; readr, data.table, igraph, muStat, RMySQL (Webapp: shiny, DT, shinyBS, shinysky, plotly)
+* Python 3.9+; pandas, venv, [BioClients](https://github.com/jeremyjyang/BioClients)
+* Java 8+; Jena, [IU\_IDSL\_JENA](https://github.com/IUIDSL/iu_idsl_jena)
 
 ## Steps
 
@@ -16,11 +16,15 @@ Steps for updating the TIGA dataset from sources.
 1. Download from [Experimental Factor Ontology (EFO)](https://www.ebi.ac.uk/efo/):
     * efo.owl
 1. Edit LATEST\_RELEASE\_GWC.txt and LATEST\_RELEASE\_EFO.txt accordingly.
+1. Create `venv` virtual environment for Python.
+  1. `mkdir venv`
+  1. `cd venv`
+  1. `venv -i ../venv\_requirements.txt`
 1. RUN [Go\_TIGA\_Workflow.sh](sh/Go_TIGA_Workflow.sh). Commands can also be run
 manually as described here.
   1. Clean studies:
     * [gwascat\_gwas.R](R/gwascat_gwas.R)
-  1. Clean, separate OR_or_beta into oddsratio, beta columns:
+  1. Clean, separate OR\_or\_beta into oddsratio, beta columns:
     * [gwascat\_assn.R](R/gwascat_assn.R)
   1. Convert EFO OWL to TSV:
     * `java -jar iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar`
@@ -39,7 +43,7 @@ manually as described here.
   1. Run commands in [Go\_gwascat\_DbCreate.sh](sh/Go_gwascat_DbCreate.sh) building MySql db. Writes file `gwas_counts.tsv`.
   1. Pre-process and filter. Studies, genes and traits may be removed due to insufficient evidence, with reasons recorded.
     * [tiga\_gt\_prepfilter.R](R/tiga_gt_prepfilter.R)
-  1.  Provenance for gene-trait pairs (STUDY_ACCESSION, PUBMEDID).
+  1.  Provenance for gene-trait pairs (STUDY\_ACCESSION, PUBMEDID).
     * [tiga\_gt\_provenance.R](R/tiga_gt_provenance.R)
   1. Generate variables, statistics, evidence features for gene-trait pairs.
     * [tiga\_gt\_variables.R](R/tiga_gt_variables.R)

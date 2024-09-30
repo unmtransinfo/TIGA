@@ -23,9 +23,9 @@ https://doi.org/10.1093/bioinformatics/btab427, published 04 June 2021.](https:/
 
 ## Dependencies
 
-* R 4.1+; readr, data.table, igraph, muStat, RMySQL (Webapp: shiny, DT, shinyBS, [shinysky](https://github.com/AnalytixWare/ShinySky), plotly)
+* R 4.2+; readr, data.table, igraph, muStat, RMySQL (Webapp: shiny, DT, shinyBS, [shinysky](https://github.com/AnalytixWare/ShinySky), plotly)
 * Python 3.9+; pandas, [BioClients](https://github.com/jeremyjyang/BioClients)
-* Java 8+; Jena, [IU_IDSL_JENA](https://github.com/IUIDSL/iu_idsl_jena)
+* Java 8+; Jena, [IU\_IDSL\_JENA](https://github.com/IUIDSL/iu_idsl_jena)
 
 ## GWAS Catalog features
 
@@ -78,4 +78,4 @@ how to update the TIGA dataset from sources.
 
 Latest release and archives of full dataset and utility files.
 
-* <https://unmtid-shinyapps.net/download/TIGA/latest/>
+* <https://unmtid-dbs.net/download/TIGA/latest/>

@@ -94,6 +94,9 @@ if [ ! -f "${assnfile}" ]; then
 	exit
 fi
 ###
+# Activate Virtual Environment
+source ${cwd}/venv/bin/activate
+###
 # TCRD:
 # Version specified here:
 TCRD_DBNAME="tcrd6134pharos2"
@@ -102,12 +105,12 @@ TCRD_DBUSR="tcrd"
 TCRD_DBPW=""
 #
 MessageBreak "IDG (TCRD):"
-if [ ! -e $ODIR/tcrd_targets.tsv ]; then
+if [ ! -s $ODIR/tcrd_targets.tsv ]; then
 python3 -m BioClients.idg.tcrd.Client listTargets \
 	--dbname "${TCRD_DBNAME}" --dbhost="${TCRD_DBHOST}" --dbusr="${TCRD_DBUSR}" --dbpw="${TCRD_DBPW}" \
 	--o $ODIR/tcrd_targets.tsv
 fi
-if [ ! -e $ODIR/tcrd_info.tsv ]; then
+if [ ! -s $ODIR/tcrd_info.tsv ]; then
 python3 -m BioClients.idg.tcrd.Client info \
 	--dbname "${TCRD_DBNAME}" --dbhost="${TCRD_DBHOST}" --dbusr="${TCRD_DBUSR}" --dbpw="${TCRD_DBPW}" \
 	--o $ODIR/tcrd_info.tsv
@@ -218,9 +221,7 @@ ${cwd}/R/snp2gene_merge.R
 ENTREZGENEFILE=$(lftp ftp://anonymous:@ftp.ensembl.org -e "cd pub/current_tsv/homo_sapiens/ ; ls *.entrez.tsv.gz; quit" |sed 's/^.* //')
 printf "ENTREZGENEFILE: %s\n" "${ENTREZGENEFILE}"
 ensemblinfofile="$ODIR/gwascat_EnsemblInfo.tsv"
-if [ -f ${ensemblinfofile} ]; then
-	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${ensemblinfofile}
-else
+if [ ! -s ${ensemblinfofile} ]; then
 	wget -O - "ftp://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
@@ -229,14 +230,14 @@ else
 	python3 -m BioClients.ensembl.Client get_info \
 		--i $ODIR/ensembl_human_genes.ensg \
 		--o ${ensemblinfofile}
+else
+	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${ensemblinfofile}
 fi
 #############################################################################
 ### PMIDs:
 MessageBreak "PUBLICATIONS (iCite):"
 ###
-if [ -f "${tsvfile_icite}" ]; then
-	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${tsvfile_icite}
-else
+if [ ! -s "${tsvfile_icite}" ]; then
 	cat $tsvfile_gwas \
 		|sed -e '1d' |awk -F '\t' '{print $2}' |sort -nu \
 		>$ODIR/gwascat.pmid
@@ -245,6 +246,8 @@ else
 	python3 -m BioClients.icite.Client get_stats \
 		--i $ODIR/gwascat.pmid \
 		--o ${tsvfile_icite}
+else
+	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${tsvfile_icite}
 fi
 #
 ###
