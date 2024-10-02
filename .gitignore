@@ -8,6 +8,7 @@ Rplot*
 
 data
 old/
+venv/
 wget-log
 .idea
 

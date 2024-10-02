@@ -94,4 +94,8 @@ message(sprintf("Check HbA1c measurement (EFO_0004541) SNPS (%s): %d rows", past
 message(sprintf("Check for SLC25A44 - HbA1c measurement (ENSG00000160785-EFO_0004541): %s", nrow(snp2gene_test)>0))
 print(snp2gene_test)
 #
+# MERGED Counts:
+message(sprintf("MERGED unique SNPs: %d", snp2gene[, uniqueN(SNP)]))
+message(sprintf("MERGED unique ENSGs: %d", snp2gene[, uniqueN(ENSG)]))
+message(sprintf("MERGED unique SNP2GENE pairs: %d", nrow(unique(snp2gene[, .(SNP, ENSG)]))))
 write_delim(snp2gene, ofile, delim="\t")
