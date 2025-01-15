@@ -79,3 +79,8 @@ how to update the TIGA dataset from sources.
 Latest release and archives of full dataset and utility files.
 
 * <https://unmtid-dbs.net/download/TIGA/latest/>
+
+## Docker
+
+TIGA may be deployed via Docker container, built with [Dockerfile.shiny](Dockerfile.shiny) and [Go_DockerBuild.sh](sh/Go_DockerBuild.sh), from [rocker/shiny](https://hub.docker.com/r/rocker/shiny).
+
