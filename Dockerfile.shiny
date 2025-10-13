@@ -2,9 +2,10 @@
 # Adapted to host TIGA, https://github.com/unmtransinfo/TIGA
 FROM rocker/shiny:4.4.2
 
-# Install system requirements for index.R as needed
+# Install system requirements as needed for R, Shiny, TIGA.
 RUN apt update
-RUN apt install -y --no-install-recommends \
+#RUN apt install -y --no-install-recommends \
+RUN apt install -y \
 	git-core \
 	libssl-dev \
 	libcurl4-gnutls-dev \
@@ -12,29 +13,43 @@ RUN apt install -y --no-install-recommends \
 	libsodium-dev \
 	libxml2-dev \
 	libicu-dev \
-	libglpk-dev \
-	&& apt-get clean \
-	&& rm -rf /var/lib/apt/lists/*
+	build-essential
+#
+#
+RUN apt clean
+
+# RUN rm -rf /var/lib/apt/lists/*
 
 ENV _R_SHLIB_STRIP_=true
 
-RUN install2.r --error --skipinstalled \
-	readr \
-	data.table \
-	DT \
-	shiny \
-	shinyBS \
-	htmltools \
-	devtools \
-	plotly
+#RUN install2.r --error --skipinstalled \
+#	readr \
+#	data.table \
+#	DT \
+#	shiny \
+#	shinyBS \
+#	htmltools \
+#	devtools \
+#	plotly
 
-RUN R -e 'install.packages("igraph")'
+RUN R -e 'install.packages(c("readr", "data.table", "DT"))'
+RUN R -e 'install.packages(c("shiny", "shinyBS", "htmltools"))'
+RUN R -e 'install.packages(c("devtools", "plotly"))'
 RUN R -e 'devtools::install_github("AnalytixWare/ShinySky")'
 
-# Copy local app files into container.
-COPY ./R/tiga/ /srv/shiny-server/
+# Not working -- WHY? Probably libglpk-dev dependency.
+RUN apt update
+RUN apt install -y libglpk-dev
+RUN R -e 'install.packages("igraph")'
+# This works:
+# docker exec -u root CID R -e 'install.packages("igraph")'
 
-RUN ls --recursive /srv/shiny-server/tiga/
+# Copy local app files into container. # Not working -- WHY?
+COPY ./R/tiga/ /srv/shiny-server/
+# But this works:
+# docker cp ./R/tiga/ CID:/srv/shiny-server/
+
+RUN ls -R /srv/shiny-server/tiga/
 
 USER shiny
 

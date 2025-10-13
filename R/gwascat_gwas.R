@@ -81,6 +81,9 @@ print(pmid2gwas_counts[n_study>=n_study_veryhigh][order(-n_study)])
 ###
 # Parse study_N from INITIAL_SAMPLE_SIZE. Sum sub-samples.
 gwas[, study_N := INITIAL_SAMPLE_SIZE] #data.table warning spurious. 
+message(sprintf("UNSPECIFIED INITIAL_SAMPLE_SIZE: %d", gwas[is.na(INITIAL_SAMPLE_SIZE) | INITIAL_SAMPLE_SIZE=="", .N]))
+gwas[is.na(INITIAL_SAMPLE_SIZE), study_N := "0"]
+#
 gwas[, study_N := gsub("PMID:[0-9]+", "", study_N)]
 gwas[, study_N := gsub("[^0-9,]+", "\t", study_N)]
 gwas[, study_N := gsub(",", "", study_N)]
@@ -88,7 +91,8 @@ gwas[, study_N := sub("^\t", "", study_N)]
 gwas[, study_N := gsub("\t\t*", "\t", study_N)]
 gwas[, study_N := sub("\t$", "", study_N)]
 gwas[, study_N := gsub("\t", "+", study_N)]
-gwas[, study_N := sapply(sapply(study_N, str2lang), eval)]
+gwas[study_N == "", study_N := "0"]
+gwas[, study_N := sapply(sapply(study_N, str2lang), eval)] #Parse and evaluate sum (e.g. "4+5") as R-expression.
 gwas[, study_N := as.integer(study_N)]
 if (nrow(gwas[is.na(study_N)])>0) {
   writeLines(sprintf("UNPARSED INITIAL_SAMPLE_SIZE: \"%s\"", gwas[is.na(study_N), INITIAL_SAMPLE_SIZE]))
