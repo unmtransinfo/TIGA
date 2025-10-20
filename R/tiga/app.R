@@ -104,8 +104,8 @@ Reported genes ignored for consistency and accountable confidence assessment in 
 <LI>Due to lack of reported, extracted, parsed and harmonized beta units, N_beta count is employed
 as simple, rational measure of effect evidence and confidence (but not magnitude).
 <LI>The GWAS Catalog has devoted major effort to more precisely mapping traits to EFO, and EFO has increasingly aligned with MONDO. 
-This represents a major improvement with regard to semantic precision and scientific rigor. However, this also means that results from the 
-Catalog and TIGA have changed from release to release, which can be confusing, and presents a challenge for aggregating studies by trait.
+This represents a major improvement with regard to semantic precision and scientific rigor. However, this also means that results from the Catalog and TIGA have changed from release to release, which can be confusing, and presents a challenge for aggregating studies by trait.
+<LI><a href=\"https://academic.oup.com/nar/article/53/D1/D998/7893318\" target=\"_blank\">The NHGRI-EBI GWAS Catalog: standards for reusability, sustainability and diversity, Cerezo et al., Nucleic Acids Research, 2024</a> - Describes major additions and improvements, but also data quality challenges, from pre-published results, and large-scale multi-trait studies. As of this writing, TIGA does not include pre-published studies.
 </UL>
 <B>Aggregate statistics and scores:</B>
 <UL>
