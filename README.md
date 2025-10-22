@@ -20,6 +20,7 @@ Christophe Lambert, Cristian Bologa, Stephen Mathias, Anna Waller, David Wild,
 Lars Juhl Jensen, Tudor Oprea, Bioinformatics, btab427,
 https://doi.org/10.1093/bioinformatics/btab427, published 04 June 2021.](https://academic.oup.com/bioinformatics/advance-article-abstract/doi/10.1093/bioinformatics/btab427/6292081)
 * [Poster presented at February 2021 Annual IDG Meeting](https://zenodo.org/record/4594201)
+* TIGA is listed as a useful tool among other resources via [GWAS Catalog: Related Resources](https://www.ebi.ac.uk/gwas/docs/related-resources).
 
 ## Dependencies
 
@@ -40,7 +41,8 @@ within a gene, that gene is listed. If the SNP is intergenic, upstream
 and downstream genes are listed. May be chromosomal
 location or range (e.g. "LOC102723594 - LOC285043").
 * Documentation: [methods](https://www.ebi.ac.uk/gwas/docs/methods); [curation](https://www.ebi.ac.uk/gwas/docs/methods/curation); [fileheaders](https://www.ebi.ac.uk/gwas/docs/fileheaders)
-* Reference: Buniello, A. et al. (2019) The NHGRI-EBI GWAS Catalog of published genome-wide association studies, targeted arrays and summary statistics 2019. Nucleic Acids Res., 47, D1005–D1012.
+* Ref: Buniello, A. et al., The NHGRI-EBI GWAS Catalog of published genome-wide association studies, targeted arrays and summary statistics, Nucleic Acids Res., 47, 2019.
+* Ref: Cerezo, M. et al., The NHGRI-EBI GWAS Catalog: standards for reusability, sustainability and diversity, Nucleic Acids Res., 53, 2025, https://doi.org/10.1093/nar/gkae1070.
 
 ### Issues
 
@@ -55,6 +57,9 @@ improvement with regard to semantic precision and scientific rigor. However,
 this also means that results from the Catalog and TIGA have changed from
 release to release, which can be confusing, and presents a challenge for
 aggregating studies by trait.
+* Cerezo et al., 2025 describes major additions and improvements, but also data
+quality challenges, from pre-published results, and large-scale multi-trait studies.
+As of the 2025-09-16 release, TIGA does not include pre-published studies.
 
 ## Features of TIGA
 
