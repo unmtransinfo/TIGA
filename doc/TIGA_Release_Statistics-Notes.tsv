@@ -1,0 +1,3 @@
+Notes
+TIGA statistics based on GWAS Catalog associations file; studies and other entities not in associations file NOT counted. All counts based on mapped IDs.
+SNPs count are only rs* IDs in snp2gene_merged (merged from download file and API output).

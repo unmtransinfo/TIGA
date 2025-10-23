@@ -1,5 +1,5 @@
 ---
-title: "TIGA Statistics by Release"
+title: "TIGA Release Statistics"
 author: "Jeremy Yang"
 output:
   html_document:
@@ -24,18 +24,22 @@ base::date()
 library(readr, quietly=T)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
+library(kableExtra)
 ```
 
 # Read file
 
 ```{r}
-tigastats <- read_delim(paste0(Sys.getenv("HOME"), "/Dropbox/UNM/TIGA/TIGA_Statistics.tsv"), delim="\t", skip=2,
-  col_names = c("Release", "Studies", "Publications", "Traits", "Genes", "GC_Studies", "GC_Traits", "Comment"))
+tigastats <- read_delim("doc/TIGA_Release_Statistics-Statistics.tsv", delim="\t", skip=2,
+  col_names = c("Release", "Studies", "Publications", "Traits", "Genes", "SNPs", "GC_Studies", "GC_Traits"))
 setDT(tigastats)
-
-tigastats[, Comment := NULL]
 tigastats[, Release := as.Date(Release)]
-knitr::kable(tigastats)
+date_from <- min(tigastats[, Release])
+date_to <- max(tigastats[, Release])
+message(sprintf("From: %s to %s", date_from, date_to))
+data.table(tigastats) %>% 
+  kbl(caption = "TIGA Release Statistics", booktabs=T) %>%
+  kable_styling(c("striped", "hover"), full_width = F, position = "left")
 ```
 
 # Plot
@@ -46,7 +50,7 @@ fig <- fig %>% add_trace(y=~Studies, name="Studies", type="scatter", mode="lines
 fig <- fig %>% add_trace(y=~Publications, name="Publications", type="scatter", mode="lines+markers", line=list(shape="linear"), marker=list(size=15)) 
 fig <- fig %>% add_trace(y=~Traits, name="Traits", type="scatter", mode="lines+markers", line=list(shape="linear"), marker=list(size=15))
 fig <- fig %>% add_trace(y=~Genes, name="Genes", type="scatter", mode="lines+markers", line=list(shape="linear"), marker=list(size=15))
-fig <- fig %>% layout(title = "TIGA Statistics",
+fig <- fig %>% layout(title = sprintf("TIGA Release Statistics<br>%s - %s", date_from, date_to),
                       paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
                       xaxis = list(title = "Release Date (GWAS Catalog and TIGA)",
                                    gridcolor = 'rgb(255,255,255)',
