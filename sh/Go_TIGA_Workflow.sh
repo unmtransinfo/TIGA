@@ -87,11 +87,40 @@ if [ ! -f "${gwasfile}" ]; then
 	echo "ERROR: FILE NOT FOUND: ${gwasfile}"
 	exit
 fi
-#
-assnfile="${SRCDIR}/gwas-catalog-associations_ontology-annotated.tsv"
+###
+# Note: Changes to association file downloads in Nov-2025.
+# See: https://ebispot.github.io/gwas-blog/association-file-update
+# Key points:
+# >The GWAS Catalog recently passed an incredible milestone of >1m curated associations!
+# >This is a huge achievement for the genomics community. However, it presents
+# >challenges for some users in analysing the data, since the “All associations” file
+# >now has more than 1m rows.
+# >You now have a choice of two formats for the v1 and v2 “all associations” files:
+# >
+# >File now provided as a compressed .zip; data format unchanged.
+# >Data split into multiple smaller files, and compressed together. This split file
+# >is divided by publication year, with a separate file for each year from 2023 onwards,
+# >and pre-2023 data in a single file.
+###
+#assnfile="${SRCDIR}/gwas-catalog-associations_ontology-annotated.tsv"
+assnfile="${SRCDIR}/gwas-catalog-download-associations-alt-full.tsv"
+assn_zipfile="${SRCDIR}/gwas-catalog-associations_ontology-annotated-full.zip
+"
 if [ ! -f "${assnfile}" ]; then
 	echo "ERROR: FILE NOT FOUND: ${assnfile}"
-	exit
+	if [ -f "${assn_zipfile}" ]; then
+		echo "NOTE: Un-zip-ing: ${assn_zipfile}"
+		(cd $SRCDIR ; unzip $assn_zipfile)
+		if [ ! -f "${assnfile}" ]; then
+			echo "ERROR: FILE NOT FOUND IN ZIP ARCHIVE: ${assnfile}"
+			exit
+		else
+			echo "NOTE: FILE FOUND IN ZIP ARCHIVE: ${assnfile}"
+		fi
+	else
+		echo "ERROR: FILE NOT FOUND: ${assn_zipfile}"
+		exit
+	fi
 fi
 ###
 # Activate Virtual Environment
@@ -199,7 +228,6 @@ MessageBreak "GWASCATALOG API REQUESTS (get_snps):"
 if [ -f "${snpfile_api}" ]; then
 	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${snpfile_api}
 else
-	#python3 -m BioClients.gwascatalog.Client get_snps \
 	python3 -m BioClients.gwascatalog.Client get_snps -q \
 		--i ${ODIR}/gwascat_snp.rs \
 		--o ${snpfile_api}
@@ -217,7 +245,7 @@ ${cwd}/R/snp2gene_merge.R
 #############################################################################
 # Download latest Ensembl human gene file.
 # ftp://ftp.ensembl.org/pub/current_tsv/homo_sapiens/
-#ENTREZGENEFILE="Homo_sapiens.GRCh38.104.entrez.tsv.gz"
+#ENTREZGENEFILE="Homo_sapiens.GRCh38.115.entrez.tsv.gz" (2026-02-12)
 ENTREZGENEFILE=$(lftp ftp://anonymous:@ftp.ensembl.org -e "cd pub/current_tsv/homo_sapiens/ ; ls *.entrez.tsv.gz; quit" |sed 's/^.* //')
 printf "ENTREZGENEFILE: %s\n" "${ENTREZGENEFILE}"
 ensemblinfofile="$ODIR/gwascat_EnsemblInfo.tsv"
@@ -226,8 +254,7 @@ if [ ! -s ${ensemblinfofile} ]; then
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
 	MessageBreak "ENSEMBL API REQUESTS (get_info):"
-	#python3 -m BioClients.ensembl.Client get_info -q \
-	python3 -m BioClients.ensembl.Client get_info \
+	python3 -m BioClients.ensembl.Client get_info -q \
 		--i $ODIR/ensembl_human_genes.ensg \
 		--o ${ensemblinfofile}
 else
@@ -242,8 +269,7 @@ if [ ! -s "${tsvfile_icite}" ]; then
 		|sed -e '1d' |awk -F '\t' '{print $2}' |sort -nu \
 		>$ODIR/gwascat.pmid
 	printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
-	#python3 -m BioClients.icite.Client get_stats -q \
-	python3 -m BioClients.icite.Client get_stats \
+	python3 -m BioClients.icite.Client get_stats -q \
 		--i $ODIR/gwascat.pmid \
 		--o ${tsvfile_icite}
 else

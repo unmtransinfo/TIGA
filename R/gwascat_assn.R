@@ -42,7 +42,8 @@ if (length(args)==3) {
 }
 
 #
-ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-associations_ontology-annotated.tsv", rel_y, rel_m, rel_d))
+#ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-associations_ontology-annotated.tsv", rel_y, rel_m, rel_d))
+ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-download-associations-alt-full.tsv", rel_y, rel_m, rel_d))
 ofile <- paste0(ODIR, "/gwascat_assn.tsv")
 
 writeLines(sprintf("Input: %s", ifile))

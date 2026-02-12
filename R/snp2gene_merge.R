@@ -24,7 +24,7 @@ if (interactive()) {
   message(sprintf("LATEST_RELEASE_GWC: %s", GC_REL))
   ODIR <- sprintf("data/%s", gsub("\\-", "", GC_REL))
 } else {
-  message("ERROR: Syntax: gene_merge.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
+  message("ERROR: Syntax: snp2gene_merge.R RELEASE_YEAR RELEASE_MONTH RELEASE_DAY")
   quit()
 }
 

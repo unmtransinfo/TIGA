@@ -1,5 +1,5 @@
 attrs==24.2.0
-BioClients==0.2.18
+BioClients==0.2.31
 certifi==2024.8.30
 charset-normalizer==3.3.2
 greenlet==3.1.1
