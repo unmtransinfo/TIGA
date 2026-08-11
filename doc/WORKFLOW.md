@@ -18,8 +18,9 @@ Steps for updating the TIGA dataset from sources.
 1. Edit LATEST\_RELEASE\_GWC.txt and LATEST\_RELEASE\_EFO.txt accordingly.
 1. Create `venv` virtual environment for Python.
   1. `mkdir venv`
-  1. `cd venv`
-  1. `venv -i ../venv_requirements.txt`
+  1. `python3 -m venv venv`
+  1. `source venv/bin/activate`
+  1. `pip install -r pip_requirements.txt`
 1. RUN [Go\_TIGA\_Workflow.sh](sh/Go_TIGA_Workflow.sh). Commands can also be run
 manually as described here.
   1. Clean studies:

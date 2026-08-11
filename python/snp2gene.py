@@ -68,13 +68,15 @@ if __name__=="__main__":
   logging.info(f"SNP2GENE (REPORTED) after spliting delimited SNPs, rows: {s2gr.shape[0]}")
 
   # Split delimited GENES to multiple rows:
-  col_split="GSYMB"
+  col_split="GSYMB" #renamed from "REPORTED GENE(S)"
+  logging.debug(f"col_split = {col_split}")
   s2gr = s2gr.astype({col_split:str})
-  s2gr = s2gr.assign(**{col_split:s2gr[col_split].str.split(r'[,/;:| ]+')})
+  #s2gr = s2gr.assign(**{col_split:s2gr[col_split].str.split(r'[,/;:| ]+')})
+  s2gr = s2gr.assign(**{col_split:s2gr[col_split].str.split(r'[,;:| ]+')})
+  logging.debug(f"s2gr.columns.difference([col_split]) = {s2gr.columns.difference([col_split])}")
   s2gr = pd.DataFrame({
-	col:np.repeat(s2gr[col].values, s2gr[col_split].str.len())
-	for col in s2gr.columns.difference([col_split])
-	}).assign(**{col_split:np.concatenate(s2gr[col_split].values)})[s2gr.columns.tolist()]
+		col:np.repeat(s2gr[col].values, s2gr[col_split].str.len()) for col in s2gr.columns.difference([col_split])
+		}).assign(**{col_split:np.concatenate(s2gr[col_split].values)})[s2gr.columns.tolist()]
   s2gr = s2gr.drop_duplicates()
   logging.info(f"After spliting delimited GSYMB, rows: {s2gr.shape[0]}")
 

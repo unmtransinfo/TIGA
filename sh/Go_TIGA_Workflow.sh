@@ -104,8 +104,7 @@ fi
 ###
 #assnfile="${SRCDIR}/gwas-catalog-associations_ontology-annotated.tsv"
 assnfile="${SRCDIR}/gwas-catalog-download-associations-alt-full.tsv"
-assn_zipfile="${SRCDIR}/gwas-catalog-associations_ontology-annotated-full.zip
-"
+assn_zipfile="${SRCDIR}/gwas-catalog-associations_ontology-annotated-full.zip"
 if [ ! -f "${assnfile}" ]; then
 	echo "ERROR: FILE NOT FOUND: ${assnfile}"
 	if [ -f "${assn_zipfile}" ]; then
@@ -132,6 +131,8 @@ TCRD_DBNAME="tcrd6134pharos2"
 TCRD_DBHOST="tcrd.ncats.io"
 TCRD_DBUSR="tcrd"
 TCRD_DBPW=""
+#
+# IF TCRD UNAVAILABLE, FILES MAY NEED TO BE COPIED IN PLACE MANUALLY.
 #
 MessageBreak "IDG (TCRD):"
 if [ ! -s $ODIR/tcrd_targets.tsv ]; then
