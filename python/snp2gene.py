@@ -67,29 +67,69 @@ if __name__=="__main__":
   s2gr = s2gr.drop_duplicates()
   logging.info(f"SNP2GENE (REPORTED) after spliting delimited SNPs, rows: {s2gr.shape[0]}")
 
+
+
+
   # Split delimited GENES to multiple rows:
   col_split="GSYMB" #renamed from "REPORTED GENE(S)"
   logging.debug(f"col_split = {col_split}")
-  s2gr = s2gr.astype({col_split:str})
-  #s2gr = s2gr.assign(**{col_split:s2gr[col_split].str.split(r'[,/;:| ]+')})
-  s2gr = s2gr.assign(**{col_split:s2gr[col_split].str.split(r'[,;:| ]+')})
-  logging.debug(f"s2gr.columns.difference([col_split]) = {s2gr.columns.difference([col_split])}")
-  s2gr = pd.DataFrame({
-		col:np.repeat(s2gr[col].values, s2gr[col_split].str.len()) for col in s2gr.columns.difference([col_split])
-		}).assign(**{col_split:np.concatenate(s2gr[col_split].values)})[s2gr.columns.tolist()]
+
+# s2gr = s2gr.astype({col_split:str})
+# #s2gr = s2gr.assign(**{col_split:s2gr[col_split].str.split(r'[,/;:| ]+')})
+# s2gr = s2gr.assign(**{col_split:s2gr[col_split].str.split(r'[,;:| ]+')})
+# logging.debug(f"s2gr.columns.difference([col_split]) = {s2gr.columns.difference([col_split])}")
+# s2gr = pd.DataFrame({
+#	col:np.repeat(s2gr[col].values, s2gr[col_split].str.len()) for col in s2gr.columns.difference([col_split])
+#	}).assign(**{col_split:np.concatenate(s2gr[col_split].values)})[s2gr.columns.tolist()]
+# s2gr = s2gr.drop_duplicates()
+# logging.info(f"After spliting delimited GSYMB, rows: {s2gr.shape[0]}")
+
+# for badname in ("intergenic", "NR", "x", "nan"):
+#   s2gr = s2gr[(s2gr["GSYMB"] != badname)]
+#   logging.info(f"After removing GSYMB \"{badname}\", rows: {s2gr.shape[0]}")
+
+# # Remove non-alphanumeric and len==1.
+# good = s2gr["GSYMB"].str.contains(r'^[A-Za-z][A-Za-z0-9\-\.]+$')
+# badset = set(s2gr["GSYMB"][~good].to_list())
+# logging.debug(f"Removing GSYMB badset \"{str(badset)}\"")
+# s2gr = s2gr[good]
+# logging.info(f"Removed GSYMB badset, rows: {s2gr.shape[0]}")
+
+  s2gr = assn[["STUDY_ACCESSION", "SNPS", "REPORTED_GENE(S)"]].copy() #copy, not slice
   s2gr = s2gr.drop_duplicates()
-  logging.info(f"After spliting delimited GSYMB, rows: {s2gr.shape[0]}")
+  s2gr.rename(columns={'REPORTED_GENE(S)': 'GSYMB'}, inplace=True)
+  logging.info(f"s2gr rows: {s2gr.shape[0]}")
 
-  for badname in ("intergenic", "NR", "x", "nan"):
-    s2gr = s2gr[(s2gr["GSYMB"] != badname)]
-    logging.info(f"After removing GSYMB \"{badname}\", rows: {s2gr.shape[0]}")
+  # Remove np.nan, non-strings
+  s2gr = s2gr[(s2gr[col_split] != np.nan)]
+  logging.debug(f"After removing {col_split} NaN, rows: {s2gr.shape[0]}")
+  # Keep ONLY rows where the value is exactly a string
+  s2gr = s2gr[s2gr[col_split].apply(lambda x: isinstance(x, str))]
+  logging.debug(f"After removing {col_split} non-str, rows: {s2gr.shape[0]}")
 
-  # Remove non-alphanumeric and len==1.
-  good = s2gr["GSYMB"].str.contains(r'^[A-Za-z][A-Za-z0-9\-\.]+$')
-  badset = set(s2gr["GSYMB"][~good].to_list())
-  logging.debug(f"Removing GSYMB badset \"{str(badset)}\"")
+  # Remove non-alphanumeric
+  good = s2gr[col_split].str.contains(r'^[A-Za-z][A-Za-z0-9\-\.]+')
+  badset = set(s2gr[col_split][~good].to_list())
+  logging.debug(f"Removing {col_split} badset \"{str(badset)}\"")
   s2gr = s2gr[good]
-  logging.info(f"Removed GSYMB badset, rows: {s2gr.shape[0]}")
+  logging.debug(f"Removed {col_split} badset, rows: {s2gr.shape[0]}")
+
+  for badname in ("Intergenic", "NR", "x"):
+    s2gr = s2gr[(~s2gr[col_split].str.match(badname, case=False))]
+    logging.debug(f"After removing {col_split} \"{badname}\", rows: {s2gr.shape[0]}")
+
+  # Split delimited GSYMBs to list values.
+  logging.debug(f"Before spliting delimited {col_split}, rows: {s2gr.shape[0]}")
+  #s2gr = s2gr.astype({col_split:str}) #Not needed with Pandas 3.
+  s2gr = s2gr.assign(**{col_split:s2gr[col_split].str.split(r'[,/;:| ]+')})
+
+  # Split GSYMB-lists to multiple rows.
+  s2gr = pd.DataFrame({
+    col:np.repeat(s2gr[col].values, s2gr[col_split].str.len())
+    for col in s2gr.columns.difference([col_split])
+    }).assign(**{col_split:np.concatenate(s2gr[col_split].values)})[s2gr.columns.tolist()]
+  s2gr = s2gr.drop_duplicates()
+  logging.debug(f"After spliting delimited {col_split}, rows: {s2gr.shape[0]}")
 
   s2gr = s2gr.sort_values(["GSYMB"])
   s2gr["ENSG"] = ""
@@ -106,11 +146,20 @@ if __name__=="__main__":
 	"SNP_GENE_IDS" # (comma delimited ENSGs)
 	]].drop_duplicates()
   logging.debug(f"Initial SNP2GENE (MAPPED) rows: {s2gm.shape[0]}")
-
-  # Split delimited ENSGs to multiple rows:
   col_split="SNP_GENE_IDS"
+
+  # Remove np.nan, non-strings
+  s2gm = s2gm[(s2gm[col_split] != np.nan)]
+  logging.debug(f"After removing {col_split} NaN, rows: {s2gm.shape[0]}")
+  # Keep ONLY rows where the value is exactly a string
+  s2gm = s2gm[s2gm[col_split].apply(lambda x: isinstance(x, str))]
+  logging.debug(f"After removing {col_split} non-str, rows: {s2gr.shape[0]}")
+
+  # Split delimited ENSGs to list values.
   s2gm = s2gm.astype({col_split:str})
   s2gm = s2gm.assign(**{col_split:s2gm[col_split].str.split(r'[, ]+')})
+
+  # Split ENSG-lists to multiple rows.
   s2gm = pd.DataFrame({
 	col:np.repeat(s2gm[col].values, s2gm[col_split].str.len())
 	for col in s2gm.columns.difference([col_split])
