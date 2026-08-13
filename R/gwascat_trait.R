@@ -124,6 +124,12 @@ write_delim(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT, TRAIT, ef
 #
 ###
 # Subclass file, of study pairs with subclass-related traits:
+# The file produced is huge (112G for 20260720 release), and not used for the TIGA app.
+# Memory use can crash R. Thus, maybe should be skipped.
+#
+message(sprintf("NOT GENERATING DUE TO MEMORY/FILESIZE ISSUES: %s", ofile_subclass))
+quit()
+#
 efo_sub <- efo[node_or_edge == "edge" & label=="has_subclass"]
 efo_sub[, `:=`(node_or_edge = NULL, id = NULL, label = NULL, uri = NULL, comment = NULL)]
 setnames(efo_sub, old=c("source", "target"), new=c("trait_uri", "subclass_uri"))
