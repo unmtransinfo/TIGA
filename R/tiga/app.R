@@ -11,6 +11,7 @@
 ###  efo_graph.graphml.gz       (from efo_graph.R)
 ########################################################################################
 ### Requires shinysky, devtools::install_github("AnalytixWare/ShinySky")
+### Warning message: `install_github()` was deprecated in devtools 2.5.0. Please use pak::pak("user/repo") instead
 ########################################################################################
 library(readr)
 library(data.table)
