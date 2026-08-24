@@ -7,7 +7,7 @@
 ### efoId parsed from MAPPED_TRAIT_URI. Note that "Orphanet_2445" is a valid efoId,
 ### since EFO includes other ontologies.
 ##########################################################################################
-### Also create efo_sub_gwas.tsv with subclasses for GWAS/EFO traits.
+### See gwascat_trait_efokg.R to create efo_sub_gwas.tsv with subclasses for GWAS/EFO traits.
 ##########################################################################################
 library(readr)
 library(data.table, quietly=T)
@@ -123,26 +123,6 @@ message(sprintf("Trait IDs mapped to EFO: %d / %d (%.1f%%)", n_trait_mapped,
 write_delim(trait[, .(STUDY_ACCESSION, MAPPED_TRAIT_URI, MAPPED_TRAIT, TRAIT, efoId, efo_label)], ofile, "\t")
 #
 ###
-# Subclass file, of study pairs with subclass-related traits:
-# The file produced is huge (112G for 20260720 release), and not used for the TIGA app.
-# Memory use can crash R. Thus, maybe should be skipped.
-#
-message(sprintf("NOT GENERATING DUE TO MEMORY/FILESIZE ISSUES: %s", ofile_subclass))
-quit()
-#
-efo_sub <- efo[node_or_edge == "edge" & label=="has_subclass"]
-efo_sub[, `:=`(node_or_edge = NULL, id = NULL, label = NULL, uri = NULL, comment = NULL)]
-setnames(efo_sub, old=c("source", "target"), new=c("trait_uri", "subclass_uri"))
-efo_sub <- efo_sub[trait_uri %in% trait$MAPPED_TRAIT_URI & subclass_uri %in% trait$MAPPED_TRAIT_URI]
-efo_sub <- merge(efo_sub, efo_node[, .(trait_uri = uri, trait = label)], by="trait_uri")
-efo_sub <- merge(efo_sub, efo_node[, .(subclass_uri = uri, subclass_trait = label)], by="subclass_uri")
-efo_sub <- merge(efo_sub, unique(trait[, .(study_accession = STUDY_ACCESSION, trait_uri = MAPPED_TRAIT_URI)]), by="trait_uri", allow.cartesian = T)
-efo_sub <- merge(efo_sub, unique(trait[, .(study_accession_subclass = STUDY_ACCESSION, subclass_uri = MAPPED_TRAIT_URI)]), by="subclass_uri", allow.cartesian = T)
-
-efo_sub <- unique(efo_sub[, .(study_accession, trait, trait_uri, study_accession_subclass, subclass_trait, subclass_uri)])
-
-#Example
-unique(efo_sub[grepl("(mood|bipolar)", trait), .(efoId = sub("^.*/", "", trait_uri), subclass_efoId = sub("^.*/", "", subclass_uri), N_study = uniqueN(study_accession), N_study_subclass = uniqueN(study_accession_subclass)), by=c("trait", "subclass_trait")])
-#
-write_delim(efo_sub, ofile_subclass, "\t")
+# See gwascat_trait_efokg.R, for generation of subclass file.
+###
 

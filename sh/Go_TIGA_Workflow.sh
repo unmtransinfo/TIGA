@@ -152,7 +152,7 @@ tsvfile_gwas="${ODIR}/gwascat_gwas.tsv" #gwascat_gwas.R
 tsvfile_assn="${ODIR}/gwascat_assn.tsv" #gwascat_assn.R
 efofile="${ODIR}/efo.tsv"
 tsvfile_trait="${ODIR}/gwascat_trait.tsv" #gwascat_trait.R
-#tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv" #gwascat_trait.R - not used
+tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv" #gwascat_trait.R - not used
 tsvfile_icite="${ODIR}/gwascat_icite.tsv"
 snp2genefile_file="${ODIR}/gwascat_snp2gene_FILE.tsv"
 snpfile_api="${ODIR}/gwascat_snp_API.tsv"
@@ -195,9 +195,13 @@ ${cwd}/R/gwascat_trait.R
 # From efo.tsv create GraphML file:
 MessageBreak "Create EFO GraphML file:"
 graphmlfile="${ODIR}/efo_graph.graphml" #efo_graph.R
+if [ ! -f "$efofile" ]; then
+	printf "ERROR: EFO GraphML file NOT CREATED; Input file not found (%s)\n" "$efofile"
+	exit 1
+fi
+#
 ${cwd}/R/efo_graph.R $GC_REL_Y $GC_REL_M $GC_REL_D
 gzip -f ${graphmlfile}
-#
 #
 #############################################################################
 ### GENES:
@@ -246,12 +250,19 @@ ${cwd}/R/snp2gene_merge.R
 #############################################################################
 # Download latest Ensembl human gene file.
 # ftp://ftp.ensembl.org/pub/current_tsv/homo_sapiens/
+# ftp://ftp.ensembl.org/pub/current/tsv/homo_sapiens/
 #ENTREZGENEFILE="Homo_sapiens.GRCh38.115.entrez.tsv.gz" (2026-02-12)
-ENTREZGENEFILE=$(lftp ftp://anonymous:@ftp.ensembl.org -e "cd pub/current_tsv/homo_sapiens/ ; ls *.entrez.tsv.gz; quit" |sed 's/^.* //')
-printf "ENTREZGENEFILE: %s\n" "${ENTREZGENEFILE}"
+ENTREZ_FTP_DIR="pub/current/tsv/homo_sapiens"
+ENTREZGENEFILE=$(lftp ftp://anonymous:@ftp.ensembl.org -e "cd ${ENTREZ_FTP_DIR} ; ls *.entrez.tsv.gz; quit" |sed 's/^.* //')
+if [ "$ENTREZGENEFILE" ]; then
+	printf "ENTREZGENEFILE: %s\n" "${ENTREZGENEFILE}"
+else
+	printf "ENTREZGENEFILE NOT FOUND VIA FTP; QUITTING.\n"
+	exit 1
+fi
 ensemblinfofile="$ODIR/gwascat_EnsemblInfo.tsv"
 if [ ! -s ${ensemblinfofile} ]; then
-	wget -O - "ftp://ftp.ensembl.org/pub/current_tsv/homo_sapiens/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
+	wget -O - "ftp://ftp.ensembl.org/${ENTREZ_FTP_DIR}/$ENTREZGENEFILE" >$ODIR/$ENTREZGENEFILE
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
 	MessageBreak "ENSEMBL API REQUESTS (get_info):"

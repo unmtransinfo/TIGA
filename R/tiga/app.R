@@ -21,6 +21,7 @@ library(shinyBS, quietly=T)
 library(shinysky, quietly=T)
 #library(rclipboard)
 library(DT, quietly=T)
+library(tableHTML, quietly=T)
 library(plotly, quietly=T)
 #
 pkgs <- names(sessionInfo()$otherPkgs)
@@ -78,6 +79,9 @@ dbHtm <- sprintf("<B><i>Dataset</i></B>: GWAS Catalog version: %s; genes: %d; tr
 idgfams <- c("GPCR", "Kinase", "IC", "NR", "Other")
 TDLs <- c("Tclin", "Tchem", "Tbio", "Tdark")
 #
+# Read release statistics file.
+release_stats <- read_delim("TIGA_Release_Statistics.tsv", delim="\t", skip=1, 
+                  col_types = cols(.default = col_integer(),  Release = col_date("%Y-%m-%d")))
 #############################################################################
 HelpHtm <- function() {
   htm <- sprintf("<P><B>TIGA</B>, Target Illumination GWAS Analytics, facilitates drug target illumination by 
@@ -93,7 +97,13 @@ evidence usable by drug discovery scientists to enrich prioritization of target 
 <LI><a href=\"https://www.ebi.ac.uk/gwas/\" TARGET=\"_blank\">GWAS Catalog</a> [%s]
 <LI><a href=\"https://www.ebi.ac.uk/efo/\" TARGET=\"_blank\">Experimental Factor Ontology (EFO)</a> [%s]
 <LI><a href=\"http://juniper.health.unm.edu/tcrd/\" TARGET=\"_blank\">Target Central Resource Db (TCRD)</a> [%s]
-</UL>", GWASCATALOG_RELEASE, EFO_RELEASE, TCRD_RELEASE)
+</UL>
+<B>Release Notes:</B>
+TIGA releases are identified by the corresponding GWAS Catalog release. This is TIGA Release %s. The following
+table is comprised of content statistics for this and previous releases.", GWASCATALOG_RELEASE, EFO_RELEASE, TCRD_RELEASE, GWASCATALOG_RELEASE)
+  
+  htm <- paste(sep="\n", htm, tableHTML(release_stats, caption="TIGA Release Statistics", collapse="separate", spacing = "2px"))
+  
   htm <- paste(sep="\n", htm, 
 "<B>Notes:</B>
 <UL>
@@ -299,6 +309,7 @@ server <- function(input, output, session) {
 #  output$clip <- renderUI({ rclipButton("clipbtn", "Copy URL to clipboard", clipText = urlText(), modal=F, icon = icon("clipboard")) })
   
   DetailSummaryHtm <- function(efoId_this, ensemblId_this) {
+    if (is.na(efoId_this) | is.na(ensemblId_this)) { return("") }
     #message(sprintf("DEBUG: efoId_this: %s; ensemblId_this: %s; efoId2Name(efoId_this): %s; ensemblId2Symbol(ensemblId_this): %s; ensemblId2Name(ensemblId_this): %s", efoId_this, ensemblId_this, efoId2Name(efoId_this), ensemblId2Symbol(ensemblId_this), ensemblId2Name(ensemblId_this)))
     htm <- sprintf("<table width=\"100%%\"><tr><td width=\"45%%\" align=\"right\" valign=\"bottom\"><h3>TRAIT: %s</br><i>%s</i></h3></td><td width=\"5%%\" align=\"center\"><h3>&#8226;</h3></td><td align=\"left\" valign=\"bottom\"><h3>GENE: %s<br/><i>%s (%s)</i></h3></td></tr></table>", efoId_this, efoId2Name(efoId_this), ensemblId_this, ensemblId2Symbol(ensemblId_this), ensemblId2Name(ensemblId_this))
     if (is.null(Hits()) | nrow(Hits())==0) {
@@ -432,7 +443,7 @@ server <- function(input, output, session) {
     })
   
   output$provenance_summary <- reactive({ DetailSummaryHtm(qryIds()$trait, qryIds()$gene) })
-
+  
   output$tigaTableTitleHtm <- reactive({
     if (is.na(qryType())) { htm <- "" }
     else if (qryType() == "trait") { htm <- sprintf("<H3>TRAIT: \"%s\" (<a target=\"_blank\" href=\"%s\">%s</a>)</H3>", traitQryName(), efoId2Uri(qryIds()$trait), qryIds()$trait) }
