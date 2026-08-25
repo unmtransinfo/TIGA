@@ -99,13 +99,21 @@ evidence usable by drug discovery scientists to enrich prioritization of target 
 <LI><a href=\"http://juniper.health.unm.edu/tcrd/\" TARGET=\"_blank\">Target Central Resource Db (TCRD)</a> [%s]
 </UL>
 <B>Release Notes:</B>
+<P>
 TIGA releases are identified by the corresponding GWAS Catalog release. This is TIGA Release %s. The following
 table is comprised of content statistics for this and previous releases.", GWASCATALOG_RELEASE, EFO_RELEASE, TCRD_RELEASE, GWASCATALOG_RELEASE)
   
-  htm <- paste(sep="\n", htm, tableHTML(release_stats, caption="TIGA Release Statistics", collapse="separate", spacing = "2px"))
+  htm <- paste(sep="\n", htm,
+	       (tableHTML(release_stats, caption="TIGA Release Statistics", collapse="separate", spacing = "2px") %>%
+	  add_css_column(css = list('text-align', 'center'), columns = names(release_stats))))
   
   htm <- paste(sep="\n", htm, 
-"<B>Notes:</B>
+"<UL>
+<LI>TIGA statistics based on GWAS Catalog associations file; studies and other entities not in associations file NOT counted. All counts based on mapped IDs.
+<LI>SNPs counts are only rs* IDs in snp2gene_merged (merged from download file and API output).
+</UL>
+<P>
+<B>Notes:</B>
 <UL>
 <LI>Traits are mapped to EFO, Experimental Factor Ontology.
 <LI>Mapped genes via Ensembl pipeline as per 

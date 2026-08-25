@@ -32,7 +32,7 @@ ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
 #
 ifile_trait <- paste0(ODIR, "/gwascat_trait.tsv")
 ifile_efo <- paste0(ODIR, "/efo.tsv")
-ofile_subclass <- paste0(ODIR, "/efo_sub_gwas.tsv")
+ofile_subclass <- paste0(ODIR, "/efo_sub_gwas.tsv.gz") #Large, thus gzip.
 
 message(sprintf("Input traits: %s", ifile_trait))
 message(sprintf("Input EFO: %s", ifile_efo))
@@ -42,7 +42,7 @@ message(sprintf("Output subclass: %s", ofile_subclass))
 # Trait file produced by gwascat_trait.R
 #
 trait <- read_delim(ifile_trait, "\t", col_types=cols(.default=col_character()))
-
+setDT(trait)
 ###
 # EFO (full ontology)
 #

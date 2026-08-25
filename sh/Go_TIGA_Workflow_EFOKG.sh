@@ -58,7 +58,7 @@ printf "EFO release: ${EFO_RELEASE}\n"
 #
 ###
 efofile="${ODIR}/efo.tsv"
-tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv" #gwascat_trait.R - not used
+tsvfile_trait_sub="${ODIR}/efo_sub_gwas.tsv.gz" # Large, thus gzip.
 ###
 #############################################################################
 ###

@@ -13,6 +13,7 @@ wget-log
 .idea
 
 R/tiga/rsconnect/
+R/tiga/*.tsv
 R/tiga/*.tsv.gz
 R/tiga/*.html
 R/tiga/*.graphml
