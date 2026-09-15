@@ -19,8 +19,8 @@
 ### including "protein_coding", but prefer TCRD mappings to define protein
 ### coding.
 #############################################################################
-# Dependency: https://github.com/jeremyjyang/BioClients
-# ("pip3 install BioClients")
+# Dependency: https://github.com/jeremyjyang/bioclients
+# ("pip install --upgrade bioclients")
 #############################################################################
 #
 set -e
@@ -34,7 +34,9 @@ T0=$(date +%s)
 #
 cwd=$(pwd)
 #
-GWASCATALOGDIR="$(cd $HOME/../data/GWASCatalog; pwd)"
+#GWASCATALOGDIR="$(cd $HOME/../data/GWASCatalog; pwd)"
+GWASCATALOGDIR="$(cd $HOME/data/GWASCatalog; pwd)"
+#
 DATADIR="${cwd}/data"
 ###
 MessageBreak "Starting $(basename $0)"
@@ -122,8 +124,8 @@ if [ ! -f "${assnfile}" ]; then
 	fi
 fi
 ###
-# Activate Virtual Environment
-source ${cwd}/venv/bin/activate
+# Activate Virtual Environment (bioclients)
+source ${HOME}/venv/bioclients/bin/activate
 ###
 # TCRD:
 # Version specified here:
@@ -136,12 +138,12 @@ TCRD_DBPW=""
 #
 MessageBreak "IDG (TCRD):"
 if [ ! -s $ODIR/tcrd_targets.tsv ]; then
-python3 -m BioClients.idg.tcrd.Client listTargets \
+python3 -m bioclients.idg.tcrd.Client listTargets \
 	--dbname "${TCRD_DBNAME}" --dbhost="${TCRD_DBHOST}" --dbusr="${TCRD_DBUSR}" --dbpw="${TCRD_DBPW}" \
 	--o $ODIR/tcrd_targets.tsv
 fi
 if [ ! -s $ODIR/tcrd_info.tsv ]; then
-python3 -m BioClients.idg.tcrd.Client info \
+python3 -m bioclients.idg.tcrd.Client info \
 	--dbname "${TCRD_DBNAME}" --dbhost="${TCRD_DBHOST}" --dbusr="${TCRD_DBUSR}" --dbpw="${TCRD_DBPW}" \
 	--o $ODIR/tcrd_info.tsv
 fi
@@ -233,13 +235,13 @@ MessageBreak "GWASCATALOG API REQUESTS (get_snps):"
 if [ -f "${snpfile_api}" ]; then
 	printf "File exists, not regenerated: %s (May have required manual effort due to API issues.)\n" ${snpfile_api}
 else
-	python3 -m BioClients.gwascatalog.Client get_snps -q \
+	python3 -m bioclients.gwascatalog.Client get_snps -q \
 		--i ${ODIR}/gwascat_snp.rs \
 		--o ${snpfile_api}
 fi
 #
 #SNP2GENE, from API:
-python3 -m BioClients.util.pandas.App selectcols \
+python3 -m bioclients.util.pandas.App selectcols \
 	--i ${snpfile_api} \
 	--coltags "rsId,isIntergenic,isUpstream,isDownstream,distance,source,mappingMethod,isClosestGene,chromosomeName,chromosomePosition,geneName,ensemblGeneIds" \
 	--o ${snp2genefile_api}
@@ -266,7 +268,7 @@ if [ ! -s ${ensemblinfofile} ]; then
 	gunzip -c $ODIR/$ENTREZGENEFILE |sed '1d' |awk -F '\t' '{print $1}' |sort -u \
 		>$ODIR/ensembl_human_genes.ensg
 	MessageBreak "ENSEMBL API REQUESTS (get_info):"
-	python3 -m BioClients.ensembl.Client get_info -q \
+	python3 -m bioclients.ensembl.Client get_info -q \
 		--i $ODIR/ensembl_human_genes.ensg \
 		--o ${ensemblinfofile}
 else
@@ -281,7 +283,7 @@ if [ ! -s "${tsvfile_icite}" ]; then
 		|sed -e '1d' |awk -F '\t' '{print $2}' |sort -nu \
 		>$ODIR/gwascat.pmid
 	printf "PMIDS: %d\n" $(cat $ODIR/gwascat.pmid |wc -l)
-	python3 -m BioClients.icite.Client get_stats -q \
+	python3 -m bioclients.icite.Client get_stats -q \
 		--i $ODIR/gwascat.pmid \
 		--o ${tsvfile_icite}
 else

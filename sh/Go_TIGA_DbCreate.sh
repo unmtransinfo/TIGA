@@ -58,7 +58,7 @@ fi
 if [ $# -gt 6 ]; then
 	icitefile=$7
 else
-	icitefile="${DATADIR}/gwascat_icite.tsv" #BioClients.icite.Client
+	icitefile="${DATADIR}/gwascat_icite.tsv" #bioclients.icite.Client
 fi
 # OUTPUT FILES:
 if [ $# -gt 7 ]; then

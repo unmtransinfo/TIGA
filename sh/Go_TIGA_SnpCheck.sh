@@ -30,11 +30,11 @@ rsfile="$DATADIR/tiga_gt_snpcheck_Study_$(echo $gcstIds |sed 's/ /_/g').rs"
 cat $DATADIR/z.rs |sort -u >$rsfile
 printf "SNP count for studies ($(echo ${gcstIds} |sed 's/ /,/g')): $(cat $rsfile |wc -l)\n"
 ###
-#python3 -m BioClients.util.pandas.Utils --i data/old/gwascat_Snps-20200813.tsv.gz --coltags rsId,gene_ensemblGeneIds selectcols |grep ${ensgId} |sort -u > data/old/gwascat_Snps-20200813_${ensgId}.tsv
+#python3 -m bioclients.util.pandas.Utils --i data/old/gwascat_Snps-20200813.tsv.gz --coltags rsId,gene_ensemblGeneIds selectcols |grep ${ensgId} |sort -u > data/old/gwascat_Snps-20200813_${ensgId}.tsv
 #cat $DATADIR/old/gwascat_Snps-20200813_${ensgId}.tsv |awk -F '\t' '{print $1}' >$DATADIR/old/gwascat_Snps-20200813_${ensgId}.rs
 #${cwd}/python/setman.py --iA $DATADIR/z.rs --iB $DATADIR/old/gwascat_Snps-20200813_${ensgId}.rs AandB
 ###
-python3 -m BioClients.util.pandas.Utils --i $DATADIR/gwascat_snp2gene_API.tsv --coltags rsId,ensemblGeneIds selectcols |grep ${ensgId} |sort -u > $DATADIR/gwascat_snp2gene_API_${ensgId}.tsv
+python3 -m bioclients.util.pandas.Utils --i $DATADIR/gwascat_snp2gene_API.tsv --coltags rsId,ensemblGeneIds selectcols |grep ${ensgId} |sort -u > $DATADIR/gwascat_snp2gene_API_${ensgId}.tsv
 cat $DATADIR/gwascat_snp2gene_API_${ensgId}.tsv |awk -F '\t' '{print $1}' |sort -u >$DATADIR/gwascat_snp2gene_API_${ensgId}.rs
 ${cwd}/python/setman.py AandB --iA $DATADIR/z.rs --iB $DATADIR/gwascat_snp2gene_API_${ensgId}.rs
 ###
@@ -49,13 +49,13 @@ ${cwd}/python/setman.py AandB --iA $DATADIR/z.rs --iB $DATADIR/gwascat_snp2gene_
 # rs144991356 (GCST005145; pValue=3E-8)
 # 
 # gwascat_Snps.tsv from GWAS Catalog REST API via
-# BioClients.gwascatalog.Client get_snps, e.g.
+# bioclients.gwascatalog.Client get_snps, e.g.
 # https://www.ebi.ac.uk/gwas/rest/api/singleNucleotidePolymorphisms/rs2273833
 # https://www.ebi.ac.uk/gwas/rest/api/singleNucleotidePolymorphisms/rs6684514
 # https://www.ebi.ac.uk/gwas/rest/api/singleNucleotidePolymorphisms/rs144991356
 #
 # ALL THREE SNPs MAPPED TO ENSG00000160785 (SLC25A44), accessed 2021-03-30.
-python3 -m BioClients.gwascatalog.Client get_snps -q --ids rs2273833,rs6684514,rs144991356 --o $DATADIR/gwascatalog_Snps_rs2273833-rs6684514-rs144991356.tsv
+python3 -m bioclients.gwascatalog.Client get_snps -q --ids rs2273833,rs6684514,rs144991356 --o $DATADIR/gwascatalog_Snps_rs2273833-rs6684514-rs144991356.tsv
 cat $DATADIR/gwascatalog_Snps_rs2273833-rs6684514-rs144991356.tsv |grep ${ensgId}
 printf "Associations to ${ensgId}: $(cat $DATADIR/gwascatalog_Snps_rs2273833-rs6684514-rs144991356.tsv |grep ${ensgId}|wc -l)\n"
 #

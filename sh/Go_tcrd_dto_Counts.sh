@@ -6,8 +6,8 @@ DATADIR="${cwd}/data/20210212"
 #
 # Generate counts table as in paper.
 ###
-# Input: TCRD file from BioClients.idg.tcrd.Client listTargets.
-# Input: TCRD2DTO file from BioClients.idg.tcrd.Client listTargetsByDTO.
+# Input: TCRD file from bioclients.idg.tcrd.Client listTargets.
+# Input: TCRD2DTO file from bioclients.idg.tcrd.Client listTargetsByDTO.
 # Input: Gene-traits stats file from tiga_gt_stats.R.
 #${cwd}/R/tiga_idg.R \
 #	${DATADIR}/tcrd_targets.tsv \
@@ -16,7 +16,7 @@ DATADIR="${cwd}/data/20210212"
 #	${DATADIR}/tdl_dto_counts_TIGA.tsv \
 #	${DATADIR}/tdl_dto_counts_MERGED.tsv
 ###
-# Input: TCRD file from BioClients.idg.tcrd.Client listTargets.
+# Input: TCRD file from bioclients.idg.tcrd.Client listTargets.
 # Input: TCRD2DTO file from TCRDv6.4_DTO.xlsx, from TIO. 
 # Input: Gene-traits stats file from tiga_gt_stats.R.
 ${cwd}/R/tiga_idg_dtoL2.R \
