@@ -10,28 +10,26 @@ date
 ln -s $HOME/data-store/data/swcactiZone/home/jjyang/analyses $HOME/data
 #
 WORKDIR="$HOME/data"
+OUTDIR="$HOME/data-store/data/output"
 ###
 SCRIPT="cyverse_init_tiga_r.sh"
 LOG="${SCRIPT}-${TIMESTAMP}.log"
-setsid nohup $WORKDIR/$SCRIPT >$WORKDIR/$LOG 2>&1 & disown
-echo "$SCRIPT started in background (pid $!); tail -f $WORKDIR/$LOG to watch progress"
-#cp $WORKDIR/$LOG $HOME/data-store/data/output/
+setsid nohup $WORKDIR/$SCRIPT >$OUTDIR/$LOG 2>&1 & disown
+echo "$SCRIPT started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
 ###
 sleep 3
 ###
 SCRIPT="cyverse_init_tiga_py.sh"
 LOG="${SCRIPT}-${TIMESTAMP}.log"
-setsid nohup $WORKDIR/$SCRIPT >$WORKDIR/$LOG 2>&1 & disown
-echo "$SCRIPT started in background (pid $!); tail -f $WORKDIR/$LOG to watch progress"
-#cp $WORKDIR/$LOG $HOME/data-store/data/output/
+setsid nohup $WORKDIR/$SCRIPT >$OUTDIR/$LOG 2>&1 & disown
+echo "$SCRIPT started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
 ###
 sleep 3
 ###
 git clone https://github.com/unmtransinfo/TIGA.git
 #
 #cd TIGA
-#./sh/Go_TIGA_Workflow.sh >& $HOME/Go_TIGA_Workflow_${TIMESTAMP}.log
-#cp $HOME/Go_TIGA_Workflow_${TIMESTAMP}.log $HOME/data-store/data/output/
+#./sh/Go_TIGA_Workflow.sh >& $OUTDIR/Go_TIGA_Workflow_${TIMESTAMP}.log
 ###
 date
 printf "DONE (${SCRIPTNAME})\n"
