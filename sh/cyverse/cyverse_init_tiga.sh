@@ -26,6 +26,13 @@ echo "$SCRIPT started in background (pid $!); tail -f $OUTDIR/$LOG to watch prog
 ###
 sleep 3
 ###
+SCRIPT="cyverse_init_tiga_java.sh"
+LOG="${SCRIPT}-${TIMESTAMP}.log"
+setsid nohup $WORKDIR/$SCRIPT >$OUTDIR/$LOG 2>&1 & disown
+echo "$SCRIPT started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
+###
+sleep 3
+###
 git clone https://github.com/unmtransinfo/TIGA.git
 #
 #cd TIGA
