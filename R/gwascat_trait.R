@@ -39,7 +39,8 @@ ODIR <- sprintf("data/%d%02d%02d", rel_y, rel_m, rel_d)
 #
 # FILESET CHANGED 2024-01-22 (see Elliot Sollis email, blog post https://ebispot.github.io/gwas-blog/cohorts-now-available)
 #ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies_ontology-annotated.tsv", rel_y, rel_m, rel_d))
-ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies-download-alternative-v1.0.2.1.txt", rel_y, rel_m, rel_d))
+#ifile <- paste0(Sys.getenv("HOME"), sprintf("/../data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies-download-alternative-v1.0.2.1.txt", rel_y, rel_m, rel_d))
+ifile <- paste0(Sys.getenv("HOME"), sprintf("/data/GWASCatalog/releases/%d/%02d/%02d/gwas-catalog-studies-download-alternative-v1.0.2.1.txt", rel_y, rel_m, rel_d))
 
 ifile_efo <- paste0(ODIR, "/efo.tsv")
 ofile <- paste0(ODIR, "/gwascat_trait.tsv")
