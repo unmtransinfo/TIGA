@@ -33,7 +33,7 @@ if (length(args)==3) {
 }
 #
 efofile <- paste0(ODIR, "/efo.tsv")
-efosubgwasfile <- paste0(ODIR, "/efo_sub_gwas.tsv") #from gwascat_trait.R
+efosubgwasfile <- paste0(ODIR, "/efo_sub_gwas.tsv.gz") #from gwascat_trait_efokg.R
 ofile <- paste0(ODIR, "/efo_graph.graphml")
 if (file.exists(paste0(ODIR, "/efo_release.txt"))) {
   EFO_REL <- trimws(read_file(paste0(ODIR, "/efo_release.txt")))
