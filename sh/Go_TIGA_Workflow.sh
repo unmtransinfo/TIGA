@@ -176,14 +176,16 @@ ${cwd}/R/gwascat_assn.R
 MessageBreak "TRAITS:"
 ###
 # EFO:
-EFO_DIR="$(cd $HOME/../data/EFO/data; pwd)"
+#EFO_DIR="$(cd $HOME/../data/EFO/data; pwd)"
+EFO_DIR="$(cd $HOME/data/EFO/data; pwd)"
 OWLFILE="$EFO_DIR/efo.owl"
 ###
 #
 EFO_URL="https://github.com/EBISPOT/efo/releases/download/v${EFO_RELEASE}/efo.owl"
 wget -q -O $OWLFILE $EFO_URL
 #
-LIBDIR="$(cd $HOME/../app/lib; pwd)"
+#LIBDIR="$(cd $HOME/../app/lib; pwd)"
+LIBDIR="$(cd $HOME/app/lib; pwd)"
 ###
 java -jar $LIBDIR/iu_idsl_jena-0.0.1-SNAPSHOT-jar-with-dependencies.jar \
 	-ifile_ont ${OWLFILE} -vv -ont2tsv -o ${efofile}
