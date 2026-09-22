@@ -36,7 +36,8 @@ t_start <- Sys.time()
 ###
 # JensenLab DISEASES:
 #Experiments means (1) DistiLD (GWAS) and (2) COSMIC (somatic mutations in cancer).
-diseases_exp <- read_delim(paste0(Sys.getenv("HOME"), "/../data/JensenLab/DISEASES/human_disease_experiments_full.tsv"), "\t", col_names=c("geneEnsp", "geneSymbol", "doId", "doName", "DISEASES_source", "DISEASES_evidence", "DISEASES_confidence"))
+#diseases_exp <- read_delim(paste0(Sys.getenv("HOME"), "/../data/JensenLab/DISEASES/human_disease_experiments_full.tsv"), "\t", col_names=c("geneEnsp", "geneSymbol", "doId", "doName", "DISEASES_source", "DISEASES_evidence", "DISEASES_confidence"))
+diseases_exp <- read_delim(paste0(Sys.getenv("HOME"), "/data/JensenLab/DISEASES/human_disease_experiments_full.tsv"), "\t", col_names=c("geneEnsp", "geneSymbol", "doId", "doName", "DISEASES_source", "DISEASES_evidence", "DISEASES_confidence"))
 setDT(diseases_exp)
 diseases_exp <- diseases_exp[order(-DISEASES_confidence), .SD, by=c("doId", "doName")]
 
