@@ -35,6 +35,8 @@ sleep 3
 ###
 git clone https://github.com/unmtransinfo/TIGA.git
 #
+cp $HOME/data/.tcrd.yaml $HOME/
+#
 #cd TIGA
 #./sh/Go_TIGA_Workflow.sh >& $OUTDIR/Go_TIGA_Workflow_${TIMESTAMP}.log
 ###
