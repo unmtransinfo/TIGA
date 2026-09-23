@@ -204,6 +204,11 @@ if [ ! -f "$efofile" ]; then
 	exit 1
 fi
 #
+###
+MessageBreak "Generating EFO subclass-hierarchy file:"
+${cwd}/R/gwascat_trait_efokg.R
+#
+MessageBreak "Generating EFO GraphML file:"
 ${cwd}/R/efo_graph.R $GC_REL_Y $GC_REL_M $GC_REL_D
 gzip -f ${graphmlfile}
 #
