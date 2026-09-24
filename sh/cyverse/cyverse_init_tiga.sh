@@ -12,33 +12,52 @@ ln -s $HOME/data-store/data/swcactiZone/home/jjyang/analyses $HOME/data
 WORKDIR="$HOME/data"
 OUTDIR="$HOME/data-store/data/output"
 ###
-SCRIPT="cyverse_init_tiga_r.sh"
-LOG="${SCRIPT}-${TIMESTAMP}.log"
-setsid nohup $WORKDIR/$SCRIPT >$OUTDIR/$LOG 2>&1 & disown
-echo "$SCRIPT started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
+SCRIPTNAME_R="cyverse_init_tiga_r.sh"
+LOG="${SCRIPTNAME_R}-${TIMESTAMP}.log"
+setsid nohup $WORKDIR/$SCRIPTNAME_R >$OUTDIR/$LOG 2>&1 & disown
+echo "$SCRIPTNAME_R started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
 ###
 sleep 3
 ###
-SCRIPT="cyverse_init_tiga_py.sh"
-LOG="${SCRIPT}-${TIMESTAMP}.log"
-setsid nohup $WORKDIR/$SCRIPT >$OUTDIR/$LOG 2>&1 & disown
-echo "$SCRIPT started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
+SCRIPTNAME_PY="cyverse_init_tiga_py.sh"
+LOG="${SCRIPTNAME_PY}-${TIMESTAMP}.log"
+setsid nohup $WORKDIR/$SCRIPTNAME_PY >$OUTDIR/$LOG 2>&1 & disown
+echo "$SCRIPTNAME_PY started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
 ###
 sleep 3
 ###
-SCRIPT="cyverse_init_tiga_java.sh"
-LOG="${SCRIPT}-${TIMESTAMP}.log"
-setsid nohup $WORKDIR/$SCRIPT >$OUTDIR/$LOG 2>&1 & disown
-echo "$SCRIPT started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
+SCRIPTNAME_JAVA="cyverse_init_tiga_java.sh"
+LOG="${SCRIPTNAME_JAVA}-${TIMESTAMP}.log"
+setsid nohup $WORKDIR/$SCRIPTNAME_JAVA >$OUTDIR/$LOG 2>&1 & disown
+echo "$SCRIPTNAME_JAVA started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
 ###
 sleep 3
 ###
+cd $HOME
 git clone https://github.com/unmtransinfo/TIGA.git
+###
+# TIGA output files to iRODS output dir:
+ln -s $OUTDIR/tiga_data $HOME/TIGA/data
 #
 cp $HOME/data/.tcrd.yaml $HOME/
 #
-#cd TIGA
-#./sh/Go_TIGA_Workflow.sh >& $OUTDIR/Go_TIGA_Workflow_${TIMESTAMP}.log
+###
+# Wait until background init tasks done.
+while [ 1 ]; do
+	if [ -e "$HOME/${SCRIPTNAME_PY}_DONE.txt" \
+		-a -e "$HOME/${SCRIPTNAME_JAVA}_DONE.txt" \
+		-a -e "$HOME/${SCRIPTNAME_R}_DONE.txt" ]; then
+		break
+	else
+		sleep 60
+	fi
+done
+#
+cd $HOME/TIGA
+SCRIPTNAME_TIGA="Go_TIGA_Workflow.sh"
+LOG="${SCRIPTNAME_TIGA}-${TIMESTAMP}.log"
+./sh/$SCRIPTNAME_TIGA >$OUTDIR/$LOG 2>&1 & disown
+echo "$SCRIPTNAME_TIGA started in background (pid $!); tail -f $OUTDIR/$LOG to watch progress"
 ###
 date
 printf "DONE (${SCRIPTNAME})\n"

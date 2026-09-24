@@ -12,6 +12,10 @@ pip install --upgrade pip
 pip install --upgrade bioclients
 #
 ###
+touch $HOME/${SCRIPTNAME}_DONE.txt
+date 2>&1 >>$HOME/${SCRIPTNAME}_DONE.txt
+printf "DONE (${SCRIPTNAME})\n" 2>&1 >>$HOME/${SCRIPTNAME}_DONE.txt
+#
 date
 printf "DONE (${SCRIPTNAME})\n"
 ###

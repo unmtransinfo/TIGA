@@ -20,6 +20,11 @@ mvn compile
 mvn install
 cp target/*.jar ~/app/lib
 ###
+touch $HOME/${SCRIPTNAME}_DONE.txt
+date 2>&1 >>$HOME/${SCRIPTNAME}_DONE.txt
+printf "DONE (${SCRIPTNAME})\n" 2>&1 >>$HOME/${SCRIPTNAME}_DONE.txt
+#
+###
 date
 printf "DONE (${SCRIPTNAME})\n"
 #

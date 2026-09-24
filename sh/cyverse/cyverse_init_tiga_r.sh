@@ -17,6 +17,11 @@ sudo apt install -y r-base-dev
 sudo R -e 'install.packages(c("readr", "data.table", "igraph", "shiny", "DT", "shinyBS", "tableHTML", "plotly"))'
 #
 ###
+touch $HOME/${SCRIPTNAME}_DONE.txt
+date 2>&1 >>$HOME/${SCRIPTNAME}_DONE.txt
+printf "DONE (${SCRIPTNAME})\n" 2>&1 >>$HOME/${SCRIPTNAME}_DONE.txt
+#
+###
 date
 printf "DONE (${SCRIPTNAME})\n"
 #
